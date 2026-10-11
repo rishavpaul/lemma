@@ -108,7 +108,20 @@ async function render() {
 function renderNav(path) {
   const items = [['#/', 'Home'], ['#/progress', 'Progress'], ['#/questions', 'Questions'], ['#/usage', 'Usage'], ['#/settings', 'Settings']];
   document.getElementById('nav').replaceChildren(h('strong', {}, 'Design Coach'),
-    ...items.map(([href, label]) => h('a', { href, class: (href.slice(1) === path || (href === '#/' && path.startsWith('/session'))) ? 'active' : '' }, label)));
+    ...items.map(([href, label]) => h('a', { href, class: (href.slice(1) === path || (href === '#/' && path.startsWith('/session'))) ? 'active' : '' }, label)),
+    h('span', { id: 'plan-meter', class: 'row', style: 'margin-left:auto;gap:.4rem' }));
+  renderPlanMeter();
+}
+
+// Plan-limit meter in the nav: latest 5-hour / 7-day utilization reported by the Claude CLI.
+async function renderPlanMeter() {
+  const el = document.getElementById('plan-meter'); if (!el) return;
+  try {
+    const { latest } = await api('/api/plan_usage');
+    if (!latest) { el.replaceChildren(); return; }
+    const part = (label, u, resets) => { const pct = Math.round((u || 0) * 100); return h('span', { class: 'chip ' + (pct >= 90 ? 'bad' : pct >= 70 ? 'warn' : ''), title: `${label} plan window: ${pct}% used, resets ${fmtDate(resets)} (as of ${fmtDate(latest.created_at)})` }, `${label} ${pct}%`); };
+    el.replaceChildren(part('5h', latest.five_hour_util, latest.five_hour_resets), part('7d', latest.seven_day_util, latest.seven_day_resets));
+  } catch (e) { /* meter is optional */ }
 }
 
 async function renderBanner() {

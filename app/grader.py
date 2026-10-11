@@ -56,7 +56,7 @@ async def _once(kind: str, system_prompt: str, payload: str, schema: dict, model
     if not path:
         return _fail("other", "claude CLI not found", None, 0.0)
     config.SANDBOX_DIR.mkdir(parents=True, exist_ok=True)
-    cmd = [path, "-p", "--system-prompt", system_prompt, "--output-format", "json",
+    cmd = [path, "-p", "--system-prompt", system_prompt, "--output-format", "stream-json", "--verbose",
            "--json-schema", json.dumps(schema), "--model", model,
            "--tools", "WebSearch,WebFetch", "--strict-mcp-config",
            "--allowedTools", "WebSearch,WebFetch", "--disallowedTools", DISALLOWED,
@@ -75,14 +75,29 @@ async def _once(kind: str, system_prompt: str, payload: str, schema: dict, model
         return _fail("timeout", f"timed out after {timeout_s}s", None, time.time() - t0)
     dur = time.time() - t0
     stdout, stderr = out.decode(errors="replace"), err.decode(errors="replace")
-    try:
-        data = json.loads(stdout)
-    except json.JSONDecodeError:
+    data, limits = None, None
+    for line in stdout.splitlines():
+        try:
+            ev = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(ev, dict):
+            continue
+        if ev.get("type") == "result":
+            data = ev
+        elif ev.get("type") == "rate_limit_event":
+            limits = ev.get("rate_limit_info")
+    if limits:
+        db.record_plan_usage(limits)
+    if data is None:
         text = (stderr or stdout)[:2000]
-        return _fail(_classify(text), text or f"exit {proc.returncode}, no JSON output", stdout[:2000], dur)
+        return _fail(_classify(text), text or f"exit {proc.returncode}, no result event", stdout[:2000], dur)
     if proc.returncode != 0 or data.get("is_error"):
         text = str(data.get("result") or stderr or data.get("subtype"))[:2000]
-        return _fail(_classify(text + " " + str(data.get("subtype", ""))), text, data, dur)
+        kind = _classify(text + " " + str(data.get("subtype", "")))
+        if limits and limits.get("status") not in (None, "allowed", "allowed_warning"):
+            kind = "rate_limit"
+        return _fail(kind, text, data, dur)
     if not isinstance(data.get("structured_output"), dict):
         return _fail("schema", "no structured_output in response", data, dur)
     return {"ok": True, "structured": data["structured_output"], "raw": data, "error_kind": None,

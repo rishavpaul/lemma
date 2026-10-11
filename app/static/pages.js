@@ -140,18 +140,30 @@ route('/settings', async (root) => {
 
 // ---------- usage ----------
 route('/usage', async (root) => {
-  const u = await api('/api/usage');
+  const [u, plan] = await Promise.all([api('/api/usage'), api('/api/plan_usage')]);
   const t = u.total;
   const stat = (label, value, sub) => h('div', { class: 'card', style: 'flex:1;min-width:150px;margin:0' }, h('div', { class: 'muted' }, label), h('div', { style: 'font-size:1.6rem;font-weight:600' }, value), sub ? h('div', { class: 'muted' }, sub) : null);
   const rowCells = (r) => [h('td', {}, fmtNum(r.calls)), h('td', {}, fmtTok(r.input_tokens + r.cache_creation_tokens)), h('td', {}, fmtTok(r.cache_read_tokens)),
     h('td', {}, fmtTok(r.output_tokens)), h('td', {}, fmtTok(r.total_tokens)), h('td', {}, fmtUsd(r.cost_usd)), h('td', {}, Math.round(r.duration_s) + 's')];
   const head = (first) => h('thead', {}, h('tr', {}, ...[first, 'Calls', 'Input (new)', 'Cache read', 'Output', 'Total', '≈ Cost', 'Time'].map((x) => h('th', {}, x))));
   const table = (first, rows, label) => h('table', {}, head(first), h('tbody', {}, ...rows.map((r) => h('tr', {}, h('td', {}, label(r)), ...rowCells(r)))));
-  const dayC = h('canvas');
+  const dayC = h('canvas'), planC = h('canvas');
+  const L = plan.latest;
+  const bar = (label, u, resets) => { const pct = Math.round((u || 0) * 100); return h('div', { style: 'flex:1;min-width:240px' },
+    h('div', { class: 'row' }, h('strong', { style: 'flex:1' }, label), h('span', { class: 'timer', style: 'font-size:1.4rem' }, pct + '%')),
+    h('div', { style: 'height:10px;border-radius:6px;background:var(--border);overflow:hidden' }, h('div', { style: `height:100%;width:${Math.min(pct, 100)}%;background:${pct >= 90 ? 'var(--bad)' : pct >= 70 ? 'var(--warn)' : 'var(--ok)'}` })),
+    h('div', { class: 'muted' }, 'Resets ' + fmtDate(resets))); };
+  const refreshBtn = h('button', { onclick: async () => { refreshBtn.disabled = true; refreshBtn.textContent = 'Checking…'; try { await api('/api/plan_usage/refresh', { method: 'POST' }); } catch (e) { alert(e.message); } render(); } }, 'Refresh now');
+  const planCard = h('div', { class: 'card' }, h('div', { class: 'row' }, h('h3', { style: 'margin:0;flex:1' }, 'Claude Pro plan limits'), refreshBtn),
+    L ? h('div', {}, h('div', { class: 'row', style: 'margin:.8rem 0;gap:1.5rem' }, bar('5-hour window', L.five_hour_util, L.five_hour_resets), bar('7-day window', L.seven_day_util, L.seven_day_resets)),
+      h('div', { class: 'muted' }, 'Reported by the Claude CLI as of ' + fmtDate(L.created_at) + ' (updates after every call; "Refresh now" costs a few tokens). These cover all your Claude usage, not just this app.'),
+      plan.history.length > 2 ? h('div', { style: 'height:180px;margin-top:.6rem' }, planC) : null)
+      : h('p', { class: 'muted' }, 'No plan data yet. It appears after the next Claude call, or press "Refresh now".'));
   const KIND = { research: 'Research (per question, first use)', grade_section: 'Section grades', grade_session: 'Holistic grades', health: 'Health checks' };
   root.replaceChildren(h('h1', {}, 'Claude usage'),
     h('p', { class: 'muted' }, 'Every `claude -p` call made through your Pro subscription' + (u.tracking_since ? ', tracked since ' + fmtDate(u.tracking_since) : '') +
       '. Cost is the API-equivalent value of the tokens, shown as a relative measure of how much of your plan limit is used; you are not billed per token.'),
+    planCard,
     h('div', { class: 'row', style: 'align-items:stretch;margin-bottom:1rem' },
       stat('Calls', fmtNum(t.calls), t.calls - t.ok_calls ? `${t.calls - t.ok_calls} failed` : 'all succeeded'),
       stat('Total tokens', fmtTok(t.total_tokens), `${fmtTok(t.output_tokens)} output`),
@@ -168,6 +180,14 @@ route('/usage', async (root) => {
         h('td', {}, fmtTok(c.input_tokens + c.cache_creation_tokens) + ' / ' + fmtTok(c.output_tokens)), h('td', {}, fmtTok(c.cache_read_tokens)),
         h('td', {}, fmtUsd(c.cost_usd)), h('td', {}, Math.round(c.duration_s || 0) + 's'))))))),
     h('p', { class: 'muted' }, '“Input (new)” = uncached input plus tokens written to the prompt cache; “Cache read” = input served from the cache (cheap). Research calls made before tracking was added have no recorded tokens.'));
+  if (plan.history.length > 2) {
+    Chart.defaults.color = cssVar('--fg');
+    const c = new Chart(planC, { type: 'line', data: { labels: plan.history.map((x) => new Date(x.created_at * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })),
+      datasets: [{ label: '5-hour %', data: plan.history.map((x) => Math.round((x.five_hour_util || 0) * 100)), borderColor: PALETTE[0], pointRadius: 1, tension: 0.2 },
+                 { label: '7-day %', data: plan.history.map((x) => Math.round((x.seven_day_util || 0) * 100)), borderColor: PALETTE[2], pointRadius: 1, tension: 0.2 }] },
+      options: { plugins: { title: { display: true, text: 'Plan utilization over time (%)' } }, scales: { y: { min: 0, max: 100, grid: { color: cssVar('--border') } }, x: { ticks: { maxTicksLimit: 6 }, grid: { display: false } } }, maintainAspectRatio: false } });
+    onLeave(() => c.destroy());
+  }
   if (u.by_day.length) {
     Chart.defaults.color = cssVar('--fg');
     const c = new Chart(dayC, { type: 'bar', data: { labels: u.by_day.map((d) => d.day), datasets: [

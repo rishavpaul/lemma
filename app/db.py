@@ -68,6 +68,26 @@ MIGRATIONS.append("""
 """)
 
 
+MIGRATIONS.append("""
+    CREATE TABLE plan_usage(
+        id INTEGER PRIMARY KEY, created_at REAL NOT NULL, status TEXT,
+        five_hour_util REAL, five_hour_resets REAL, seven_day_util REAL, seven_day_resets REAL, raw_json TEXT);
+""")
+
+
+def record_plan_usage(info: dict) -> None:
+    """Store a plan-limit snapshot from the CLI's rate_limit_event (utilization is a 0-1 fraction)."""
+    w = info.get("unifiedWindows") or {}
+    five, seven = w.get("five_hour") or {}, w.get("seven_day") or {}
+    if not five and not seven:
+        return
+    conn = connect()
+    conn.execute("INSERT INTO plan_usage(created_at,status,five_hour_util,five_hour_resets,seven_day_util,seven_day_resets,raw_json) "
+                 "VALUES(?,?,?,?,?,?,?)", (time.time(), info.get("status"), five.get("utilization"), five.get("resetsAt"),
+                                          seven.get("utilization"), seven.get("resetsAt"), json.dumps(info)))
+    conn.commit()
+
+
 def usage_fields(data) -> dict:
     """Token/cost numbers from a `claude -p --output-format json` result (zeros when absent)."""
     d = data if isinstance(data, dict) else {}

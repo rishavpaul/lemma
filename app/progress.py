@@ -126,3 +126,12 @@ def usage() -> dict:
     first = db.one("SELECT MIN(created_at) t FROM llm_calls")
     return {"total": total, "by_kind": by_kind, "by_model": by_model, "by_day": by_day, "by_session": by_session,
             "recent": recent, "tracking_since": first["t"] if first else None}
+
+
+def plan_usage() -> dict:
+    """Latest plan-limit snapshot reported by the CLI, plus a short history."""
+    latest = db.one("SELECT * FROM plan_usage ORDER BY id DESC LIMIT 1")
+    hist = db.rows("SELECT created_at, five_hour_util, seven_day_util FROM plan_usage ORDER BY id DESC LIMIT 60")[::-1]
+    if latest:
+        latest.pop("raw_json", None)
+    return {"latest": latest, "history": hist}

@@ -395,6 +395,18 @@ async def get_usage():
     return progress.usage()
 
 
+@app.get("/api/plan_usage")
+async def get_plan_usage():
+    return progress.plan_usage()
+
+
+@app.post("/api/plan_usage/refresh")
+async def refresh_plan_usage():
+    """Run the tiny health call (a few tokens) to pull a fresh plan-limit snapshot."""
+    await grader.check_health()
+    return progress.plan_usage()
+
+
 @app.get("/api/progress")
 async def get_progress():
     return progress.progress()
