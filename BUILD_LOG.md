@@ -64,3 +64,13 @@ Verification:
 - Headless Chrome (CDP) on `#/report/1`: header chips, both charts drawn (10 dimension bars + 7 time pairs), staff line, tabs, brief rendered through the safe markdown renderer (no injected HTML), "Add to queue" works, pending spinner shown during regrade. Found and fixed one bug (charts recreated on a reused canvas when switching tabs). 0 console errors after the fix.
 
 Notes: Sonnet scored the same session 2.0/senior as Opus.
+
+## Phase 5: progress, suggestions, study queue
+Built: `progress.py` (`/api/progress`, `/api/questions/suggest`), Progress / Questions / Settings pages (`pages.js`).
+
+Verification (3 fake graded sessions inserted via SQL on top of the real session 1):
+- `/api/progress` timeline = [2.0, 2.0, 2.5, 3.0] (one latest grade per session; manual query returned 5 rows only because session 1 had both an opus and a sonnet grade). Average time per section over the last 5 sessions (scope 310/300, estimates 172/180, api_data 285/300, hld 465/480) matched `sqlite3` AVG. Gap counts by distinct session (depth.shallow 3, scope.missing_nfrs 3, estimates.not_used 2, ops.no_observability_slos 2) matched `sqlite3`.
+- `/api/questions/suggest` -> "Metrics and monitoring system" (stresses estimation + operational maturity; weakest over last 3 = operational maturity 1.7, estimation 1.8), with the reason string.
+- Study items: 3 POSTs of the same concept (different case/spacing) merged into 1 row with merged `why`; PATCH validates status.
+- Headless Chrome: Progress page draws overall + 10-line dimension chart with the dashed "staff bar", gaps table, study queue with status select, focus card; Questions page: hints hidden until toggled, custom question add, research view renders; Settings: health table, save works. 0 console errors.
+- Cleaned up: fake sessions, real test session 1, custom question, study items, test settings. Research brief for rate-limiter kept.
