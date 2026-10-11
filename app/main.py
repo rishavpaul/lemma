@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 from pydantic import BaseModel
 
-from . import config, db, grader, jobs, transcribe
+from . import config, db, grader, jobs, pipeline, transcribe
 
 log = logging.getLogger("coach")
 
@@ -66,6 +66,12 @@ async def health():
         "whisper_error": w["whisper_error"],
         "data_dir": str(config.DATA_DIR),
     }
+
+
+@app.post("/api/health/recheck")
+async def health_recheck():
+    await grader.check_health()
+    return await health()
 
 
 @app.get("/api/framework")
@@ -298,6 +304,42 @@ async def job_retry(job_id: int):
         raise HTTPException(404, "job not found")
     jobs.retry_job(job_id)
     return {"ok": True}
+
+
+# ---- research --------------------------------------------------------------------
+
+@app.get("/api/questions/{qid}/research")
+async def get_research(qid: int):
+    q = _question(qid)
+    st = research_status(qid)
+    row = db.one("SELECT brief_json,brief_md,model,grounding_warning,created_at FROM research WHERE question_id=? "
+                 "AND status='done' ORDER BY id DESC LIMIT 1", (qid,))
+    brief = json.loads(row["brief_json"]) if row else None
+    return {"question": q["title"], "state": st["state"], "job": st["job"], "brief": brief,
+            "brief_md": row["brief_md"] if row else None, "model": row["model"] if row else None,
+            "grounding_warning": row["grounding_warning"] if row else None,
+            "created_at": row["created_at"] if row else None}
+
+
+@app.post("/api/questions/{qid}/research/refresh")
+async def refresh_research(qid: int):
+    _question(qid)
+    return {"job_id": jobs.enqueue("research", qid)}
+
+
+class Regrade(BaseModel):
+    model: str
+
+
+@app.post("/api/sessions/{sid}/regrade")
+async def regrade(sid: int, body: Regrade):
+    session_payload(sid)
+    if body.model not in ("opus", "sonnet", "fable", "haiku") and not body.model.startswith("claude-"):
+        raise HTTPException(400, "unknown model")
+    db.execute("UPDATE sessions SET model=?, status='grading', finished_at=? WHERE id=?", (body.model, time.time(), sid))
+    for sec in db.rows("SELECT id FROM sections WHERE session_id=? AND status='saved'", (sid,)):
+        jobs.enqueue("grade_section", sec["id"])
+    return {"job_id": jobs.enqueue("grade_session", sid)}
 
 
 # ---- settings --------------------------------------------------------------------

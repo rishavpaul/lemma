@@ -37,3 +37,19 @@ Deviations / notes:
 - Section countdown starts at first Record press (counts recording time only). `duration_sec` uses recorded time (falls back to ffprobe).
 - `grade_session` waits for `grade_section` jobs to be done/failed; a `pending_retry` section blocks it until retried.
 - Not verified: real microphone permission prompt (manual).
+
+## Phase 3: Claude calls
+Built: `prompts.py` (payload builders), `pipeline.py` (research/grade_section/grade_session handlers, schema validation, grounding check, brief->markdown), routes for research view/refresh, regrade, `/api/health/recheck`. (Handlers live in `pipeline.py` rather than `jobs.py` to avoid circular imports.) Command uses `--tools "WebSearch,WebFetch" --strict-mcp-config` in addition to the allow/disallow lists.
+
+Verification (real `claude -p` calls on the Pro subscription, model opus):
+- Research for "Distributed rate limiter": 301 s, 13 sources (11 primary), no grounding warning, 8 architectures, 7 crux areas, 24 key numbers. `curl -sIL` on 3 sources -> HTTP 200 (stripe, databricks, envoy). Written to `research/rate-limiter.md`.
+- Section grade on a deliberately weak 297-word scope transcript: 87 s, score 2.0 (senior), tags `scope.missing_nfrs` (high), `scope.missed_crux`, `scope.no_out_of_scope` + others, 8 evidence quotes, 4 fact-checks with URLs, 9 sources; gaps rows written.
+- Holistic on a full 7-section fake session: 78 s; 2.0 senior / lean_no, all 10 dimension scores, 3 top gaps, 7-item study plan, drill, model answer. Section grades took 56-87 s each.
+- Env isolation: with `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_USE_BEDROCK` set in the parent, a stub `claude` recorded its environment: none of the three present, PATH kept. A real call with a dummy key in the parent env still succeeded (subscription used). No log line added to the app.
+- Forced timeout (5 s): attempt 1 `timeout` -> automatic retry -> attempt 2 `timeout` -> job `failed` with `error_kind: timeout`.
+- Invalid `claude_path`: `/api/health` -> `claude_ok:false, error "claude CLI not found"`; resetting restores `claude_ok:true`.
+
+Deviations / notes:
+- `level_signal` and half-point rounding are normalized server-side from `score`; unknown gap tags are rewritten to `other.<slug>`.
+- Grader system prompt = grader prompt + rubric scale text; per-section anchors travel in the payload.
+- Rate-limit errors cannot be provoked on demand; the classification path was not exercised live.
