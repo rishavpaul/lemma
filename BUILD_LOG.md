@@ -98,3 +98,6 @@ Known limitations:
 - Safari/`audio/mp4` fallback is implemented but untested.
 - One Claude call at a time by default, so grading finishes ~8 minutes after the last clip on Opus; use Sonnet (or concurrency 2) to speed up at the cost of depth/usage limit.
 - Whisper still mishears "p99" as "page 99" occasionally; a post-filter fixes the common form.
+
+## Post-handoff fix: scroll jumping on auto-refresh
+Report page (5 s refresh while grading) and session runner (4 s poll while research/feedback pending) rebuilt the page and reset scroll to the top. Fix: soft re-render (no "Loading…" placeholder, scroll restored), report remembers the selected tab, runner `draw()` restores scroll. Verified in headless Chrome: Transcript tab at scrollY 1500 stays at 1500 on the Transcript tab after a soft refresh; 0 console errors. Static files only, so a browser reload picks it up (no server restart needed).

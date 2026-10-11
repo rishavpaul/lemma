@@ -81,7 +81,10 @@ function route(pattern, fn) { routes.push([new RegExp('^' + pattern.replace(/:[a
 let cleanup = [];
 function onLeave(fn) { cleanup.push(fn); }
 
+let softRender = false;
 async function render() {
+  const soft = softRender; softRender = false;
+  const y = window.scrollY;
   cleanup.forEach((f) => { try { f(); } catch (e) { /* ignore */ } });
   cleanup = [];
   const path = (location.hash || '#/').slice(1) || '/';
@@ -90,8 +93,9 @@ async function render() {
     const m = re.exec(path);
     if (m) {
       const root = $app();
-      root.replaceChildren(h('p', { class: 'muted' }, 'Loading…'));
+      if (!soft) root.replaceChildren(h('p', { class: 'muted' }, 'Loading…'));
       try { await fn(root, ...m.slice(1)); } catch (e) { root.replaceChildren(h('div', { class: 'card' }, h('h3', {}, 'Something went wrong'), h('p', {}, String(e.message || e)))); console.error(e); }
+      if (soft) window.scrollTo(0, y);
       return;
     }
   }
@@ -257,6 +261,7 @@ route('/session/:id', async (root, id) => {
   }
 
   function draw() {
+    const keepY = window.scrollY;
     const i = current();
     const strip = h('div', { class: 'strip' }, ...data.sections.map((s, k) => h('div', { class: s.status === 'saved' ? 'done' : k === i ? 'cur' : '' }, (k + 1) + '. ' + s.title)));
     const rs = data.research.state;
@@ -295,6 +300,7 @@ route('/session/:id', async (root, id) => {
     kids.push(live);
     if (data.session.show_feedback_live) kids.push(...data.sections.filter((s) => s.status === 'saved').map(gradeCard));
     $app().replaceChildren(...kids);
+    window.scrollTo(0, keepY);
     tick();
   }
   function resumePoll(sec) {

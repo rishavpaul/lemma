@@ -115,7 +115,7 @@ route('/report/:id', async (root, id) => {
   const g = p.grade;
   const pending = (j) => j && (j.status === 'queued' || j.status === 'running');
   const anyPending = pending(p.grade_job) || p.sections.some((s) => pending(s.grade_job)) || pending(p.research.job);
-  if (anyPending) { const iv = setTimeout(() => { if (location.hash === '#/report/' + id) render(); }, 5000); onLeave(() => clearTimeout(iv)); }
+  if (anyPending) { const iv = setTimeout(() => { if (location.hash === '#/report/' + id) { softRender = true; render(); } }, 5000); onLeave(() => clearTimeout(iv)); }
 
   const modelSel = h('select', { style: 'width:auto' }, ...['opus', 'sonnet'].map((m) => h('option', { value: m }, m)));
   const regrade = h('button', { onclick: async () => {
@@ -144,7 +144,9 @@ route('/report/:id', async (root, id) => {
   const body = h('div');
   const bar = h('div', { class: 'tabs' });
   let briefLoaded = false;
+  const savedTab = window.__reportTab && window.__reportTab.id === id ? window.__reportTab.name : 'Report';
   const show = async (name) => {
+    window.__reportTab = { id, name };
     [...bar.children].forEach((b) => b.classList.toggle('active', b.textContent === name));
     body.replaceChildren(tabs[name]);
     if (name === 'Report') drawCharts(p, dimC, timeC);
@@ -156,5 +158,5 @@ route('/report/:id', async (root, id) => {
   };
   Object.keys(tabs).forEach((n) => bar.append(h('button', { onclick: () => show(n) }, n)));
   root.replaceChildren(head, bar, body);
-  show('Report');
+  await show(savedTab);
 });
