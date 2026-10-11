@@ -22,3 +22,18 @@ Deviations / notes:
 - `questions.yaml` crux_hints needed quoting (colons parsed as dicts) - fixed.
 - Default model `opus`.
 - `SD_COACH_HOME` env var overrides the data dir (used for scratch runs).
+
+## Phase 2: recording and transcription
+Built: `jobs.py` (persistent queue, transcription worker + Claude workers, dependency checks, retry rules), transcription handler + hallucination filter in `transcribe.py`, API routes (questions, sessions, audio upload, transcript PUT, finish, jobs, settings), SPA core (`app.js`: router, safe DOM helpers, escape-first markdown, Home, session runner).
+
+Verification (all run for real):
+- 102.5 s `say` clip -> webm (opus) -> `POST .../sections/scope/audio` -> job done in 2.6 s. Transcript matches the spoken text closely; only error "p99" -> "page 99" (now post-corrected by `fix_terms`).
+- DB: section status `transcribed`, duration 102.5; `PUT .../transcript` -> status `saved`, edited text + client duration stored, grade_section job enqueued.
+- Restart mid-job: 820 s clip, `kill -9` while job `running`; restart logged "requeued 1 running job(s)", job finished (attempts=2), 820 s audio in 21 s.
+- Hallucination filter confirmed live: a silent recording produced a phantom segment that was dropped.
+- UI via headless Chrome (CDP driver, fake mic playing the speech clip, `--disable-features=AudioServiceSandbox` needed for the fake-audio file): home lists 25 questions, picking one opens the runner, countdown 05:00 -> 04:53 after 7 s, Record/Stop works, upload+transcribe, editable transcript appears, Save & Next advances to section 2; 0 console errors.
+
+Deviations / notes:
+- Section countdown starts at first Record press (counts recording time only). `duration_sec` uses recorded time (falls back to ffprobe).
+- `grade_session` waits for `grade_section` jobs to be done/failed; a `pending_retry` section blocks it until retried.
+- Not verified: real microphone permission prompt (manual).
