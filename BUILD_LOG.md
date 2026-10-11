@@ -53,3 +53,14 @@ Deviations / notes:
 - `level_signal` and half-point rounding are normalized server-side from `score`; unknown gap tags are rewritten to `other.<slug>`.
 - Grader system prompt = grader prompt + rubric scale text; per-section anchors travel in the payload.
 - Rate-limit errors cannot be provoked on demand; the classification path was not exercised live.
+
+## Phase 4: report and export
+Built: `export.py`, `GET /api/sessions/{id}/export.md` (also writes `exports/<id>.md`), `DELETE /api/sessions/{id}`, study-item endpoints (GET/POST upsert by lower-cased concept, PATCH status), full report page (`report.js`: header, dimension + time charts, section cards, holistic extras, Transcript and Reference-brief tabs, job spinners/auto-refresh/Retry, Re-grade). Boot code moved to `boot.js` so page modules register routes first.
+
+Verification:
+- `GET /api/sessions/1` returns session, question (hints hidden), 7 sections with grades/jobs, research state, holistic grade, job states.
+- Export written (492 lines, 94 KB); first 60 lines read well (verdict, dimension table, gaps, strengths, study plan, drill, model answer).
+- Re-grade with sonnet (`POST .../regrade {"model":"sonnet"}`): 7 new section_grades + 1 new session_grades rows (opus rows kept), sections 23-31 s each, holistic 62 s; `GET /api/sessions/1` now reports `grade_meta.model = sonnet`. Job 13 hit a real transient `error_max_structured_output_retries` and was auto-retried successfully.
+- Headless Chrome (CDP) on `#/report/1`: header chips, both charts drawn (10 dimension bars + 7 time pairs), staff line, tabs, brief rendered through the safe markdown renderer (no injected HTML), "Add to queue" works, pending spinner shown during regrade. Found and fixed one bug (charts recreated on a reused canvas when switching tabs). 0 console errors after the fix.
+
+Notes: Sonnet scored the same session 2.0/senior as Opus.

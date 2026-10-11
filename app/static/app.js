@@ -309,8 +309,3 @@ route('/session/:id', async (root, id) => {
   }, 4000);
   draw();
 });
-
-// ---------- boot ----------
-window.addEventListener('hashchange', render);
-renderBanner();
-render();

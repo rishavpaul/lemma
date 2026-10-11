@@ -11,12 +11,12 @@ import re
 import time
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from pydantic import BaseModel
 
-from . import config, db, grader, jobs, pipeline, transcribe
+from . import config, db, export, grader, jobs, pipeline, progress, transcribe
 
 log = logging.getLogger("coach")
 
@@ -193,7 +193,6 @@ async def create_session(body: NewSession):
     if body.question_id:
         qid = _question(body.question_id)["id"]
     elif body.mode == "suggested":
-        from . import progress
         sug = progress.suggest()
         qid, reason = sug["question_id"], sug["reason"]
     elif body.mode == "random":
@@ -304,6 +303,86 @@ async def job_retry(job_id: int):
         raise HTTPException(404, "job not found")
     jobs.retry_job(job_id)
     return {"ok": True}
+
+
+@app.get("/api/sessions/{sid}/export.md")
+async def export_session(sid: int):
+    _, md = export.write_export(session_payload(sid))
+    return PlainTextResponse(md, media_type="text/markdown; charset=utf-8")
+
+
+@app.delete("/api/sessions/{sid}")
+async def delete_session(sid: int):
+    session_payload(sid)
+    conn = db.connect()
+    secs = [r["id"] for r in db.rows("SELECT id FROM sections WHERE session_id=?", (sid,))]
+    for sec in secs:
+        conn.execute("DELETE FROM jobs WHERE type IN ('transcribe','grade_section') AND ref_id=?", (sec,))
+    conn.execute("DELETE FROM jobs WHERE type='grade_session' AND ref_id=?", (sid,))
+    conn.execute("DELETE FROM sessions WHERE id=?", (sid,))  # sections, grades, gaps cascade
+    conn.commit()
+    import shutil
+    shutil.rmtree(config.AUDIO_DIR / str(sid), ignore_errors=True)
+    (config.EXPORT_DIR / f"{sid}.md").unlink(missing_ok=True)
+    return {"ok": True}
+
+
+# ---- study queue ---------------------------------------------------------------------
+
+class StudyItem(BaseModel):
+    concept: str
+    why: str = ""
+    resource: str = ""
+    source_session_id: int | None = None
+
+
+def upsert_study_item(item: StudyItem) -> dict:
+    concept = item.concept.strip()
+    existing = db.one("SELECT * FROM study_items WHERE lower(concept)=lower(?)", (concept,))
+    if existing:
+        why = existing["why"] if item.why in (existing["why"] or "") else (existing["why"] + " | " + item.why if existing["why"] else item.why)
+        res = existing["resource"] or item.resource
+        db.execute("UPDATE study_items SET why=?, resource=? WHERE id=?", (why, res, existing["id"]))
+        return db.one("SELECT * FROM study_items WHERE id=?", (existing["id"],))
+    iid = db.execute("INSERT INTO study_items(concept,why,resource,source_session_id,created_at) VALUES(?,?,?,?,?)",
+                     (concept, item.why, item.resource, item.source_session_id, time.time()))
+    return db.one("SELECT * FROM study_items WHERE id=?", (iid,))
+
+
+@app.get("/api/study_items")
+async def list_study_items():
+    return db.rows("SELECT * FROM study_items ORDER BY CASE status WHEN 'doing' THEN 0 WHEN 'todo' THEN 1 ELSE 2 END, id DESC")
+
+
+@app.post("/api/study_items")
+async def add_study_item(item: StudyItem):
+    if not item.concept.strip():
+        raise HTTPException(400, "concept required")
+    return upsert_study_item(item)
+
+
+class StudyPatch(BaseModel):
+    status: str
+
+
+@app.patch("/api/study_items/{iid}")
+async def patch_study_item(iid: int, body: StudyPatch):
+    if body.status not in ("todo", "doing", "done"):
+        raise HTTPException(400, "status must be todo|doing|done")
+    if not db.one("SELECT 1 FROM study_items WHERE id=?", (iid,)):
+        raise HTTPException(404, "not found")
+    db.execute("UPDATE study_items SET status=? WHERE id=?", (body.status, iid))
+    return db.one("SELECT * FROM study_items WHERE id=?", (iid,))
+
+
+@app.get("/api/questions/suggest")
+async def suggest_question():
+    return progress.suggest()
+
+
+@app.get("/api/progress")
+async def get_progress():
+    return progress.progress()
 
 
 # ---- research --------------------------------------------------------------------
