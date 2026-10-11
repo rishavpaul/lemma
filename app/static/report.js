@@ -27,33 +27,51 @@ function jobStatus(job, what) {
   return null;
 }
 
+// Open/closed state of section cards survives auto-refresh (kept for the lifetime of the page).
+const openSections = new Set();
+
 function sectionCard(sec) {
   const g = sec.grade;
+  const key = sec.session_id + ':' + sec.key;
   const used = sec.duration_sec ? fmt(sec.duration_sec) : '—';
-  const card = h('div', { class: 'card' },
-    h('div', { class: 'row' }, h('h3', { style: 'margin:0;flex:1' }, `${sec.ord}. ${sec.title}`),
-      g ? chip(g.score + ' · ' + LEVELS[g.level_signal], g.score >= 3 ? 'ok' : g.score >= 2 ? 'warn' : 'bad') : null,
-      h('span', { class: 'muted' }, used + ' / ' + fmt(sec.budget_sec))),
-    jobStatus(sec.grade_job && sec.grade_job.status !== 'done' ? sec.grade_job : null, 'Grading'));
-  if (!g) { if (!sec.grade_job) card.append(h('p', { class: 'muted' }, 'Not graded yet.')); return card; }
-  if (g.ungrounded) card.append(h('div', { class: 'callout' }, 'Ungrounded: this grade used general knowledge (no reference brief).'));
-  card.append(h('p', {}, g.summary));
-  if (g.evidence.length) card.append(h('details', {}, h('summary', {}, `Evidence (${g.evidence.length})`),
+  const body = h('div', {});
+  const caret = h('span', { class: 'caret' }, '▸');
+  const header = h('div', { class: 'row sec-head', role: 'button', tabindex: '0', style: 'cursor:pointer' },
+    caret, h('h3', { style: 'margin:0;flex:1' }, `${sec.ord}. ${sec.title}`),
+    g ? chip(g.score + ' · ' + LEVELS[g.level_signal], g.score >= 3 ? 'ok' : g.score >= 2 ? 'warn' : 'bad') : null,
+    h('span', { class: 'muted' }, used + ' / ' + fmt(sec.budget_sec)));
+  const preview = g ? h('p', { class: 'muted sec-preview' }, g.summary) : null;
+  const card = h('div', { class: 'card sec-card', 'data-key': key }, header, preview,
+    jobStatus(sec.grade_job && sec.grade_job.status !== 'done' ? sec.grade_job : null, 'Grading'), body);
+  const apply = () => {
+    const open = openSections.has(key);
+    body.hidden = !open; if (preview) preview.hidden = open; caret.textContent = open ? '▾' : '▸';
+  };
+  const toggle = () => { openSections.has(key) ? openSections.delete(key) : openSections.add(key); apply(); };
+  header.addEventListener('click', toggle);
+  header.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+  card.__key = key; card.__apply = apply;
+
+  if (!g) { if (!sec.grade_job) body.append(h('p', { class: 'muted' }, 'Not graded yet.')); apply(); return card; }
+  if (g.ungrounded) body.append(h('div', { class: 'callout' }, 'Ungrounded: this grade used general knowledge (no reference brief).'));
+  body.append(h('p', {}, g.summary));
+  if (g.evidence.length) body.append(h('details', {}, h('summary', {}, `Evidence (${g.evidence.length})`),
     ...g.evidence.map((e) => h('div', {}, h('div', { class: 'quote' }, '“' + e.quote + '”'), h('p', {}, e.observation)))));
-  if (g.strengths.length) card.append(h('h4', {}, 'Strengths'), h('ul', {}, ...g.strengths.map((x) => h('li', {}, x))));
-  if (g.gaps.length) card.append(h('h4', {}, 'Gaps'), ...g.gaps.map((x) => h('div', { class: 'card' },
+  if (g.strengths.length) body.append(h('h4', {}, 'Strengths'), h('ul', {}, ...g.strengths.map((x) => h('li', {}, x))));
+  if (g.gaps.length) body.append(h('h4', {}, 'Gaps'), ...g.gaps.map((x) => h('div', { class: 'card' },
     h('div', { class: 'row' }, chip(x.tag, x.severity === 'high' ? 'bad' : x.severity === 'medium' ? 'warn' : ''), chip(x.severity)),
     h('p', {}, x.description), h('p', { class: 'muted' }, 'Why it matters at staff: ' + x.why_it_matters_at_staff),
     h('div', { class: 'callout' }, h('strong', {}, 'A staff answer sounds like: '), x.what_a_staff_answer_sounds_like))));
-  if (g.interviewer_followups.length) card.append(h('h4', {}, 'Interviewer follow-ups'), h('ul', {}, ...g.interviewer_followups.map((x) => h('li', {}, x))));
-  if (g.fact_checks.length) card.append(h('h4', {}, 'Fact checks'), h('ul', {}, ...g.fact_checks.map((f) => h('li', {},
+  if (g.interviewer_followups.length) body.append(h('h4', {}, 'Interviewer follow-ups'), h('ul', {}, ...g.interviewer_followups.map((x) => h('li', {}, x))));
+  if (g.fact_checks.length) body.append(h('h4', {}, 'Fact checks'), h('ul', {}, ...g.fact_checks.map((f) => h('li', {},
     chip(f.verdict.replace('_', ' '), f.verdict === 'correct' ? 'ok' : f.verdict === 'incorrect' ? 'bad' : 'warn'), ' ', f.claim, ' — ', f.explanation, ' ',
     f.url ? h('a', { href: f.url, target: '_blank', rel: 'noopener noreferrer' }, 'source') : null))));
-  if (g.concepts_to_study.length) card.append(h('h4', {}, 'Concepts to study'), h('ul', {}, ...g.concepts_to_study.map((c) => h('li', {},
+  if (g.concepts_to_study.length) body.append(h('h4', {}, 'Concepts to study'), h('ul', {}, ...g.concepts_to_study.map((c) => h('li', {},
     h('strong', {}, c.concept), ' — ', c.why, ' (', c.resource, ') ',
     h('button', { onclick: (e) => addStudy(c.concept, c.why, c.resource, e.target) }, 'Add to study queue')))));
-  if (g.notes_for_candidate) card.append(h('div', { class: 'callout' }, g.notes_for_candidate));
-  if (g.sources.length) card.append(h('details', {}, h('summary', {}, `Sources (${g.sources.length})`), h('ul', {}, ...g.sources.map(srcLi))));
+  if (g.notes_for_candidate) body.append(h('div', { class: 'callout' }, g.notes_for_candidate));
+  if (g.sources.length) body.append(h('details', {}, h('summary', {}, `Sources (${g.sources.length})`), h('ul', {}, ...g.sources.map(srcLi))));
+  apply();
   return card;
 }
 
@@ -137,7 +155,11 @@ route('/report/:id', async (root, id) => {
   const charts = h('div', { class: 'row', style: 'align-items:stretch' },
     g ? h('div', { class: 'card', style: 'flex:1;min-width:300px;height:340px' }, dimC) : null,
     h('div', { class: 'card', style: 'flex:1;min-width:300px;height:340px' }, timeC));
-  const reportTab = h('div', {}, charts, ...p.sections.map(sectionCard), holisticView(p));
+  const cards = p.sections.map(sectionCard);
+  const setAll = (open) => cards.forEach((c) => { open ? openSections.add(c.__key) : openSections.delete(c.__key); c.__apply(); });
+  const allBar = h('div', { class: 'row', style: 'margin-bottom:.6rem' }, h('h2', { style: 'margin:0;flex:1' }, 'Sections'),
+    h('button', { onclick: () => setAll(true) }, 'Expand all'), h('button', { onclick: () => setAll(false) }, 'Collapse all'));
+  const reportTab = h('div', {}, charts, allBar, ...cards, holisticView(p));
   const transcriptTab = h('div', {}, ...p.sections.map((s) => h('div', { class: 'card' }, h('h3', {}, `${s.ord}. ${s.title}`), h('p', { style: 'white-space:pre-wrap' }, s.transcript_edited || '(empty)'))));
   const briefTab = h('div', {}, h('p', { class: 'muted' }, 'Loading…'));
   const tabs = { Report: reportTab, Transcript: transcriptTab, 'Reference brief': briefTab };
