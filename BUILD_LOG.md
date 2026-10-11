@@ -74,3 +74,27 @@ Verification (3 fake graded sessions inserted via SQL on top of the real session
 - Study items: 3 POSTs of the same concept (different case/spacing) merged into 1 row with merged `why`; PATCH validates status.
 - Headless Chrome: Progress page draws overall + 10-line dimension chart with the dashed "staff bar", gaps table, study queue with status select, focus card; Questions page: hints hidden until toggled, custom question add, research view renders; Settings: health table, save works. 0 console errors.
 - Cleaned up: fake sessions, real test session 1, custom question, study items, test settings. Research brief for rate-limiter kept.
+
+## Phase 6: end-to-end and handoff
+Ran a full session through the real API with no shortcuts: 7 `say` clips (35-53 s each) of a deliberately mediocre rate-limiter answer -> webm (opus) -> upload -> transcription -> transcript save -> finish -> section grades -> holistic grade. Research brief for the question already existed (grounded grading).
+
+Measured wall-clock per stage:
+| Stage | Time |
+|---|---|
+| create session | 0.01 s |
+| upload + ffmpeg convert (per clip) | 0.1 s |
+| transcribe (per clip, 35-53 s audio) | 2 s (4 s for 50 s clip) |
+| save transcript | <0.1 s |
+| section grade, opus (each) | 51-75 s |
+| holistic grade, opus | 83 s |
+| Finish click -> holistic done | 478 s (the 7 section grades run serially, concurrency 1, and had only just started when the clips finished uploading) |
+| Research (first use of a question, Phase 3) | 301 s |
+
+Results: 7/7 sections graded, none ungrounded; scores [1.5, 3.0, 2.0, 2.5, 2.0, 2.0, 2.5]; holistic 2.0 senior / lean_no with all 10 dimensions; `/api/progress` had timeline, 29 gap rows, 7 time rows, a drill and a suggestion; export 472 lines. No warnings or errors in `app.log` during the run. Session deleted afterwards (research brief kept).
+
+Known limitations:
+- Real microphone permission/recording in a real browser was not verified (headless Chrome with a fake mic playing speech was used instead).
+- `rate_limit` classification and the "Retry later" UI path could not be provoked on demand and were not exercised live (only timeout, schema-retry and failure paths were).
+- Safari/`audio/mp4` fallback is implemented but untested.
+- One Claude call at a time by default, so grading finishes ~8 minutes after the last clip on Opus; use Sonnet (or concurrency 2) to speed up at the cost of depth/usage limit.
+- Whisper still mishears "p99" as "page 99" occasionally; a post-filter fixes the common form.
