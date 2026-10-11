@@ -1,0 +1,305 @@
+{
+  "type": "object",
+  "properties": {
+    "overall_score": {
+      "type": "number"
+    },
+    "overall_level": {
+      "type": "string",
+      "enum": [
+        "below_senior",
+        "senior",
+        "staff",
+        "senior_staff_plus"
+      ]
+    },
+    "hire_signal_at_staff": {
+      "type": "string",
+      "enum": [
+        "strong_no",
+        "lean_no",
+        "lean_hire",
+        "strong_hire"
+      ]
+    },
+    "verdict": {
+      "type": "string",
+      "description": "3-5 sentences"
+    },
+    "dimension_scores": {
+      "type": "object",
+      "properties": {
+        "problem_framing": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "number"
+            },
+            "rationale": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "score",
+            "rationale"
+          ]
+        },
+        "estimation": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "number"
+            },
+            "rationale": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "score",
+            "rationale"
+          ]
+        },
+        "data_modeling": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "number"
+            },
+            "rationale": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "score",
+            "rationale"
+          ]
+        },
+        "architecture": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "number"
+            },
+            "rationale": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "score",
+            "rationale"
+          ]
+        },
+        "technical_depth": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "number"
+            },
+            "rationale": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "score",
+            "rationale"
+          ]
+        },
+        "scalability_reliability": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "number"
+            },
+            "rationale": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "score",
+            "rationale"
+          ]
+        },
+        "operational_maturity": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "number"
+            },
+            "rationale": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "score",
+            "rationale"
+          ]
+        },
+        "tradeoff_reasoning": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "number"
+            },
+            "rationale": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "score",
+            "rationale"
+          ]
+        },
+        "communication_drive": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "number"
+            },
+            "rationale": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "score",
+            "rationale"
+          ]
+        },
+        "time_management": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "number"
+            },
+            "rationale": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "score",
+            "rationale"
+          ]
+        }
+      },
+      "required": [
+        "problem_framing",
+        "estimation",
+        "data_modeling",
+        "architecture",
+        "technical_depth",
+        "scalability_reliability",
+        "operational_maturity",
+        "tradeoff_reasoning",
+        "communication_drive",
+        "time_management"
+      ]
+    },
+    "top_gaps": {
+      "type": "array",
+      "description": "max 3",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tag": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "how_to_fix": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "description",
+          "how_to_fix"
+        ]
+      }
+    },
+    "strengths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recurring_patterns_vs_previous": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "improvements_vs_previous": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "study_plan": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "priority": {
+            "type": "number"
+          },
+          "concept": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string"
+          },
+          "resource": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "priority",
+          "concept",
+          "why",
+          "resource"
+        ]
+      }
+    },
+    "drill_for_next_session": {
+      "type": "string",
+      "description": "one concrete behavior"
+    },
+    "model_answer_outline": {
+      "type": "string",
+      "description": "markdown"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "url"
+        ]
+      }
+    }
+  },
+  "required": [
+    "overall_score",
+    "overall_level",
+    "hire_signal_at_staff",
+    "verdict",
+    "dimension_scores",
+    "top_gaps",
+    "strengths",
+    "recurring_patterns_vs_previous",
+    "improvements_vs_previous",
+    "study_plan",
+    "drill_for_next_session",
+    "model_answer_outline",
+    "sources"
+  ]
+}

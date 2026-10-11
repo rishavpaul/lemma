@@ -1,0 +1,86 @@
+{
+  "type": "object",
+  "properties": {
+    "summary": {"type": "string"},
+    "real_world_architectures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "company": {"type": "string"},
+          "approach": {"type": "string"},
+          "key_decisions": {"type": "array", "items": {"type": "string"}},
+          "url": {"type": "string"}
+        },
+        "required": ["company", "approach", "key_decisions", "url"]
+      }
+    },
+    "crux_areas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "area": {"type": "string"},
+          "why_hard": {"type": "string"},
+          "staff_level_expectation": {"type": "string"},
+          "source_urls": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["area", "why_hard", "staff_level_expectation", "source_urls"]
+      }
+    },
+    "common_senior_level_mistakes": {"type": "array", "items": {"type": "string"}},
+    "key_numbers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "fact": {"type": "string"},
+          "value": {"type": "string"},
+          "url": {"type": "string"}
+        },
+        "required": ["fact", "value", "url"]
+      }
+    },
+    "tradeoffs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "decision": {"type": "string"},
+          "options": {"type": "array", "items": {"type": "string"}},
+          "guidance": {"type": "string"},
+          "url": {"type": "string"}
+        },
+        "required": ["decision", "options", "guidance"]
+      }
+    },
+    "staff_level_answer_outline": {
+      "type": "object",
+      "description": "One string per framework section key: scope, estimates, api_data, hld, deep_dives, reliability_ops, tradeoffs_evolution",
+      "properties": {
+        "scope": {"type": "string"},
+        "estimates": {"type": "string"},
+        "api_data": {"type": "string"},
+        "hld": {"type": "string"},
+        "deep_dives": {"type": "string"},
+        "reliability_ops": {"type": "string"},
+        "tradeoffs_evolution": {"type": "string"}
+      },
+      "required": ["scope", "estimates", "api_data", "hld", "deep_dives", "reliability_ops", "tradeoffs_evolution"]
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {"type": "string"},
+          "url": {"type": "string"},
+          "type": {"type": "string", "enum": ["primary", "secondary"]},
+          "used_for": {"type": "string"}
+        },
+        "required": ["title", "url", "type", "used_for"]
+      }
+    }
+  },
+  "required": ["summary", "real_world_architectures", "crux_areas", "common_senior_level_mistakes", "key_numbers", "tradeoffs", "staff_level_answer_outline", "sources"]
+}

@@ -1,0 +1,201 @@
+questions:
+  - slug: rate-limiter
+    title: Distributed rate limiter
+    prompt: Design a rate limiter that protects a public API used by thousands of tenants across several regions. Different tenants and endpoints have different limits. Callers who exceed their limit should be rejected quickly.
+    stresses: [technical_depth, scalability_reliability, tradeoff_reasoning]
+    crux_hints:
+      - "Accuracy vs latency vs cost of a shared counter (local approximation vs central store); token bucket / sliding window tradeoffs"
+      - "Hot tenants, multi-region consistency, fail-open vs fail-closed when the limiter store is down"
+      - "Limiter must not become the availability bottleneck of the API it protects"
+  - slug: news-feed
+    title: News feed
+    prompt: Design the home feed for a social network with a few hundred million daily users. Users follow other users and see a ranked list of recent posts. Some accounts have tens of millions of followers.
+    stresses: [estimation, technical_depth, tradeoff_reasoning]
+    crux_hints:
+      - "Fan-out on write vs read vs hybrid; celebrity problem"
+      - "Feed storage and cache design, pagination stability, freshness vs cost"
+      - "Ranking pipeline separated from the serving path"
+  - slug: kv-store
+    title: Distributed key-value store
+    prompt: Design a distributed key-value store that offers get and put at single-digit-millisecond latency and stays available when nodes or a data center fail. Data volume is far beyond one machine.
+    stresses: [technical_depth, data_modeling, scalability_reliability]
+    crux_hints:
+      - "Partitioning (consistent hashing, vnodes), replication, quorum tunables, conflict resolution (vector clocks/LWW)"
+      - "Failure handling: hinted handoff, anti-entropy, membership/gossip"
+      - "Storage engine (LSM vs B-tree), compaction, tail latency"
+  - slug: chat
+    title: Chat and messaging
+    prompt: Design a messaging service supporting one-to-one and group chats, delivery to online and offline users, and message history across multiple devices.
+    stresses: [data_modeling, technical_depth, scalability_reliability]
+    crux_hints:
+      - "Connection management at scale (WebSocket gateways), routing a message to the right gateway"
+      - "Ordering and delivery semantics (at-least-once + dedupe), offline sync, multi-device"
+      - "Group fan-out, storage model and history pagination"
+  - slug: payments-ledger
+    title: Payments ledger
+    prompt: Design the ledger for a payments company that records every movement of money between accounts. It must never lose or double-apply a transaction and must be fully auditable.
+    stresses: [data_modeling, scalability_reliability, operational_maturity]
+    crux_hints:
+      - "Double-entry immutable log, idempotency keys, exactly-once effects via dedupe"
+      - "Strong consistency per account, hot accounts, sharding by account with cross-shard transfers (sagas/2PC)"
+      - "Reconciliation, audit, correction by reversal rather than mutation"
+  - slug: job-scheduler
+    title: Distributed job scheduler
+    prompt: Design a service where teams schedule one-off and recurring jobs, which must run on time on a fleet of workers. Millions of jobs are scheduled and jobs must not be silently dropped.
+    stresses: [technical_depth, scalability_reliability, data_modeling]
+    crux_hints:
+      - "Time-based indexing/partitioning, polling vs timer wheel, leader/worker leasing"
+      - "At-least-once execution, idempotent jobs, retries/backoff, visibility timeouts"
+      - "Thundering herd at common times (top of the hour), fairness between tenants"
+  - slug: notification-system
+    title: Notification system
+    prompt: Design a system that sends push, SMS and email notifications for many product teams, including marketing blasts to tens of millions of users and time-critical alerts.
+    stresses: [architecture, scalability_reliability, tradeoff_reasoning]
+    crux_hints:
+      - "Priority isolation between transactional and bulk traffic, queues per channel/provider"
+      - "Dedupe, user preferences, rate limits per user and per provider, provider failover"
+      - "Delivery tracking and retries without duplicate sends"
+  - slug: ride-dispatch
+    title: Ride-hailing dispatch
+    prompt: Design the system that matches riders with nearby drivers in real time in a large city, and keeps track of driver locations as they move.
+    stresses: [technical_depth, estimation, data_modeling]
+    crux_hints:
+      - "Geospatial indexing (geohash/S2/H3), high-frequency location writes, in-memory state"
+      - "Matching under contention (no double-assigning a driver), batch vs greedy matching"
+      - "Regional partitioning, failure recovery of in-memory state"
+  - slug: video-streaming
+    title: Video upload and streaming
+    prompt: Design a service where users upload videos and others stream them on varied devices and networks worldwide.
+    stresses: [architecture, estimation, scalability_reliability]
+    crux_hints:
+      - "Upload (resumable, chunked), transcoding pipeline as a DAG of parallel tasks, adaptive bitrate (HLS/DASH)"
+      - "CDN strategy and cost (egress dominates), long-tail vs popular content"
+      - "Metadata store vs blob store separation"
+  - slug: typeahead
+    title: Typeahead / autocomplete
+    prompt: Design search-box autocomplete that suggests completions within tens of milliseconds as a user types, for a product with billions of queries per day.
+    stresses: [technical_depth, estimation, tradeoff_reasoning]
+    crux_hints:
+      - "Trie / prefix index vs precomputed top-k per prefix; offline aggregation vs freshness of trending queries"
+      - "Latency budget, caching at edge/browser, sharding the index"
+      - "Ranking signals, personalization, abuse/filtering"
+  - slug: web-crawler
+    title: Web crawler
+    prompt: Design a crawler that continuously fetches and refreshes billions of web pages for a search engine, while behaving politely toward sites.
+    stresses: [architecture, technical_depth, scalability_reliability]
+    crux_hints:
+      - "URL frontier with politeness and priority, per-host queues"
+      - "Dedup (URL normalization, content fingerprints/simhash), crawl traps, recrawl scheduling"
+      - "Partitioning by host, fault tolerance and DNS/fetch bottlenecks"
+  - slug: metrics-monitoring
+    title: Metrics and monitoring system
+    prompt: Design a monitoring platform that ingests metrics from hundreds of thousands of hosts, supports dashboards and queries, and fires alerts reliably.
+    stresses: [data_modeling, estimation, operational_maturity]
+    crux_hints:
+      - "Time-series storage (compression, downsampling, retention tiers), cardinality explosion"
+      - "Write path ingestion throughput; query fan-out and caching"
+      - "Alerting must be more reliable than what it monitors; evaluation, dedupe, routing"
+  - slug: message-queue
+    title: Distributed message queue
+    prompt: Design a distributed message queue or log with durable storage, ordering guarantees within a stream, and consumer groups, handling very high throughput.
+    stresses: [technical_depth, data_modeling, scalability_reliability]
+    crux_hints:
+      - "Partitioned append-only log, sequential IO, replication (ISR/Raft), ack levels"
+      - "Consumer offsets, rebalancing, delivery semantics (at-least-once, idempotent producers, transactions)"
+      - "Retention, compaction, hot partitions"
+  - slug: collab-docs
+    title: Collaborative document editing
+    prompt: Design a system where multiple people edit the same document simultaneously with changes appearing in real time, including offline edits that merge on reconnect.
+    stresses: [technical_depth, data_modeling, tradeoff_reasoning]
+    crux_hints:
+      - "Operational Transform vs CRDT tradeoffs; central server ordering vs peer convergence"
+      - "Presence, cursors, snapshotting + operation log compaction"
+      - "Sharding documents, session affinity, permissions"
+  - slug: ad-click-aggregation
+    title: Real-time ad-click aggregation
+    prompt: Design a pipeline that counts ad clicks and impressions per advertiser and campaign with near-real-time dashboards and exact numbers for billing.
+    stresses: [technical_depth, scalability_reliability, data_modeling]
+    crux_hints:
+      - "Stream processing with windows, late/out-of-order events, watermarks"
+      - "Exactly-once effects, dedupe, reconciliation between real-time (approximate) and batch (exact) paths"
+      - "Hot campaigns / skew, fraud filtering"
+  - slug: ticketing-flash-sale
+    title: Ticketing flash sale
+    prompt: Design a ticket-selling system for a hugely popular event where hundreds of thousands of people try to buy a limited number of seats the moment sales open.
+    stresses: [scalability_reliability, technical_depth, tradeoff_reasoning]
+    crux_hints:
+      - "Inventory contention: holds with TTL, no overselling, per-seat locking vs queued admission"
+      - "Virtual waiting room / admission control, protecting the database"
+      - "Payment failure and hold release, bots and fairness"
+  - slug: file-sync
+    title: File sync service
+    prompt: Design a service like Dropbox that keeps a user's files synchronized across their devices and supports sharing folders with others.
+    stresses: [data_modeling, architecture, technical_depth]
+    crux_hints:
+      - "Chunking, content-addressed dedupe, delta sync, metadata vs block storage"
+      - "Change notification, sync conflicts and versioning"
+      - "Consistency of metadata (namespace) and cost of storage"
+  - slug: feature-flags
+    title: Feature flag and config distribution
+    prompt: Design a platform that lets engineers change feature flags and configuration that thousands of services pick up within seconds, safely and reliably.
+    stresses: [operational_maturity, scalability_reliability, tradeoff_reasoning]
+    crux_hints:
+      - "Push vs poll vs streaming, local caching in SDKs, evaluation locally not centrally"
+      - "Safety: staged rollouts, validation, audit, instant rollback, behavior when the control plane is down"
+      - "Consistency of a flag across services for a user, blast radius of a bad config"
+  - slug: multi-tenant-saas
+    title: Multi-tenant SaaS isolation
+    prompt: Design the data and compute architecture for a B2B SaaS product serving tens of thousands of tenants, from tiny teams to a few huge enterprises, with strong isolation guarantees.
+    stresses: [architecture, tradeoff_reasoning, operational_maturity]
+    crux_hints:
+      - "Pooled vs siloed vs bridge models; noisy neighbor control, per-tenant quotas"
+      - "Data residency, tenant-level backup/restore, encryption keys per tenant"
+      - "Moving a tenant between cells/shards; onboarding and cost attribution"
+  - slug: hotel-booking
+    title: Hotel booking
+    prompt: Design a hotel search and booking system that shows live availability and prices, and prevents two guests from booking the same room for the same night.
+    stresses: [data_modeling, technical_depth, scalability_reliability]
+    crux_hints:
+      - "Search (read-heavy, eventually consistent, cached) vs booking (strongly consistent inventory)"
+      - "Reservation holds, overbooking policy, integration with external suppliers"
+      - "Date-range inventory modeling and double-booking prevention"
+  - slug: recommendation-serving
+    title: Recommendation serving
+    prompt: Design the online serving system that returns personalized recommendations for a large e-commerce site in under 100 milliseconds.
+    stresses: [architecture, estimation, scalability_reliability]
+    crux_hints:
+      - "Multi-stage funnel (candidate generation, ranking, re-ranking), feature store online/offline consistency"
+      - "Latency budget per stage, caching, fallbacks to popular items"
+      - "Experimentation, model rollout, training/serving skew"
+  - slug: global-leaderboard
+    title: Global leaderboard
+    prompt: Design a leaderboard for a game with a hundred million players that supports reading the top players and any player's rank with near real-time updates.
+    stresses: [technical_depth, data_modeling, estimation]
+    crux_hints:
+      - "Sorted-set approaches, sharding by score range vs by user, approximate rank at scale"
+      - "Write hot spots, time-windowed boards, snapshots"
+      - "Exact top-k vs approximate rank tradeoff"
+  - slug: db-resharding
+    title: Zero-downtime database re-sharding
+    prompt: A critical sharded database has run out of headroom. Design how to move to more shards, or a different shard key, without downtime or losing writes.
+    stresses: [operational_maturity, technical_depth, tradeoff_reasoning]
+    crux_hints:
+      - "Dual-write vs change-data-capture backfill, consistency verification, cutover and rollback"
+      - "Routing layer / shard map versioning, handling in-flight writes"
+      - "Throttling the copy, validation, reversible steps"
+  - slug: distributed-cache
+    title: Distributed cache
+    prompt: Design a distributed in-memory cache used by hundreds of services to cut load on their databases, with high hit rates and predictable latency.
+    stresses: [technical_depth, scalability_reliability, tradeoff_reasoning]
+    crux_hints:
+      - "Partitioning and rebalancing (consistent hashing), replication vs warmup, eviction policies"
+      - "Stampede/thundering herd, hot keys, invalidation and consistency with the source of truth"
+      - "Cache as dependency: behavior on cache failure, multi-tenancy, client libraries"
+  - slug: llm-inference-platform
+    title: LLM inference serving platform
+    prompt: Design a platform that serves large language models to many internal and external customers with streaming responses, on a limited fleet of expensive GPUs.
+    stresses: [architecture, estimation, tradeoff_reasoning]
+    crux_hints:
+      - "GPU utilization: continuous batching, KV-cache memory, prefill vs decode, model sharding"
+      - "Scheduling and fairness across tenants, queueing, autoscaling with slow model load times, priority tiers"
+      - "Latency metrics (time to first token, tokens/s), cost per token, failure and rollout of model versions"

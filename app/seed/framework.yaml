@@ -1,0 +1,80 @@
+sections:
+  - key: scope
+    title: Clarify scope and requirements
+    budget_sec: 300
+    cover:
+      - Functional requirements, prioritized
+      - Non-functional requirements with numbers
+      - In scope / out of scope
+      - What makes this hard
+      - Assumptions you are making
+    staff_bar: >-
+      Crisp prioritized functional reqs; quantified non-functional reqs (p99 latency, availability,
+      durability, consistency per operation); explicit out-of-scope; names the 1-2 hard problems that
+      will drive the design; states assumptions in place of interviewer answers.
+  - key: estimates
+    title: Scale and constraints
+    budget_sec: 180
+    cover:
+      - Users and QPS (average and peak)
+      - Read/write ratio
+      - Storage and bandwidth
+      - Growth
+    staff_bar: >-
+      Correct order of magnitude, peak vs average, and the numbers explicitly drive design decisions.
+  - key: api_data
+    title: APIs and data model
+    budget_sec: 300
+    cover:
+      - Core APIs
+      - Entities and access patterns
+      - Storage choice
+      - Partition keys and indexes
+      - Consistency per entity
+    staff_bar: >-
+      APIs with idempotency/pagination where needed; schema driven by access patterns; deliberate
+      partition keys and indexes; storage choice and consistency justified per entity.
+  - key: hld
+    title: High-level design
+    budget_sec: 480
+    cover:
+      - Components
+      - Main read path and write path, end to end
+      - Sync vs async boundaries
+    staff_bar: >-
+      Simplest design that meets the requirements; read and write paths walked end to end; every
+      component justified against the requirements.
+  - key: deep_dives
+    title: Deep dives
+    budget_sec: 900
+    cover:
+      - Pick the 2-3 hardest parts
+      - Mechanisms and numbers
+      - Alternatives and why you chose
+    staff_bar: >-
+      Self-selects the crux; explains mechanisms (partitioning, replication, consistency, concurrency,
+      caching, hot spots) quantitatively; compares 2+ alternatives and decides with reasons.
+  - key: reliability_ops
+    title: Reliability and operations
+    budget_sec: 300
+    cover:
+      - Failure modes and blast radius
+      - Retries, idempotency, backpressure, degradation
+      - Multi-region / DR
+      - Observability and SLOs
+      - Deploys and migrations
+      - Security and cost
+    staff_bar: >-
+      Concrete failure modes with blast radius and mitigations; SLOs and key alerts; safe deploy/migration
+      plan; security and cost considered.
+  - key: tradeoffs_evolution
+    title: Tradeoffs and evolution
+    budget_sec: 240
+    cover:
+      - Key decisions and what each gave up
+      - What breaks at 10x / 100x
+      - How the system evolves
+      - Open risks
+    staff_bar: >-
+      Ties tradeoffs to requirements and business priorities; knows what breaks at 10x and the evolution
+      path; reversible vs irreversible decisions; open risks.

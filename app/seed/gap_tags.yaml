@@ -1,0 +1,39 @@
+tags:
+  scope.missing_nfrs: No non-functional requirements stated
+  scope.unquantified_nfrs: Non-functional requirements stated without numbers
+  scope.no_out_of_scope: No explicit out-of-scope
+  scope.missed_crux: Did not identify what makes the problem hard
+  estimates.missing: No estimation
+  estimates.not_used: Estimates never drove a design decision
+  estimates.wrong_magnitude: Estimates off by orders of magnitude
+  estimates.no_peak: Average only, no peak
+  data.access_patterns_unclear: Data model not driven by access patterns
+  data.storage_unjustified: Storage choice not justified
+  data.partition_key_missing: No deliberate partition key / index
+  data.consistency_unspecified: Consistency per entity not specified
+  api.missing_idempotency: Missing idempotency / pagination in APIs
+  hld.unjustified_components: Components not justified against requirements
+  hld.missing_data_flow: Read/write paths not walked end to end
+  hld.overengineered: More complexity than the requirements warrant
+  depth.shallow: Textbook-level depth only
+  depth.no_alternatives: No alternatives compared
+  depth.hot_spots_ignored: Hot keys / hot spots not handled
+  depth.consistency_model_unclear: Consistency model unclear
+  depth.concurrency_unhandled: Concurrency / races not handled
+  depth.caching_naive: Naive caching (no invalidation, stampede, sizing)
+  reliability.failure_modes_missing: Concrete failure modes missing
+  reliability.no_idempotency_retries: No idempotency / retry story
+  reliability.no_backpressure: No backpressure / load shedding
+  reliability.no_multi_region_dr: No multi-region / DR plan
+  ops.no_observability_slos: No observability or SLOs
+  ops.no_migration_deploy_plan: No deploy / migration plan
+  security.ignored: Security ignored
+  cost.ignored: Cost ignored
+  tradeoffs.not_articulated: Tradeoffs not articulated
+  evolution.missing: No evolution / 10x story
+  communication.not_driving: Not driving the conversation
+  communication.unstructured: Unstructured delivery
+  time.overran_section: Overran a section budget
+  time.rushed_deep_dive: Rushed the deep dive
+  fact.incorrect_claim: Incorrect technical claim
+other_prefix: other.

@@ -1,0 +1,1 @@
+p99, p50, QPS, RPS, SLO, SLA, RPO, RTO, idempotency, idempotent, sharding, consistent hashing, Kafka, Cassandra, DynamoDB, Redis, Postgres, MySQL, Zookeeper, etcd, Raft, Paxos, CRDT, CDN, S3, gRPC, WebSocket, fan-out, backpressure, write-ahead log, LSM tree, quorum, leader election, bloom filter, token bucket, hot key, thundering herd
