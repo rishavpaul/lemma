@@ -22,7 +22,9 @@ LOG_DIR = DATA_DIR / "logs"
 DB_PATH = DATA_DIR / "coach.db"
 
 DEFAULT_SETTINGS = {
-    "model": "opus",
+    "model_research": "opus",
+    "model_section": "sonnet",
+    "model_holistic": "opus",
     "claude_path": "",
     "claude_concurrency": "1",
     "show_feedback_live": "0",
@@ -34,6 +36,7 @@ DIMENSIONS = [
     "scalability_reliability", "operational_maturity", "tradeoff_reasoning",
     "communication_drive", "time_management",
 ]
+MODEL_CHOICES = ("opus", "sonnet", "fable", "haiku")
 SECTION_KEYS = ["scope", "estimates", "api_data", "hld", "deep_dives", "reliability_ops", "tradeoffs_evolution"]
 
 
@@ -126,6 +129,8 @@ def put_settings(conn: sqlite3.Connection, data: dict) -> None:
         elif k in DEFAULT_SETTINGS:
             if k == "claude_concurrency":
                 v = str(max(1, min(2, int(v))))
+            if k.startswith("model_") and v not in MODEL_CHOICES and not str(v).startswith("claude-"):
+                raise ValueError(f"unknown model {v!r} for {k}")
             if k == "show_feedback_live":
                 v = "1" if v in (True, 1, "1", "true") else "0"
             conn.execute("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",

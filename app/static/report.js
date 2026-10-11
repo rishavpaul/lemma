@@ -135,7 +135,7 @@ route('/report/:id', async (root, id) => {
   const anyPending = pending(p.grade_job) || p.sections.some((s) => pending(s.grade_job)) || pending(p.research.job);
   if (anyPending) { const iv = setTimeout(() => { if (location.hash === '#/report/' + id) { softRender = true; render(); } }, 5000); onLeave(() => clearTimeout(iv)); }
 
-  const modelSel = h('select', { style: 'width:auto' }, ...['opus', 'sonnet'].map((m) => h('option', { value: m }, m)));
+  const modelSel = h('select', { style: 'width:auto' }, h('option', { value: 'default' }, 'settings default (per task)'), ...['opus', 'sonnet'].map((m) => h('option', { value: m }, m + ' (all calls)')));
   const regrade = h('button', { onclick: async () => {
     try { await api(`/api/sessions/${id}/regrade`, { method: 'POST', body: { model: modelSel.value } }); render(); } catch (e) { alert(e.message); }
   } }, 'Re-grade');
@@ -145,7 +145,7 @@ route('/report/:id', async (root, id) => {
       h('span', { class: 'muted' }, 'Re-grade with'), modelSel, regrade));
   if (g) head.append(h('div', { class: 'row', style: 'margin-top:.6rem' },
     chip(LEVELS[g.overall_level] + ' · ' + g.overall_score + '/4', g.overall_score >= 3 ? 'ok' : g.overall_score >= 2 ? 'warn' : 'bad'),
-    chip('Staff signal: ' + SIGNALS[g.hire_signal_at_staff]), chip('model: ' + (p.grade_meta?.model || p.session.model)),
+    chip('Staff signal: ' + SIGNALS[g.hire_signal_at_staff]), chip('holistic: ' + (p.grade_meta?.model || '?') + ' · sections: ' + [...new Set(p.sections.map((s) => s.grade_meta && s.grade_meta.model).filter(Boolean))].join('/')),
     p.usage && p.usage.calls ? h('a', { href: '#/usage', class: 'chip', title: 'All Claude calls for this session, incl. re-grades. Cost is the API-equivalent value, not billed to you.' }, `${p.usage.calls} Claude calls · ${fmtTok(p.usage.total_tokens)} tokens · ≈${fmtUsd(p.usage.cost_usd)}`) : null), h('p', {}, g.verdict));
   else head.append(jobStatus(p.grade_job, 'Overall grade') || h('p', { class: 'muted' }, 'No overall grade yet.'));
   if (p.research.state === 'researching') head.append(h('p', { class: 'muted' }, spinner(), ' Reference research in progress; grading waits for it.'));

@@ -210,10 +210,9 @@ async def create_session(body: NewSession):
     else:
         raise HTTPException(400, "question_id or mode required")
     conn = db.connect()
-    model = config.get_setting(conn, "model")
     live = int(config.get_setting(conn, "show_feedback_live") == "1")
     sid = db.execute("INSERT INTO sessions(question_id,status,model,started_at,show_feedback_live) "
-                     "VALUES(?,'in_progress',?,?,?)", (qid, model, time.time(), live))
+                     "VALUES(?,'in_progress',NULL,?,?)", (qid, time.time(), live))
     for i, sec in enumerate(config.load_framework()):
         conn.execute("INSERT INTO sections(session_id,key,ord,budget_sec) VALUES(?,?,?,?)",
                      (sid, sec["key"], i + 1, sec["budget_sec"]))
@@ -440,9 +439,11 @@ class Regrade(BaseModel):
 @app.post("/api/sessions/{sid}/regrade")
 async def regrade(sid: int, body: Regrade):
     session_payload(sid)
-    if body.model not in ("opus", "sonnet", "fable", "haiku") and not body.model.startswith("claude-"):
+    override = None if body.model == "default" else body.model
+    if override and override not in config.MODEL_CHOICES and not override.startswith("claude-"):
         raise HTTPException(400, "unknown model")
-    db.execute("UPDATE sessions SET model=?, status='grading', finished_at=? WHERE id=?", (body.model, time.time(), sid))
+    # "default" clears the override so each task uses its own model setting
+    db.execute("UPDATE sessions SET model=?, status='grading', finished_at=? WHERE id=?", (override, time.time(), sid))
     for sec in db.rows("SELECT id FROM sections WHERE session_id=? AND status='saved'", (sid,)):
         jobs.enqueue("grade_section", sec["id"])
     return {"job_id": jobs.enqueue("grade_session", sid)}
@@ -457,7 +458,10 @@ async def get_settings():
 
 @app.put("/api/settings")
 async def put_settings(body: dict):
-    config.put_settings(db.connect(), body)
+    try:
+        config.put_settings(db.connect(), body)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     return config.all_settings(db.connect())
 
 

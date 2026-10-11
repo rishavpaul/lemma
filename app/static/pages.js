@@ -108,7 +108,8 @@ route('/settings', async (root) => {
   const [s, hl] = await Promise.all([api('/api/settings'), api('/api/health')]);
   const f = {};
   const field = (key, label, el, hint) => { f[key] = el; return h('div', { class: 'card' }, h('label', {}, h('strong', {}, label), h('div', { style: 'height:.4rem' }), el), hint ? h('div', { class: 'muted' }, hint) : null); };
-  const model = h('select', {}, ...['opus', 'sonnet', 'fable', 'haiku'].map((m) => h('option', { value: m, selected: s.model === m }, m)));
+  const modelSel = (key) => h('select', {}, ...['opus', 'sonnet', 'fable', 'haiku'].map((m) => h('option', { value: m, selected: s[key] === m }, m)));
+  const mResearch = modelSel('model_research'), mSection = modelSel('model_section'), mHolistic = modelSel('model_holistic');
   const conc = h('select', {}, ...['1', '2'].map((m) => h('option', { value: m, selected: s.claude_concurrency === m }, m)));
   const live = h('input', { type: 'checkbox', style: 'width:auto', checked: s.show_feedback_live === '1' });
   const cpath = h('input', { value: s.claude_path, placeholder: 'auto-detect' });
@@ -117,7 +118,7 @@ route('/settings', async (root) => {
   const msg = h('span', { class: 'muted' });
   const save = h('button', { class: 'primary', onclick: async () => {
     try {
-      await api('/api/settings', { method: 'PUT', body: { model: model.value, claude_concurrency: conc.value, show_feedback_live: live.checked ? '1' : '0', claude_path: cpath.value.trim(), whisper_model: wmodel.value.trim(), vocabulary: vocab.value } });
+      await api('/api/settings', { method: 'PUT', body: { model_research: mResearch.value, model_section: mSection.value, model_holistic: mHolistic.value, claude_concurrency: conc.value, show_feedback_live: live.checked ? '1' : '0', claude_path: cpath.value.trim(), whisper_model: wmodel.value.trim(), vocabulary: vocab.value } });
       msg.textContent = 'Saved. Whisper model/vocabulary changes apply to the next transcription.';
     } catch (e) { msg.textContent = 'Error: ' + e.message; }
   } }, 'Save settings');
@@ -129,7 +130,9 @@ route('/settings', async (root) => {
       h('tr', {}, h('td', {}, 'ffmpeg'), h('td', {}, yes(hl.ffmpeg_ok))),
       h('tr', {}, h('td', {}, 'Whisper model'), h('td', {}, hl.whisper_loaded ? chip('loaded', 'ok') : hl.whisper_loading ? chip('loading', 'warn') : chip('not loaded', 'bad'), hl.whisper_error ? ' ' + hl.whisper_error : '')),
       h('tr', {}, h('td', {}, 'Data directory'), h('td', {}, hl.data_dir)))), h('div', { style: 'height:.5rem' }), recheck),
-    field('model', 'Claude model for grading and research', model, 'Pro plan: opus is the most thorough, sonnet is faster and uses less of your usage limit.'),
+    field('model_research', 'Model for research briefs', mResearch, 'Runs once per question and becomes the answer key for grading, so a stronger model pays off. Applies to the next research run.'),
+    field('model_section', 'Model for section grades', mSection, '7 calls per session. Sonnet is about 2-3x faster and uses much less of your plan limit than Opus. Applies to new gradings.'),
+    field('model_holistic', 'Model for the holistic grade', mHolistic, '1 call per session: your overall level, study plan and drill. Applies to new gradings.'),
     field('claude_path', 'Path to the claude CLI (optional)', cpath, 'Leave empty to auto-detect.'),
     field('claude_concurrency', 'Concurrent Claude calls', conc, '1 is safest for Pro usage limits.'),
     h('div', { class: 'card' }, h('label', { class: 'row' }, live, h('strong', {}, 'Show feedback after each section by default'))),

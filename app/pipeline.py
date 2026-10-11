@@ -144,8 +144,14 @@ def brief_to_md(q: dict, b: dict) -> str:
 # ---------- helpers ----------
 
 def _settings() -> tuple[str, str]:
+    """(research model, claude path)."""
     conn = db.connect()
-    return config.get_setting(conn, "model"), config.get_setting(conn, "claude_path")
+    return config.get_setting(conn, "model_research"), config.get_setting(conn, "claude_path")
+
+
+def task_model(session: dict, task: str) -> str:
+    """Per-task model: a session-level override (set by Re-grade) wins, else the setting for the task."""
+    return session.get("model") or config.get_setting(db.connect(), "model_" + task)
 
 
 def latest_brief(question_id: int) -> dict | None:
@@ -227,7 +233,7 @@ async def handle_grade_section(job: dict) -> None:
     known = config.load_gap_tags()
     schema = config.load_schema("section")
     payload = prompts.section(q, brief, fw_sec, config.rubric_section(sec["key"]), known, earlier, this)
-    model = ses["model"] or _settings()[0]
+    model = task_model(ses, "section")
     cpath = _settings()[1]
     res = await grader.run_claude("grade_section", config.load_text("grader_system_prompt.md") + "\n\n" + config.load_text("rubric.md").split("## Section anchors")[0],
                                   payload, schema, model, TIMEOUTS["grade_section"], cpath, lambda r: validate_section(r, schema),
@@ -260,7 +266,7 @@ async def handle_grade_session(job: dict) -> None:
     known = config.load_gap_tags()
     schema = config.load_schema("holistic")
     payload = prompts.holistic(q, brief, known, texts, prev)
-    model = ses["model"] or _settings()[0]
+    model = task_model(ses, "holistic")
     res = await grader.run_claude("grade_session", config.load_text("grader_system_prompt.md") + "\n\n" + config.load_text("rubric.md").split("## Section anchors")[0],
                                   payload, schema, model, TIMEOUTS["grade_session"], _settings()[1], lambda r: validate_holistic(r, schema),
                                   {"session_id": ses["id"], "question_id": q["id"]})
