@@ -91,16 +91,22 @@ async def _once(kind: str, system_prompt: str, payload: str, schema: dict, model
 
 async def run_claude(kind: str, system_prompt: str, payload: str, schema: dict, model: str,
                      timeout_s: int, claude_path: str = "",
-                     validator: Callable[[dict], str | None] | None = None) -> dict:
+                     validator: Callable[[dict], str | None] | None = None, ref: dict | None = None) -> dict:
     """Run one structured call. `validator` returns an error string (or None); on failure retry once
     with the error appended to the payload."""
-    res = await _once(kind, system_prompt, payload, schema, model, timeout_s, claude_path)
+    ref = ref or {}
+
+    def tracked(r: dict) -> dict:
+        db.record_call(kind, model, r["ok"], r["error_kind"], r["duration_s"], r["raw"], ref.get("session_id"), ref.get("question_id"))
+        return r
+
+    res = tracked(await _once(kind, system_prompt, payload, schema, model, timeout_s, claude_path))
     if res["ok"] and validator:
         problem = validator(res["structured"])
         if problem:
             retry_payload = (payload + "\n\n<validation_error>\nYour previous answer was rejected: "
                              + problem + "\nFix this and answer again.\n</validation_error>")
-            res2 = await _once(kind, system_prompt, retry_payload, schema, model, timeout_s, claude_path)
+            res2 = tracked(await _once(kind, system_prompt, retry_payload, schema, model, timeout_s, claude_path))
             res2["duration_s"] += res["duration_s"]
             if res2["ok"]:
                 problem2 = validator(res2["structured"])
@@ -137,6 +143,7 @@ async def check_health() -> dict:
     schema = {"type": "object", "properties": {"ok": {"type": "boolean"}}, "required": ["ok"]}
     res = await _once("health", "Reply with the structured output only.", "Return ok=true.", schema,
                       "sonnet", 120, claude_path)
+    db.record_call("health", "sonnet", res["ok"], res["error_kind"], res["duration_s"], res["raw"])
     if res["ok"]:
         _health.update(claude_ok=True, error=None)
     else:

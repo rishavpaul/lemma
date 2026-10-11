@@ -171,14 +171,14 @@ async def handle_research(job: dict) -> None:
     system = config.load_text("research_system_prompt.md")
     payload = prompts.research(q, config.load_framework())
     validator = lambda r: check_schema(r, schema)  # noqa: E731
-    res = await grader.run_claude("research", system, payload, schema, model, TIMEOUTS["research"], cpath, validator)
+    res = await grader.run_claude("research", system, payload, schema, model, TIMEOUTS["research"], cpath, validator, {"question_id": q["id"]})
     if not res["ok"]:
         _raise(res)
     brief, warning = res["structured"], None
     problem = grounding_problem(brief)
     if problem:
         retry = payload + f"\n\n<feedback>\nYour previous brief was insufficient: {problem}. Search more and return a complete brief.\n</feedback>"
-        res2 = await grader.run_claude("research", system, retry, schema, model, TIMEOUTS["research"], cpath, validator)
+        res2 = await grader.run_claude("research", system, retry, schema, model, TIMEOUTS["research"], cpath, validator, {"question_id": q["id"]})
         if res2["ok"] and not grounding_problem(res2["structured"]):
             brief, res = res2["structured"], res2
         else:
@@ -230,7 +230,8 @@ async def handle_grade_section(job: dict) -> None:
     model = ses["model"] or _settings()[0]
     cpath = _settings()[1]
     res = await grader.run_claude("grade_section", config.load_text("grader_system_prompt.md") + "\n\n" + config.load_text("rubric.md").split("## Section anchors")[0],
-                                  payload, schema, model, TIMEOUTS["grade_section"], cpath, lambda r: validate_section(r, schema))
+                                  payload, schema, model, TIMEOUTS["grade_section"], cpath, lambda r: validate_section(r, schema),
+                                  {"session_id": ses["id"], "question_id": q["id"]})
     if not res["ok"]:
         _raise(res)
     result = normalize_section(res["structured"], known)
@@ -261,7 +262,8 @@ async def handle_grade_session(job: dict) -> None:
     payload = prompts.holistic(q, brief, known, texts, prev)
     model = ses["model"] or _settings()[0]
     res = await grader.run_claude("grade_session", config.load_text("grader_system_prompt.md") + "\n\n" + config.load_text("rubric.md").split("## Section anchors")[0],
-                                  payload, schema, model, TIMEOUTS["grade_session"], _settings()[1], lambda r: validate_holistic(r, schema))
+                                  payload, schema, model, TIMEOUTS["grade_session"], _settings()[1], lambda r: validate_holistic(r, schema),
+                                  {"session_id": ses["id"], "question_id": q["id"]})
     if not res["ok"]:
         _raise(res)
     result = normalize_holistic(res["structured"], known)

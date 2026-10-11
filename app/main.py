@@ -149,6 +149,7 @@ def session_payload(sid: int) -> dict:
         "grade": json.loads(sg["result_json"]) if sg else None,
         "grade_meta": {k: sg[k] for k in ("id", "model", "duration_s", "created_at")} if sg else None,
         "grade_job": _latest_job("grade_session", sid),
+        "usage": progress.session_usage(sid),
     }
 
 
@@ -387,6 +388,11 @@ async def patch_study_item(iid: int, body: StudyPatch):
 @app.get("/api/questions/suggest")
 async def suggest_question():
     return progress.suggest()
+
+
+@app.get("/api/usage")
+async def get_usage():
+    return progress.usage()
 
 
 @app.get("/api/progress")

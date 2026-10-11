@@ -55,6 +55,62 @@ MIGRATIONS = [
 ]
 
 
+MIGRATIONS.append("""
+    CREATE TABLE llm_calls(
+        id INTEGER PRIMARY KEY, created_at REAL NOT NULL, kind TEXT NOT NULL, model TEXT,
+        session_id INTEGER, question_id INTEGER, ok INTEGER NOT NULL, error_kind TEXT, duration_s REAL,
+        input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_read_tokens INTEGER NOT NULL DEFAULT 0, cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+        web_searches INTEGER NOT NULL DEFAULT 0, web_fetches INTEGER NOT NULL DEFAULT 0,
+        num_turns INTEGER, cost_usd REAL NOT NULL DEFAULT 0);
+    CREATE INDEX idx_llm_calls_session ON llm_calls(session_id);
+    CREATE INDEX idx_llm_calls_created ON llm_calls(created_at);
+""")
+
+
+def usage_fields(data) -> dict:
+    """Token/cost numbers from a `claude -p --output-format json` result (zeros when absent)."""
+    d = data if isinstance(data, dict) else {}
+    u = d.get("usage") or {}
+    tool = u.get("server_tool_use") or {}
+    return {"input_tokens": u.get("input_tokens", 0) or 0, "output_tokens": u.get("output_tokens", 0) or 0,
+            "cache_read_tokens": u.get("cache_read_input_tokens", 0) or 0,
+            "cache_creation_tokens": u.get("cache_creation_input_tokens", 0) or 0,
+            "web_searches": tool.get("web_search_requests", 0) or 0, "web_fetches": tool.get("web_fetch_requests", 0) or 0,
+            "num_turns": d.get("num_turns"), "cost_usd": d.get("total_cost_usd", 0) or 0}
+
+
+def record_call(kind: str, model: str | None, ok: bool, error_kind, duration_s: float, raw, session_id=None,
+                question_id=None, created_at: float | None = None) -> None:
+    f = usage_fields(raw)
+    conn = connect()
+    conn.execute("INSERT INTO llm_calls(created_at,kind,model,session_id,question_id,ok,error_kind,duration_s,input_tokens,"
+                 "output_tokens,cache_read_tokens,cache_creation_tokens,web_searches,web_fetches,num_turns,cost_usd) "
+                 "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                 (created_at or time.time(), kind, model, session_id, question_id, int(ok), error_kind, duration_s,
+                  f["input_tokens"], f["output_tokens"], f["cache_read_tokens"], f["cache_creation_tokens"],
+                  f["web_searches"], f["web_fetches"], f["num_turns"], f["cost_usd"]))
+    conn.commit()
+
+
+def _backfill_llm_calls(conn) -> None:
+    """Seed the ledger from raw responses already stored with grades (research raw was never stored)."""
+    for table, kind, join in (("section_grades", "grade_section", "JOIN sections s ON s.id=g.section_id"),
+                              ("session_grades", "grade_session", "")):
+        sid = "s.session_id" if join else "g.session_id"
+        for r in conn.execute(f"SELECT g.model, g.raw_response, g.duration_s, g.created_at, {sid} AS sid, "
+                              f"(SELECT question_id FROM sessions WHERE id={sid}) AS qid FROM {table} g {join} WHERE g.status='done'"):
+            try:
+                raw = json.loads(r["raw_response"])
+            except (TypeError, ValueError):
+                raw = {}
+            f = usage_fields(raw)
+            conn.execute("INSERT INTO llm_calls(created_at,kind,model,session_id,question_id,ok,duration_s,input_tokens,output_tokens,"
+                         "cache_read_tokens,cache_creation_tokens,web_searches,web_fetches,num_turns,cost_usd) VALUES(?,?,?,?,?,1,?,?,?,?,?,?,?,?,?)",
+                         (r["created_at"], kind, r["model"], r["sid"], r["qid"], r["duration_s"], f["input_tokens"], f["output_tokens"],
+                          f["cache_read_tokens"], f["cache_creation_tokens"], f["web_searches"], f["web_fetches"], f["num_turns"], f["cost_usd"]))
+
+
 def connect() -> sqlite3.Connection:
     """One connection per thread."""
     conn = getattr(_local, "conn", None)
@@ -72,6 +128,8 @@ def migrate() -> int:
     version = conn.execute("PRAGMA user_version").fetchone()[0]
     for i in range(version, len(MIGRATIONS)):
         conn.executescript(MIGRATIONS[i])
+        if i == 1:
+            _backfill_llm_calls(conn)
         conn.execute(f"PRAGMA user_version={i + 1}")
         conn.commit()
     return conn.execute("PRAGMA user_version").fetchone()[0]

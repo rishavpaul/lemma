@@ -104,3 +104,6 @@ Report page (5 s refresh while grading) and session runner (4 s poll while resea
 
 ## Collapsible section reports
 Each section card on the report page now has a clickable header (caret, score chip, time) and collapses to its score plus summary; "Expand all / Collapse all" buttons above the cards. Default is collapsed; state survives the auto-refresh. Verified in headless Chrome with a fake graded session (default, single toggle, refresh, expand all, collapse all; 0 console errors); fake session deleted.
+
+## LLM usage tracking
+New `llm_calls` ledger (schema v2): every `claude -p` call (research, section, holistic, health, and validation retries) records model, session/question, ok/error_kind, duration, input / output / cache-read / cache-write tokens, web searches/fetches, turns and `total_cost_usd` (API-equivalent, not billed on Pro). Backfilled from the raw responses already stored with grades (research raw was never stored, so earlier research calls have no tokens). `GET /api/usage`, `usage` in the session payload, new `#/usage` page (totals, tokens/day chart, by type/model/session, recent calls) and a usage chip on each report. Verified: backfill 8 grade calls (7 section + 1 holistic: 301k tokens, $2.23), a live health call added a row, page and chip render, 0 console errors.

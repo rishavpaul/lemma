@@ -145,7 +145,8 @@ route('/report/:id', async (root, id) => {
       h('span', { class: 'muted' }, 'Re-grade with'), modelSel, regrade));
   if (g) head.append(h('div', { class: 'row', style: 'margin-top:.6rem' },
     chip(LEVELS[g.overall_level] + ' · ' + g.overall_score + '/4', g.overall_score >= 3 ? 'ok' : g.overall_score >= 2 ? 'warn' : 'bad'),
-    chip('Staff signal: ' + SIGNALS[g.hire_signal_at_staff]), chip('model: ' + (p.grade_meta?.model || p.session.model))), h('p', {}, g.verdict));
+    chip('Staff signal: ' + SIGNALS[g.hire_signal_at_staff]), chip('model: ' + (p.grade_meta?.model || p.session.model)),
+    p.usage && p.usage.calls ? h('a', { href: '#/usage', class: 'chip', title: 'All Claude calls for this session, incl. re-grades. Cost is the API-equivalent value, not billed to you.' }, `${p.usage.calls} Claude calls · ${fmtTok(p.usage.total_tokens)} tokens · ≈${fmtUsd(p.usage.cost_usd)}`) : null), h('p', {}, g.verdict));
   else head.append(jobStatus(p.grade_job, 'Overall grade') || h('p', { class: 'muted' }, 'No overall grade yet.'));
   if (p.research.state === 'researching') head.append(h('p', { class: 'muted' }, spinner(), ' Reference research in progress; grading waits for it.'));
   if (p.research.state === 'failed') head.append(h('div', { class: 'callout' }, 'Research failed; sections were graded ungrounded.'));

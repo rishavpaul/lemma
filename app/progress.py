@@ -93,3 +93,36 @@ def progress() -> dict:
     study = db.rows("SELECT * FROM study_items ORDER BY CASE status WHEN 'doing' THEN 0 WHEN 'todo' THEN 1 ELSE 2 END, id DESC")
     return {"timeline": timeline, "dimensions": config.DIMENSIONS, "time_vs_budget": time_rows, "gaps": gap_rows,
             "focus": focus, "study_items": study}
+
+
+# ---- LLM usage ledger ---------------------------------------------------------
+
+_SUM = ("COUNT(*) calls, SUM(ok) ok_calls, COALESCE(SUM(input_tokens),0) input_tokens, COALESCE(SUM(output_tokens),0) output_tokens, "
+        "COALESCE(SUM(cache_read_tokens),0) cache_read_tokens, COALESCE(SUM(cache_creation_tokens),0) cache_creation_tokens, "
+        "COALESCE(SUM(web_searches),0) web_searches, COALESCE(SUM(web_fetches),0) web_fetches, "
+        "COALESCE(SUM(cost_usd),0) cost_usd, COALESCE(SUM(duration_s),0) duration_s")
+
+
+def _with_total(row: dict) -> dict:
+    row["ok_calls"] = row.get("ok_calls") or 0
+    row["total_tokens"] = (row["input_tokens"] + row["output_tokens"] + row["cache_read_tokens"] + row["cache_creation_tokens"])
+    return row
+
+
+def session_usage(session_id: int) -> dict:
+    return _with_total(db.one(f"SELECT {_SUM} FROM llm_calls WHERE session_id=?", (session_id,)))
+
+
+def usage() -> dict:
+    total = _with_total(db.one(f"SELECT {_SUM} FROM llm_calls"))
+    by_kind = [_with_total(r) for r in db.rows(f"SELECT kind, {_SUM} FROM llm_calls GROUP BY kind ORDER BY cost_usd DESC")]
+    by_model = [_with_total(r) for r in db.rows(f"SELECT COALESCE(model,'?') model, {_SUM} FROM llm_calls GROUP BY model ORDER BY cost_usd DESC")]
+    by_day = [_with_total(r) for r in db.rows(
+        f"SELECT date(created_at,'unixepoch','localtime') day, {_SUM} FROM llm_calls GROUP BY day ORDER BY day DESC LIMIT 30")][::-1]
+    by_session = [_with_total(r) for r in db.rows(
+        f"SELECT c.session_id, q.title, MIN(c.created_at) started, {_SUM} FROM llm_calls c JOIN sessions s ON s.id=c.session_id "
+        "JOIN questions q ON q.id=s.question_id GROUP BY c.session_id ORDER BY c.session_id DESC LIMIT 20")]
+    recent = db.rows("SELECT c.*, q.title FROM llm_calls c LEFT JOIN questions q ON q.id=c.question_id ORDER BY c.id DESC LIMIT 40")
+    first = db.one("SELECT MIN(created_at) t FROM llm_calls")
+    return {"total": total, "by_kind": by_kind, "by_model": by_model, "by_day": by_day, "by_session": by_session,
+            "recent": recent, "tracking_since": first["t"] if first else None}

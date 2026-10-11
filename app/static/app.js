@@ -23,6 +23,9 @@ const chip = (text, cls) => h('span', { class: 'chip ' + (cls || '') }, text);
 const spinner = () => h('span', { class: 'spinner' });
 const LEVELS = { below_senior: 'Below senior', senior: 'Senior', staff: 'Staff', senior_staff_plus: 'Senior staff+' };
 const SIGNALS = { strong_no: 'Strong no', lean_no: 'Lean no', lean_hire: 'Lean hire', strong_hire: 'Strong hire' };
+const fmtNum = (n) => Math.round(n || 0).toLocaleString();
+const fmtTok = (n) => n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(Math.round(n || 0));
+const fmtUsd = (n) => '$' + (n || 0).toFixed(2);
 const DIM_LABEL = (k) => k.replace(/_/g, ' ');
 
 async function api(path, opts) {
@@ -103,7 +106,7 @@ async function render() {
 }
 
 function renderNav(path) {
-  const items = [['#/', 'Home'], ['#/progress', 'Progress'], ['#/questions', 'Questions'], ['#/settings', 'Settings']];
+  const items = [['#/', 'Home'], ['#/progress', 'Progress'], ['#/questions', 'Questions'], ['#/usage', 'Usage'], ['#/settings', 'Settings']];
   document.getElementById('nav').replaceChildren(h('strong', {}, 'Design Coach'),
     ...items.map(([href, label]) => h('a', { href, class: (href.slice(1) === path || (href === '#/' && path.startsWith('/session'))) ? 'active' : '' }, label)));
 }
