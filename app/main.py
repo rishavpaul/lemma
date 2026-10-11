@@ -54,6 +54,15 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Staff System Design Coach", lifespan=lifespan)
 
 
+@app.middleware("http")
+async def no_cache_static(request, call_next):
+    """Always revalidate the front-end files so edits show up on a normal reload."""
+    resp = await call_next(request)
+    if request.url.path == "/" or request.url.path.startswith("/static/"):
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
 @app.get("/api/health")
 async def health():
     c = grader.get_health()
