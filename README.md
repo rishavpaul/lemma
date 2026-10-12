@@ -13,6 +13,25 @@ against a web-researched reference brief. A Progress page tracks you over many s
 - UI: Next.js (App Router) + Tailwind + shadcn/ui in `web/`, with Excalidraw for the diagram canvas. The Python API in `app/` is
   unchanged in role; the browser reaches it through Next's `/api` proxy (`web/next.config.ts`).
 
+## Features
+
+![Today screen: question of the day, streak and recent sessions](docs/screenshots/today.png)
+
+- **Speak your answer, section by section.** A timed, seven-part staff-level framework (scope, estimates, APIs and data,
+  high-level design, deep dives, reliability and ops, tradeoffs). The clock only runs while you record.
+- **Local speech-to-text.** Audio is transcribed on your Mac with Whisper; you fix the transcript before it is graded.
+- **Draw while you talk.** An Excalidraw canvas whose contents are read by the grader along with your answer.
+- **Graded against a researched answer key.** Each question gets a web-researched reference brief; every section gets a score,
+  evidence quotes, gaps and follow-up questions, plus an overall level and hire signal.
+- **Your choice of model.** Grade with your Claude subscription, or with free OpenRouter and Groq models. Set it per task.
+- **Library of questions.** Practice the built-in set, read each answer key, or add prompts from your own interviews.
+- **Progress over time.** Streaks, recurring gaps and a study list that grows from your sessions.
+- **Usage tracking.** Calls, tokens, cost and plan-limit use for every model call.
+
+![Library of questions with answer keys](docs/screenshots/library.png)
+
+![A session: prompt, section timer, record button and diagram canvas](docs/screenshots/session.png)
+
 ## Start
 
 ```bash
