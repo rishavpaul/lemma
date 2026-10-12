@@ -50,6 +50,17 @@ def _allow_microphone() -> None:
     objc.classAddMethods(cocoa.BrowserView.BrowserDelegate, [objc.selector(handler, selector=sel, signature=b"v@:@@@q@?")])
 
 
+def _restore_context_menu() -> None:
+    """pywebview empties WKWebView's right-click menu unless debug is on, which removes Copy and Reload."""
+    import objc
+    from webview.platforms import cocoa
+
+    def will_open_menu(self, menu, event):
+        pass
+
+    objc.classAddMethods(cocoa.BrowserView.WebKitHost, [objc.selector(will_open_menu, selector=b"willOpenMenu:withEvent:", signature=b"v@:@@")])
+
+
 def _single_instance() -> bool:
     """One app per data directory: two servers would both run the job queue against the same database."""
     import fcntl
@@ -106,8 +117,11 @@ def main() -> None:
     try:
         import webview
         _allow_microphone()
-        webview.create_window("Design Coach", url, width=1440, height=920, min_size=(900, 600), js_api=Bridge())
-        webview.start()
+        _restore_context_menu()
+        from webview.menu import Menu, MenuAction
+        window = webview.create_window("Design Coach", url, width=1440, height=920, min_size=(900, 600), js_api=Bridge())
+        reload_page = lambda: window.evaluate_js("location.reload()")  # noqa: E731
+        webview.start(menu=[Menu("Page", [MenuAction("Reload", reload_page)])])
     except ImportError:
         webbrowser.open(url)
         thread.join()

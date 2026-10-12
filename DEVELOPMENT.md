@@ -170,7 +170,7 @@ build machine. The build now refuses to trim a Python directory that is a symlin
 ### Versioning
 
 Set `VERSION` when building; it becomes `CFBundleShortVersionString` and `CFBundleVersion` (default `1.0.0`). Add what
-changed to `BUILD_LOG.md`.
+changed to `docs/BUILD_LOG.md`.
 
 ### Option A: share an unsigned build (friends, a small group)
 
@@ -230,4 +230,4 @@ Their data (`~/SystemDesignCoach`) and Keychain entries are untouched by a repla
 - [ ] Built with the new `VERSION`; DMG opens and the app copies to Applications
 - [ ] Tested on a fresh data directory (first-run guide, free-model path, Claude path)
 - [ ] If signed: `spctl` and `stapler validate` pass
-- [ ] `BUILD_LOG.md` updated, DMG uploaded
+- [ ] `docs/BUILD_LOG.md` updated, DMG uploaded

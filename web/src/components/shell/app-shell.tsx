@@ -56,6 +56,17 @@ function HealthBanner() {
 
 interface DesktopApi { open_external(url: string): Promise<void>; save_text(name: string, text: string): Promise<boolean> }
 
+/** WKWebView has no browser chrome, so give the desktop app Cmd/Ctrl+R to refresh. */
+function useReloadShortcut() {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "r") { e.preventDefault(); window.location.reload(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+}
+
 /** In the desktop app (WKWebView) target=_blank does nothing, so route those clicks to the native shell. */
 function useDesktopLinks() {
   useEffect(() => {
@@ -80,6 +91,7 @@ function useDesktopLinks() {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   useDesktopLinks();
+  useReloadShortcut();
   const { resolvedTheme, setTheme } = useTheme();
   const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
   const active = (href: string) => (href === "/" ? path === "/" || path.startsWith("/session") || path.startsWith("/report") : path.startsWith(href));
