@@ -1,6 +1,7 @@
 """FastAPI app, routes and startup."""
 import asyncio
 import logging
+import os
 import threading
 from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
@@ -11,12 +12,13 @@ import re
 import time
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 from pydantic import BaseModel
 
-from . import config, db, export, grader, jobs, pipeline, progress, transcribe
+from . import config, db, diagram as diagram_mod, export, grader, jobs, pipeline, progress, providers, transcribe
 
 log = logging.getLogger("coach")
 
@@ -40,6 +42,9 @@ async def lifespan(app: FastAPI):
     version = db.migrate()
     db.sync_questions()
     log.info("db ready, schema version %s", version)
+    swept = transcribe.sweep_audio()
+    if swept:
+        log.info("removed %d stale audio file(s)/folder(s)", swept)
     model = config.get_setting(db.connect(), "whisper_model")
     threading.Thread(target=transcribe.warm, args=(model,), daemon=True).start()
     health_task = asyncio.create_task(grader.check_health())
@@ -49,18 +54,10 @@ async def lifespan(app: FastAPI):
     stop.set()
     for t in workers + [health_task]:
         t.cancel()
+    grader.kill_children()
 
 
 app = FastAPI(title="Staff System Design Coach", lifespan=lifespan)
-
-
-@app.middleware("http")
-async def no_cache_static(request, call_next):
-    """Always revalidate the front-end files so edits show up on a normal reload."""
-    resp = await call_next(request)
-    if request.url.path == "/" or request.url.path.startswith("/static/"):
-        resp.headers["Cache-Control"] = "no-cache"
-    return resp
 
 
 @app.get("/api/health")
@@ -133,23 +130,29 @@ def session_payload(sid: int) -> dict:
     fw = {x["key"]: x for x in config.load_framework()}
     for sec in secs:
         sec["segments"] = json.loads(sec.pop("segments_json") or "[]")
+        sec["diagram"] = diagram_mod.normalize(json.loads(sec.pop("diagram_json"))) if sec.get("diagram_json") else None
         sec["title"] = fw.get(sec["key"], {}).get("title", sec["key"])
         sec["cover"] = fw.get(sec["key"], {}).get("cover", [])
-        g = db.one("SELECT id,model,status,result_json,duration_s,created_at FROM section_grades "
+        g = db.one("SELECT id,model,status,result_json,duration_s,created_at,raw_response FROM section_grades "
                    "WHERE section_id=? AND status='done' ORDER BY id DESC LIMIT 1", (sec["id"],))
+        sec["cost"] = progress.section_costs(sec["id"], g["model"] if g else None, g["raw_response"] if g else None)
         sec["grade"] = json.loads(g["result_json"]) if g else None
         sec["grade_meta"] = {k: g[k] for k in ("id", "model", "duration_s", "created_at")} if g else None
         sec["transcribe_job"] = _latest_job("transcribe", sec["id"])
         sec["grade_job"] = _latest_job("grade_section", sec["id"])
-    sg = db.one("SELECT id,model,status,result_json,duration_s,created_at FROM session_grades "
+        sec["probe"] = db.one("SELECT question,hint,answer,model,created_at,answered_at FROM probes WHERE section_id=?", (sec["id"],))
+        sec["probe_job"] = _latest_job("probe", sec["id"])
+    sg = db.one("SELECT id,model,status,result_json,duration_s,created_at,raw_response FROM session_grades "
                 "WHERE session_id=? AND status='done' ORDER BY id DESC LIMIT 1", (sid,))
     return {
-        "session": ses, "question": q, "sections": secs,
+        "session": {k: v for k, v in ses.items() if k != "diagram_json"}, "question": q, "sections": secs,
+        "diagram": diagram_mod.normalize(json.loads(ses["diagram_json"])) if ses.get("diagram_json") else diagram_mod.empty_diagram(),
         "research": research_status(ses["question_id"]),
         "grade": json.loads(sg["result_json"]) if sg else None,
         "grade_meta": {k: sg[k] for k in ("id", "model", "duration_s", "created_at")} if sg else None,
         "grade_job": _latest_job("grade_session", sid),
         "usage": progress.session_usage(sid),
+        "costs": progress.session_costs(sid, ses["question_id"], sg["model"] if sg else None, sg["raw_response"] if sg else None),
     }
 
 
@@ -277,20 +280,94 @@ async def upload_audio(sid: int, key: str, file: UploadFile = File(...)):
 class TranscriptBody(BaseModel):
     text: str
     duration_sec: float | None = None
+    diagram: dict | None = None  # canvas as of this save; snapshotted with the section
+    defer_grading: bool = False  # the section is about to be probed: it is graded once the probe is answered
+
+
+class DiagramBody(BaseModel):
+    format: str = diagram_mod.FORMAT
+    elements: list = []
+
+
+@app.put("/api/sessions/{sid}/diagram")
+async def save_diagram(sid: int, body: DiagramBody):
+    """Autosave of the live canvas."""
+    if not db.one("SELECT 1 FROM sessions WHERE id=?", (sid,)):
+        raise HTTPException(404, "session not found")
+    d = diagram_mod.normalize(body.model_dump())
+    blob = json.dumps(d)
+    if len(blob) > diagram_mod.MAX_SCENE_BYTES:
+        raise HTTPException(413, "diagram is too large to save")
+    db.execute("UPDATE sessions SET diagram_json=? WHERE id=?", (blob, sid))
+    return {"ok": True, "elements": len(d["elements"])}
 
 
 @app.put("/api/sessions/{sid}/sections/{key}/transcript")
 async def save_transcript(sid: int, key: str, body: TranscriptBody):
     sec = _section(sid, key)
     dur = body.duration_sec if body.duration_sec and body.duration_sec > 0 else sec["duration_sec"]
-    db.execute("UPDATE sections SET transcript_edited=?, duration_sec=?, status='saved' WHERE id=?",
-               (body.text, dur, sec["id"]))
+    if body.diagram is not None:
+        db.execute("UPDATE sessions SET diagram_json=? WHERE id=?", (json.dumps(diagram_mod.normalize(body.diagram)), sid))
+    ses = db.one("SELECT diagram_json FROM sessions WHERE id=?", (sid,))
+    db.execute("UPDATE sections SET transcript_edited=?, duration_sec=?, status='saved', diagram_json=? WHERE id=?",
+               (body.text, dur, ses["diagram_json"], sec["id"]))
+    transcribe.purge_audio(sec["id"])  # saved: the transcript is final, the recording is no longer needed
+    if body.defer_grading:
+        return {"job_id": None}
     return {"job_id": jobs.enqueue("grade_section", sec["id"])}
+
+
+class ProbeAnswer(BaseModel):
+    text: str
+
+
+@app.post("/api/sessions/{sid}/sections/{key}/probe")
+async def start_probe(sid: int, key: str):
+    """Ask the interviewer to probe this (saved) section. One probe per section; needs the answer key."""
+    sec = _section(sid, key)
+    if sec["status"] != "saved":
+        raise HTTPException(400, "save the section first")
+    ses = db.one("SELECT question_id FROM sessions WHERE id=?", (sid,))
+    if not pipeline.latest_brief(ses["question_id"]):
+        raise HTTPException(409, "The answer key is still being prepared. Try again in a moment.")
+    row = db.one("SELECT question FROM probes WHERE section_id=?", (sec["id"],))
+    if row and row["question"]:
+        raise HTTPException(409, "this section was already probed")
+    if not row:
+        db.execute("INSERT INTO probes(section_id,created_at) VALUES(?,?)", (sec["id"], time.time()))
+    return {"job_id": jobs.enqueue("probe", sec["id"])}
+
+
+@app.put("/api/sessions/{sid}/sections/{key}/probe/answer")
+async def answer_probe(sid: int, key: str, body: ProbeAnswer):
+    sec = _section(sid, key)
+    row = db.one("SELECT question FROM probes WHERE section_id=?", (sec["id"],))
+    if not row or not row["question"]:
+        raise HTTPException(400, "no probe to answer")
+    if not body.text.strip():
+        raise HTTPException(400, "answer is empty")
+    db.execute("UPDATE probes SET answer=?, answered_at=? WHERE section_id=?", (body.text.strip(), time.time(), sec["id"]))
+    return {"job_id": jobs.enqueue("grade_section", sec["id"])}  # the probed section is graded now, with the exchange
+
+
+@app.delete("/api/sessions/{sid}/sections/{key}/probe")
+async def skip_probe(sid: int, key: str):
+    """Drop a probe that never produced a question (failed or stuck), so the candidate is not blocked."""
+    sec = _section(sid, key)
+    row = db.one("SELECT question FROM probes WHERE section_id=?", (sec["id"],))
+    if row and row["question"]:
+        raise HTTPException(409, "the probe is already asked: answer it")
+    db.execute("DELETE FROM jobs WHERE type='probe' AND ref_id=? AND status!='running'", (sec["id"],))
+    db.execute("DELETE FROM probes WHERE section_id=?", (sec["id"],))
+    return {"job_id": jobs.enqueue("grade_section", sec["id"])}  # no probe after all: grade the section as usual
 
 
 @app.post("/api/sessions/{sid}/finish")
 async def finish_session(sid: int):
     session_payload(sid)
+    if db.one("SELECT 1 FROM probes p JOIN sections s ON s.id=p.section_id WHERE s.session_id=? AND p.question IS NOT NULL "
+              "AND p.answer IS NULL", (sid,)):
+        raise HTTPException(400, "answer the open probe first")
     unsaved = db.one("SELECT COUNT(*) n FROM sections WHERE session_id=? AND status!='saved'", (sid,))["n"]
     if unsaved:
         raise HTTPException(400, f"{unsaved} section(s) not saved yet")
@@ -325,8 +402,13 @@ async def delete_session(sid: int):
     session_payload(sid)
     conn = db.connect()
     secs = [r["id"] for r in db.rows("SELECT id FROM sections WHERE session_id=?", (sid,))]
+    ph = ",".join("?" * len(secs)) or "NULL"
+    if db.one(f"SELECT 1 FROM jobs WHERE status='running' AND ((type IN ('transcribe','grade_section','probe') AND ref_id IN ({ph})) "
+              "OR (type='grade_session' AND ref_id=?))", (*secs, sid)):
+        raise HTTPException(409, "A job for this session is still running. Try again in a moment.")
+    conn.execute("UPDATE study_items SET source_session_id=NULL WHERE source_session_id=?", (sid,))
     for sec in secs:
-        conn.execute("DELETE FROM jobs WHERE type IN ('transcribe','grade_section') AND ref_id=?", (sec,))
+        conn.execute("DELETE FROM jobs WHERE type IN ('transcribe','grade_section','probe') AND ref_id=?", (sec,))
     conn.execute("DELETE FROM jobs WHERE type='grade_session' AND ref_id=?", (sid,))
     conn.execute("DELETE FROM sessions WHERE id=?", (sid,))  # sections, grades, gaps cascade
     conn.commit()
@@ -440,7 +522,7 @@ class Regrade(BaseModel):
 async def regrade(sid: int, body: Regrade):
     session_payload(sid)
     override = None if body.model == "default" else body.model
-    if override and override not in config.MODEL_CHOICES and not override.startswith("claude-"):
+    if override and override not in config.MODEL_CHOICES and not override.startswith("claude-") and not providers.valid_model_setting(override):
         raise HTTPException(400, "unknown model")
     # "default" clears the override so each task uses its own model setting
     db.execute("UPDATE sessions SET model=?, status='grading', finished_at=? WHERE id=?", (override, time.time(), sid))
@@ -465,9 +547,75 @@ async def put_settings(body: dict):
     return config.all_settings(db.connect())
 
 
-@app.get("/")
-async def index():
-    return FileResponse(config.STATIC_DIR / "index.html")
+# ---- providers (API keys + model lists) ------------------------------------------------
+
+def _provider(name: str) -> str:
+    if name not in providers.PROVIDERS:
+        raise HTTPException(404, "unknown provider")
+    return name
 
 
-app.mount("/static", StaticFiles(directory=config.STATIC_DIR), name="static")
+class KeyBody(BaseModel):
+    key: str
+
+
+@app.get("/api/providers")
+async def get_providers():
+    return providers.key_status()
+
+
+@app.put("/api/providers/{name}/key")
+async def put_provider_key(name: str, body: KeyBody):
+    name = _provider(name)
+    key = body.key.strip()
+    try:
+        await providers.test_key(name, key)  # a bad paste must not overwrite a working key
+        providers.set_key(name, key)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return providers.key_status()
+
+
+@app.delete("/api/providers/{name}/key")
+async def delete_provider_key(name: str):
+    providers.delete_key(_provider(name))
+    return providers.key_status()
+
+
+@app.get("/api/providers/{name}/models")
+async def provider_models(name: str):
+    try:
+        return await providers.list_models(_provider(name))
+    except RuntimeError as e:
+        raise HTTPException(502, str(e))
+
+
+@app.post("/api/providers/{name}/use")
+async def use_provider_for_grading(name: str):
+    """One click for people without Claude: grade sections and the overall result with this provider's best free model."""
+    name = _provider(name)
+    if not providers.get_key(name):
+        raise HTTPException(400, "Add an API key for this provider first.")
+    try:
+        models = await providers.list_models(name)
+    except RuntimeError as e:
+        raise HTTPException(502, str(e))
+    chosen = providers.recommend(models)
+    if not chosen:
+        raise HTTPException(502, "No suitable model was found. Pick one in Settings.")
+    config.put_settings(db.connect(), {"model_section": f"{name}:{chosen}", "model_holistic": f"{name}:{chosen}"})
+    return {"model": f"{name}:{chosen}"}
+
+
+# ---- UI --------------------------------------------------------------------------------
+
+# The bundled app (and `STATIC_EXPORT=1 npm run build`) serves the exported UI from this same process.
+WEB_DIR = Path(os.environ.get("SD_COACH_WEB") or Path(__file__).resolve().parent.parent / "web" / "out")
+
+if (WEB_DIR / "index.html").exists():
+    app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
+else:
+    @app.get("/")
+    async def index():
+        """In development the UI is the Next.js dev server; this API only serves /api."""
+        return RedirectResponse(os.environ.get("WEB_URL", "http://127.0.0.1:3000"))

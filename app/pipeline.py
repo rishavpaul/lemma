@@ -5,10 +5,11 @@ import re
 import time
 
 from . import config, db, grader, jobs, prompts
+from . import diagram as diagram_mod
 
 log = logging.getLogger("coach.pipeline")
 
-TIMEOUTS = {"research": 900, "grade_section": 600, "grade_session": 900}
+TIMEOUTS = {"research": 900, "grade_section": 600, "grade_session": 900, "probe": 240}
 
 
 # ---------- validation ----------
@@ -85,6 +86,18 @@ def normalize_section(res: dict, known: dict) -> dict:
     return res
 
 
+NO_WEB_NOTE = ("\n\nWeb tools are NOT available in this call. Ignore the instruction above to use WebSearch/WebFetch. Fact-check only "
+               "against the reference brief and cite its URLs; if a claim cannot be checked against the brief, say it is unverified "
+               "rather than asserting or correcting it.")
+
+
+def grader_system(q: dict, brief: dict | None, known: dict) -> str:
+    """System prompt shared by the section and session graders. Everything in it is identical for every call about this
+    question, so the CLI's prompt cache serves it to all of them. Keep per-call text out of it."""
+    return (config.load_text("grader_system_prompt.md") + "\n\n" + config.load_text("rubric.md").split("## Section anchors")[0]
+            + "\n\n" + prompts.stable_context(q, brief, known))
+
+
 def validate_holistic(res: dict, schema: dict) -> str | None:
     err = check_schema(res, schema)
     if err:
@@ -159,6 +172,13 @@ def latest_brief(question_id: int) -> dict | None:
     return json.loads(r["brief_json"]) if r and r["brief_json"] else None
 
 
+def _load_diagram(raw: str | None) -> dict | None:
+    try:
+        return diagram_mod.normalize(json.loads(raw)) if raw else None
+    except ValueError:
+        return None
+
+
 def _raise(res: dict) -> None:
     raise jobs.JobError(res["error_kind"] or "other", res["error"] or "unknown error")
 
@@ -204,7 +224,8 @@ def _section_texts(session_id: int) -> list[dict]:
     out = []
     for s in db.rows("SELECT * FROM sections WHERE session_id=? ORDER BY ord", (session_id,)):
         g = db.one("SELECT result_json FROM section_grades WHERE section_id=? AND status='done' ORDER BY id DESC LIMIT 1", (s["id"],))
-        out.append({"key": s["key"], "title": fw.get(s["key"], {}).get("title", s["key"]), "text": s["transcript_edited"] or "",
+        p = db.one("SELECT question,hint,answer FROM probes WHERE section_id=? AND question IS NOT NULL AND answer IS NOT NULL", (s["id"],))
+        out.append({"probe": p, "key": s["key"], "title": fw.get(s["key"], {}).get("title", s["key"]), "text": s["transcript_edited"] or "",
                     "duration_sec": s["duration_sec"], "budget_sec": s["budget_sec"], "grade": json.loads(g["result_json"]) if g else None,
                     "id": s["id"]})
     return out
@@ -228,16 +249,21 @@ async def handle_grade_section(job: dict) -> None:
     fw_sec = next(s for s in fw if s["key"] == sec["key"])
     brief = latest_brief(q["id"])
     texts = _section_texts(ses["id"])
-    earlier = [{"title": t["title"], "text": t["text"]} for t in texts[:sec["ord"] - 1]]
+    probe = db.one("SELECT question,hint,answer FROM probes WHERE section_id=? AND question IS NOT NULL AND answer IS NOT NULL", (sec["id"],))
+    # a probed section is graded once, on its own context (no earlier sections), with the probe exchange
+    earlier = None if probe else [{"title": t["title"], "text": t["text"], "probe": t["probe"]} for t in texts[:sec["ord"] - 1]]
     this = {"title": fw_sec["title"], "text": sec["transcript_edited"] or "", "duration_sec": sec["duration_sec"], "budget_sec": sec["budget_sec"]}
     known = config.load_gap_tags()
     schema = config.load_schema("section")
-    payload = prompts.section(q, brief, fw_sec, config.rubric_section(sec["key"]), known, earlier, this)
+    dg = _load_diagram(sec["diagram_json"])
+    if not diagram_mod.is_empty(dg):
+        schema = diagram_mod.augment_schema(schema)
+    payload = prompts.section(fw_sec, config.rubric_section(sec["key"]), earlier, this, dg, probe)
     model = task_model(ses, "section")
     cpath = _settings()[1]
-    res = await grader.run_claude("grade_section", config.load_text("grader_system_prompt.md") + "\n\n" + config.load_text("rubric.md").split("## Section anchors")[0],
+    res = await grader.run_claude("grade_section", grader_system(q, brief, known) + NO_WEB_NOTE,
                                   payload, schema, model, TIMEOUTS["grade_section"], cpath, lambda r: validate_section(r, schema),
-                                  {"session_id": ses["id"], "question_id": q["id"]})
+                                  {"session_id": ses["id"], "question_id": q["id"], "section_id": sec["id"]}, web=False)
     if not res["ok"]:
         _raise(res)
     result = normalize_section(res["structured"], known)
@@ -265,9 +291,12 @@ async def handle_grade_session(job: dict) -> None:
                      "top_gaps": [x["tag"] + ": " + x["description"] for x in r["top_gaps"]], "drill": r["drill_for_next_session"]})
     known = config.load_gap_tags()
     schema = config.load_schema("holistic")
-    payload = prompts.holistic(q, brief, known, texts, prev)
+    dg = _load_diagram(ses["diagram_json"])
+    if not diagram_mod.is_empty(dg):
+        schema = diagram_mod.augment_schema(schema)
+    payload = prompts.holistic(texts, prev, dg)
     model = task_model(ses, "holistic")
-    res = await grader.run_claude("grade_session", config.load_text("grader_system_prompt.md") + "\n\n" + config.load_text("rubric.md").split("## Section anchors")[0],
+    res = await grader.run_claude("grade_session", grader_system(q, brief, known),
                                   payload, schema, model, TIMEOUTS["grade_session"], _settings()[1], lambda r: validate_holistic(r, schema),
                                   {"session_id": ses["id"], "question_id": q["id"]})
     if not res["ok"]:
@@ -282,3 +311,38 @@ async def handle_grade_session(job: dict) -> None:
                      (ses["id"], g["tag"], g["description"]))
     conn.execute("UPDATE sessions SET status='done' WHERE id=?", (ses["id"],))
     conn.commit()
+
+
+def validate_probe(res: dict) -> str | None:
+    if not str(res.get("question") or "").strip() or not str(res.get("hint") or "").strip():
+        return "question and hint must both be non-empty"
+    return None
+
+
+@jobs.register("probe")
+async def handle_probe(job: dict) -> None:
+    sec = db.one("SELECT * FROM sections WHERE id=?", (job["ref_id"],))
+    ses = db.one("SELECT * FROM sessions WHERE id=?", (sec["session_id"],))
+    q = db.one("SELECT * FROM questions WHERE id=?", (ses["question_id"],))
+    fw_sec = next(s for s in config.load_framework() if s["key"] == sec["key"])
+    texts = [t for t in _section_texts(ses["id"]) if t["id"] is not None]
+    mine = next(i for i, t in enumerate(texts) if t["id"] == sec["id"])
+    # the window starts after the most recent earlier section that already got a probe
+    start = 0
+    for i in range(mine - 1, -1, -1):
+        if texts[i]["probe"]:
+            start = i + 1
+            break
+    earlier = [{"title": t["title"], "text": t["text"], "probe": t["probe"]} for t in texts[:start]]
+    window = [{"title": t["title"], "text": t["text"]} for t in texts[start:mine + 1]]
+    brief = latest_brief(q["id"])
+    schema = config.load_schema("probe")
+    payload = prompts.probe(fw_sec, earlier, window, _load_diagram(sec["diagram_json"]))
+    model = task_model(ses, "section")
+    res = await grader.run_claude("probe", config.load_text("probe_system_prompt.md") + "\n\n" + prompts.stable_context(q, brief), payload, schema, model, TIMEOUTS["probe"],
+                                  _settings()[1], validate_probe, {"session_id": ses["id"], "question_id": q["id"], "section_id": sec["id"]})
+    if not res["ok"]:
+        _raise(res)
+    r = res["structured"]
+    db.execute("UPDATE probes SET question=?, hint=?, model=? WHERE section_id=?",
+               (str(r["question"]).strip(), str(r["hint"]).strip(), model, sec["id"]))

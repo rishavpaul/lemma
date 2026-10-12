@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 
 from . import config
+from . import diagram as diagram_mod
 
 LEVELS = {"below_senior": "Below senior", "senior": "Senior", "staff": "Staff", "senior_staff_plus": "Senior staff+"}
 SIGNALS = {"strong_no": "Strong no", "lean_no": "Lean no", "lean_hire": "Lean hire", "strong_hire": "Strong hire"}
@@ -36,9 +37,24 @@ def session_markdown(p: dict) -> str:
         L += ["", f"### Drill for next session", "", g["drill_for_next_session"], "", "### Model answer outline", "", g["model_answer_outline"], ""]
     else:
         L += ["*Holistic grade not available yet.*", ""]
+    costs = []
+    def _row(label, c):
+        if c:
+            money = "not reported" if not c["reported"] else f"≈${c['cost_usd']:.3f}"
+            costs.append(f"| {label} | {c['model'] or '?'} | {c['total_tokens']:,} | {money} |")
+    _row("Answer key", (p.get("costs") or {}).get("answer_key"))
+    for s in p["sections"]:
+        _row(f"{s['ord']}. {s['title']}", (s.get("cost") or {}).get("grade"))
+        _row(f"{s['ord']}. {s['title']}: probe question", (s.get("cost") or {}).get("probe"))
+    _row("Overall grade", (p.get("costs") or {}).get("overall"))
+    if costs:
+        L += ["## Models and cost", "", "| Task | Model | Tokens | Cost |", "|---|---|---|---|"] + costs + [""]
     L += ["## Sections", ""]
     for s in p["sections"]:
         L += [f"### {s['ord']}. {s['title']}", "", f"Time: {_mmss(s['duration_sec'])} of {_mmss(s['budget_sec'])} budget", ""]
+        pr = s.get("probe")
+        if pr and pr.get("question"):
+            L += ["**Interviewer probe** — " + pr["question"], f"Nudge: {pr.get('hint') or ''}", f"Your answer: {pr.get('answer') or '(no answer)'}", ""]
         sg = s["grade"]
         if sg:
             L += [f"**Score {sg['score']} ({LEVELS[sg['level_signal']]})** — {sg['summary']}", ""]
@@ -56,6 +72,11 @@ def session_markdown(p: dict) -> str:
                                            for f in sg["fact_checks"]] + [""]
             if sg["interviewer_followups"]:
                 L += ["**Interviewer follow-ups**"] + [f"- {x}" for x in sg["interviewer_followups"]] + [""]
+        if sg and sg.get("diagram_review"):
+            r = sg["diagram_review"]
+            L += ["**Diagram review** — " + r["assessment"], ""] + [f"- ({i['severity']}) {i['issue']} Suggestion: {i['suggestion']}" for i in r["issues"]] + [""]
+        if s.get("diagram") and not diagram_mod.is_empty(s["diagram"]):
+            L += ["<details><summary>Diagram as saved</summary>", "", "```", diagram_mod.render_text(s["diagram"]), "```", "", "</details>", ""]
         L += ["<details><summary>Transcript</summary>", "", s["transcript_edited"] or "(empty)", "", "</details>", ""]
     srcs = {}
     for src in (g["sources"] if g else []) + [x for s in p["sections"] if s["grade"] for x in s["grade"]["sources"]]:

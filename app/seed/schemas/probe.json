@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "properties": {
+    "question": {"type": "string", "description": "The interviewer's probing question, 1-3 sentences, spoken to the candidate"},
+    "hint": {"type": "string", "description": "A short nudge toward what the candidate should consider next, 1-2 sentences, without revealing the answer"}
+  },
+  "required": ["question", "hint"]
+}

@@ -75,6 +75,21 @@ MIGRATIONS.append("""
 """)
 
 
+MIGRATIONS.append("""
+    ALTER TABLE sessions ADD COLUMN diagram_json TEXT;
+    ALTER TABLE sections ADD COLUMN diagram_json TEXT;
+""")
+MIGRATIONS.append("""
+    ALTER TABLE llm_calls ADD COLUMN section_id INTEGER;
+    CREATE INDEX idx_llm_calls_section ON llm_calls(section_id);
+""")
+MIGRATIONS.append("""
+    CREATE TABLE probes(
+        id INTEGER PRIMARY KEY, section_id INTEGER NOT NULL UNIQUE REFERENCES sections(id) ON DELETE CASCADE,
+        question TEXT, hint TEXT, answer TEXT, model TEXT, created_at REAL NOT NULL, answered_at REAL);
+""")
+
+
 def record_plan_usage(info: dict) -> None:
     """Store a plan-limit snapshot from the CLI's rate_limit_event (utilization is a 0-1 fraction)."""
     w = info.get("unifiedWindows") or {}
@@ -101,15 +116,15 @@ def usage_fields(data) -> dict:
 
 
 def record_call(kind: str, model: str | None, ok: bool, error_kind, duration_s: float, raw, session_id=None,
-                question_id=None, created_at: float | None = None) -> None:
+                question_id=None, created_at: float | None = None, section_id=None) -> None:
     f = usage_fields(raw)
     conn = connect()
     conn.execute("INSERT INTO llm_calls(created_at,kind,model,session_id,question_id,ok,error_kind,duration_s,input_tokens,"
-                 "output_tokens,cache_read_tokens,cache_creation_tokens,web_searches,web_fetches,num_turns,cost_usd) "
-                 "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                 "output_tokens,cache_read_tokens,cache_creation_tokens,web_searches,web_fetches,num_turns,cost_usd,section_id) "
+                 "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                  (created_at or time.time(), kind, model, session_id, question_id, int(ok), error_kind, duration_s,
                   f["input_tokens"], f["output_tokens"], f["cache_read_tokens"], f["cache_creation_tokens"],
-                  f["web_searches"], f["web_fetches"], f["num_turns"], f["cost_usd"]))
+                  f["web_searches"], f["web_fetches"], f["num_turns"], f["cost_usd"], section_id))
     conn.commit()
 
 

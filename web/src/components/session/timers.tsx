@@ -1,0 +1,34 @@
+"use client";
+import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
+import { mmss } from "@/lib/format";
+
+function useNow(ms: number) {
+  const [now, set] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => set(Date.now()), ms);
+    return () => clearInterval(t);
+  }, [ms]);
+  return now;
+}
+
+/** Countdown for the current section. Counts recording time only; turns amber at 80% and coral when over. */
+export function SectionTimer({ getUsedSec, budget }: { getUsedSec: (now: number) => number; budget: number }) {
+  const now = useNow(250);
+  const used = getUsedSec(now);
+  const over = used > budget, warn = used > budget * 0.8;
+  return (
+    <div>
+      <div className={cn("num text-[2.6rem] font-semibold leading-none", over ? "text-coral" : warn ? "text-signal" : "text-foreground")} aria-live="off">{mmss(budget - used)}</div>
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-border" role="progressbar" aria-valuemin={0} aria-valuemax={budget} aria-valuenow={Math.min(used, budget)} aria-label="Section time used">
+        <div className={cn("h-full rounded-full transition-[width] duration-300", over ? "bg-coral" : warn ? "bg-signal" : "bg-mint")} style={{ width: `${Math.min(100, (used / budget) * 100)}%` }} />
+      </div>
+    </div>
+  );
+}
+
+export function TotalTimer({ getStart }: { getStart: () => number | null }) {
+  const now = useNow(1000);
+  const s = getStart();
+  return <span className="num text-sm text-muted-foreground" title="Time since you first pressed record">{s ? mmss((now - s) / 1000) : "00:00"}</span>;
+}

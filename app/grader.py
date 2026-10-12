@@ -1,19 +1,23 @@
-"""The only place that runs the `claude` CLI (print mode, subscription login)."""
+"""The only place that calls a model: the `claude` CLI (print mode, subscription login) or an
+OpenAI-compatible provider (see providers.py)."""
 import asyncio
 import json
 import logging
 import os
+import pwd
+import re
 import shutil
 import time
 from pathlib import Path
 from typing import Callable
 
-from . import config, db
+from . import config, db, providers
 
 log = logging.getLogger("coach.grader")
 
 STRIPPED_ENV = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN",
                 "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY")
+_children: set = set()  # live `claude -p` subprocesses, killed on shutdown so they don't linger as orphans
 DISALLOWED = "Bash,Read,Write,Edit,Glob,Grep,NotebookEdit,Task,Agent"
 
 _health: dict = {"claude_ok": None, "version": None, "error": None, "path": None, "checked_at": None}
@@ -32,8 +36,34 @@ def find_claude(override: str = "") -> str | None:
     return None
 
 
+def kill_children() -> None:
+    for proc in list(_children):
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass
+    _children.clear()
+
+
+def _drop_cli_transcript(session_id: str | None) -> None:
+    """`claude -p` keeps a transcript of every call under ~/.claude/projects/<sandbox>/. The result is already stored, so remove it."""
+    if not session_id or not str(session_id).replace("-", "").isalnum():
+        return
+    root = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "projects"
+    folder = root / re.sub(r"[^A-Za-z0-9]", "-", str(config.SANDBOX_DIR))
+    try:
+        (folder / f"{session_id}.jsonl").unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def clean_env() -> dict:
-    return {k: v for k, v in os.environ.items() if k not in STRIPPED_ENV}
+    env = {k: v for k, v in os.environ.items() if k not in STRIPPED_ENV}
+    # The claude CLI finds its login in the Keychain by $USER, and an app started from Finder may not have it.
+    user = env.get("USER") or env.get("LOGNAME") or pwd.getpwuid(os.getuid()).pw_name
+    env["USER"] = env["LOGNAME"] = user
+    env.setdefault("HOME", str(Path.home()))
+    return env
 
 
 def _classify(text: str) -> str:
@@ -50,7 +80,7 @@ def _fail(kind: str, error: str, raw, dur: float) -> dict:
 
 
 async def _once(kind: str, system_prompt: str, payload: str, schema: dict, model: str,
-                timeout_s: int, claude_path: str) -> dict:
+                timeout_s: int, claude_path: str, web: bool = True) -> dict:
     path = find_claude(claude_path)
     t0 = time.time()
     if not path:
@@ -58,21 +88,29 @@ async def _once(kind: str, system_prompt: str, payload: str, schema: dict, model
     config.SANDBOX_DIR.mkdir(parents=True, exist_ok=True)
     cmd = [path, "-p", "--system-prompt", system_prompt, "--output-format", "stream-json", "--verbose",
            "--json-schema", json.dumps(schema), "--model", model,
-           "--tools", "WebSearch,WebFetch", "--strict-mcp-config",
-           "--allowedTools", "WebSearch,WebFetch", "--disallowedTools", DISALLOWED,
-           "--permission-mode", "dontAsk"]
+           "--tools", "WebSearch,WebFetch" if web else "", "--strict-mcp-config",
+           "--allowedTools", "WebSearch,WebFetch" if web else "", "--disallowedTools", DISALLOWED,
+           "--permission-mode", "dontAsk",
+           # no CLAUDE.md, hooks, plugins or skills from the user's setup: grading must not depend on them, and they cost tokens
+           "--safe-mode", "--disable-slash-commands"]
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE, cwd=str(config.SANDBOX_DIR), env=clean_env())
     except OSError as e:
         return _fail("other", f"cannot start claude: {e}", None, time.time() - t0)
+    _children.add(proc)
     try:
         out, err = await asyncio.wait_for(proc.communicate(payload.encode()), timeout=timeout_s)
     except asyncio.TimeoutError:
         proc.kill()
         await proc.wait()
         return _fail("timeout", f"timed out after {timeout_s}s", None, time.time() - t0)
+    except asyncio.CancelledError:
+        proc.kill()
+        raise
+    finally:
+        _children.discard(proc)
     dur = time.time() - t0
     stdout, stderr = out.decode(errors="replace"), err.decode(errors="replace")
     data, limits = None, None
@@ -89,6 +127,8 @@ async def _once(kind: str, system_prompt: str, payload: str, schema: dict, model
             limits = ev.get("rate_limit_info")
     if limits:
         db.record_plan_usage(limits)
+    if data is not None:
+        _drop_cli_transcript(data.get("session_id"))
     if data is None:
         text = (stderr or stdout)[:2000]
         return _fail(_classify(text), text or f"exit {proc.returncode}, no result event", stdout[:2000], dur)
@@ -106,29 +146,35 @@ async def _once(kind: str, system_prompt: str, payload: str, schema: dict, model
 
 async def run_claude(kind: str, system_prompt: str, payload: str, schema: dict, model: str,
                      timeout_s: int, claude_path: str = "",
-                     validator: Callable[[dict], str | None] | None = None, ref: dict | None = None) -> dict:
+                     validator: Callable[[dict], str | None] | None = None, ref: dict | None = None, web: bool = True) -> dict:
     """Run one structured call. `validator` returns an error string (or None); on failure retry once
     with the error appended to the payload."""
     ref = ref or {}
+    provider, provider_model = providers.parse_model(model)
+
+    async def once(payload: str) -> dict:
+        if provider:
+            return await providers.chat_json(provider, provider_model, system_prompt, payload, schema, timeout_s)
+        return await _once(kind, system_prompt, payload, schema, model, timeout_s, claude_path, web)
 
     def tracked(r: dict) -> dict:
-        db.record_call(kind, model, r["ok"], r["error_kind"], r["duration_s"], r["raw"], ref.get("session_id"), ref.get("question_id"))
+        db.record_call(kind, model, r["ok"], r["error_kind"], r["duration_s"], r["raw"], ref.get("session_id"), ref.get("question_id"), section_id=ref.get("section_id"))
         return r
 
-    res = tracked(await _once(kind, system_prompt, payload, schema, model, timeout_s, claude_path))
+    res = tracked(await once(payload))
     if res["ok"] and validator:
         problem = validator(res["structured"])
         if problem:
             retry_payload = (payload + "\n\n<validation_error>\nYour previous answer was rejected: "
                              + problem + "\nFix this and answer again.\n</validation_error>")
-            res2 = tracked(await _once(kind, system_prompt, retry_payload, schema, model, timeout_s, claude_path))
+            res2 = tracked(await once(retry_payload))
             res2["duration_s"] += res["duration_s"]
             if res2["ok"]:
                 problem2 = validator(res2["structured"])
                 if problem2:
                     res2 = _fail("schema", problem2, res2["raw"], res2["duration_s"])
             res = res2
-    log.info("claude call kind=%s model=%s duration=%.1fs ok=%s error_kind=%s",
+    log.info("llm call kind=%s model=%s duration=%.1fs ok=%s error_kind=%s",
              kind, model, res["duration_s"], res["ok"], res["error_kind"])
     return res
 

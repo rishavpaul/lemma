@@ -109,6 +109,45 @@ def _with_total(row: dict) -> dict:
     return row
 
 
+def _call_cost(model: str | None, rows: list[dict] | None = None, raw: str | None = None) -> dict | None:
+    """Model + cost for one task, from its ledger rows (all attempts) or, for older data, the stored raw response."""
+    if rows:
+        agg = _with_total({"input_tokens": sum(r["input_tokens"] for r in rows), "output_tokens": sum(r["output_tokens"] for r in rows),
+                           "cache_read_tokens": sum(r["cache_read_tokens"] for r in rows),
+                           "cache_creation_tokens": sum(r["cache_creation_tokens"] for r in rows)})
+        cost, dur, calls = sum(r["cost_usd"] for r in rows), sum(r["duration_s"] or 0 for r in rows), len(rows)
+    elif raw:
+        try:
+            f = db.usage_fields(json.loads(raw))
+        except (TypeError, ValueError):
+            return None
+        agg = _with_total({k: f[k] for k in ("input_tokens", "output_tokens", "cache_read_tokens", "cache_creation_tokens")})
+        cost, dur, calls = f["cost_usd"], None, 1
+    else:
+        return None
+    # non-Claude providers (OpenRouter, Groq) report no price: cost_usd is then 0 and shown as "not reported"
+    return {"model": model, "cost_usd": cost, "reported": cost > 0, "total_tokens": agg["total_tokens"], "duration_s": dur, "calls": calls}
+
+
+def section_costs(section_id: int, grade_model: str | None, grade_raw: str | None) -> dict:
+    g = db.rows("SELECT * FROM llm_calls WHERE section_id=? AND kind='grade_section'", (section_id,))
+    p = db.rows("SELECT * FROM llm_calls WHERE section_id=? AND kind='probe'", (section_id,))
+    probe_model = db.one("SELECT model FROM probes WHERE section_id=?", (section_id,))
+    return {"grade": _call_cost(grade_model, g, grade_raw) if (g or grade_raw) else None,
+            "probe": _call_cost(probe_model["model"] if probe_model else None, p) if p else None}
+
+
+def session_costs(session_id: int, question_id: int, overall_model: str | None, overall_raw: str | None) -> dict:
+    o = db.rows("SELECT * FROM llm_calls WHERE session_id=? AND kind='grade_session' ORDER BY id DESC LIMIT 1", (session_id,))
+    rs = db.one("SELECT model, created_at FROM research WHERE question_id=? AND status='done' ORDER BY id DESC LIMIT 1", (question_id,))
+    key = None
+    if rs:
+        rows = db.rows("SELECT * FROM llm_calls WHERE kind='research' AND question_id=? AND ok=1 AND created_at<=? ORDER BY id DESC LIMIT 1",
+                       (question_id, rs["created_at"] + 5))
+        key = _call_cost(rs["model"], rows) if rows else {"model": rs["model"], "cost_usd": 0, "reported": False, "total_tokens": 0, "duration_s": None, "calls": 0}
+    return {"overall": _call_cost(overall_model, o, overall_raw) if (o or overall_raw) else None, "answer_key": key}
+
+
 def session_usage(session_id: int) -> dict:
     return _with_total(db.one(f"SELECT {_SUM} FROM llm_calls WHERE session_id=?", (session_id,)))
 

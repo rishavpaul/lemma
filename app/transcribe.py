@@ -117,6 +117,65 @@ def transcribe_wav(wav: Path, model: str, vocabulary: str) -> dict:
     return {"text": text, "segments": cleaned, "dropped": len(segs) - len(cleaned)}
 
 
+# ---- audio lifecycle ------------------------------------------------------------
+# .wav: only needed while Whisper runs. .webm/.mp4: until the section is saved (re-record replaces it).
+# After that the edited transcript is all the app (and the graders) use.
+
+def _unlink(path) -> None:
+    if path:
+        try:
+            Path(path).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _rmdir_if_empty(folder: Path) -> None:
+    try:
+        folder.rmdir()
+    except OSError:
+        pass
+
+
+def purge_wav(sec_id: int) -> None:
+    sec = db.one("SELECT wav_path FROM sections WHERE id=?", (sec_id,))
+    if sec:
+        _unlink(sec["wav_path"])
+
+
+def purge_audio(sec_id: int) -> None:
+    """Delete both files of a section's recording."""
+    sec = db.one("SELECT audio_path, wav_path FROM sections WHERE id=?", (sec_id,))
+    if not sec:
+        return
+    for path in (sec["audio_path"], sec["wav_path"]):
+        _unlink(path)
+        if path:
+            _rmdir_if_empty(Path(path).parent)
+    db.execute("UPDATE sections SET audio_path=NULL, wav_path=NULL WHERE id=?", (sec_id,))
+
+
+def sweep_audio() -> int:
+    """Startup clean-up: recordings of saved sections, wavs already transcribed, and folders of deleted sessions."""
+    n = 0
+    for sec in db.rows("SELECT id, status, audio_path, wav_path FROM sections WHERE audio_path IS NOT NULL OR wav_path IS NOT NULL"):
+        if sec["status"] == "saved":
+            purge_audio(sec["id"])
+            n += 1
+        elif sec["status"] == "transcribed" and sec["wav_path"] and Path(sec["wav_path"]).exists():
+            purge_wav(sec["id"])
+            n += 1
+    live = {str(r["id"]) for r in db.rows("SELECT id FROM sessions")}
+    if config.AUDIO_DIR.exists():
+        for d in config.AUDIO_DIR.iterdir():
+            if d.is_dir() and d.name not in live:
+                import shutil
+                shutil.rmtree(d, ignore_errors=True)
+                n += 1
+            elif d.is_dir():
+                _rmdir_if_empty(d)
+    return n
+
+
 # ---- job handler ----------------------------------------------------------
 import asyncio
 import json
@@ -145,5 +204,6 @@ async def handle_transcribe(job: dict) -> None:
     db.execute("UPDATE sections SET transcript_raw=?, transcript_edited=?, segments_json=?, duration_sec=?, "
                "status='transcribed' WHERE id=?",
                (result["text"], result["text"], json.dumps(result["segments"]), dur, sec["id"]))
+    purge_wav(sec["id"])  # the recording itself stays until the section is saved (re-record, retry)
     log.info("transcribed section %s: %.1fs audio in %.1fs, dropped %d segments", sec["id"], dur,
              time.time() - t0, result["dropped"])

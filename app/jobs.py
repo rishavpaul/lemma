@@ -10,7 +10,7 @@ from . import config, db
 log = logging.getLogger("coach.jobs")
 
 TRANSCRIBE_TYPES = ("transcribe",)
-CLAUDE_TYPES = ("research", "grade_section", "grade_session")
+CLAUDE_TYPES = ("research", "grade_section", "grade_session", "probe")
 TERMINAL = ("done", "failed")
 
 # type -> async handler(job: dict) -> None. A handler raises JobError to fail with a classified error.
@@ -62,6 +62,8 @@ def _ready(job: dict) -> bool:
         if d and d["status"] not in TERMINAL:
             return False
     if job["type"] == "grade_section":
+        if db.one("SELECT 1 FROM probes WHERE section_id=? AND answer IS NULL", (job["ref_id"],)):
+            return False  # waits for the candidate's probe answer
         sec = db.one("SELECT s.session_id, ses.question_id FROM sections s JOIN sessions ses ON ses.id=s.session_id "
                      "WHERE s.id=?", (job["ref_id"],))
         if sec and db.one("SELECT 1 FROM jobs WHERE type='research' AND ref_id=? AND status IN ('queued','running')",
@@ -82,7 +84,8 @@ def _claim(types: tuple[str, ...]) -> dict | None:
     if not types:
         return None
     q = ",".join("?" * len(types))
-    for job in db.rows(f"SELECT * FROM jobs WHERE status='queued' AND type IN ({q}) ORDER BY id", types):
+    # a probe goes first: the candidate is waiting on it
+    for job in db.rows(f"SELECT * FROM jobs WHERE status='queued' AND type IN ({q}) ORDER BY (type!='probe'), id", types):
         if _ready(job):
             db.execute("UPDATE jobs SET status='running', started_at=?, attempts=attempts+1 WHERE id=?",
                        (time.time(), job["id"]))

@@ -9,7 +9,6 @@ import yaml
 
 APP_DIR = Path(__file__).resolve().parent
 SEED_DIR = APP_DIR / "seed"
-STATIC_DIR = APP_DIR / "static"
 
 # SD_COACH_HOME allows pointing the app at a scratch directory; default is the real data dir.
 DATA_DIR = Path(os.environ.get("SD_COACH_HOME", Path.home() / "SystemDesignCoach")).expanduser()
@@ -123,14 +122,19 @@ def all_settings(conn: sqlite3.Connection) -> dict:
 
 
 def put_settings(conn: sqlite3.Connection, data: dict) -> None:
+    from . import providers  # late import: providers reads paths from this module
     for k, v in data.items():
         if k == "vocabulary":
             (CONFIG_DIR / "vocabulary.txt").write_text(str(v), encoding="utf-8")
         elif k in DEFAULT_SETTINGS:
             if k == "claude_concurrency":
                 v = str(max(1, min(2, int(v))))
-            if k.startswith("model_") and v not in MODEL_CHOICES and not str(v).startswith("claude-"):
-                raise ValueError(f"unknown model {v!r} for {k}")
+            if k.startswith("model_"):
+                v = str(v)
+                if not (v in MODEL_CHOICES or v.startswith("claude-") or providers.valid_model_setting(v)):
+                    raise ValueError(f"unknown model {v!r} for {k}")
+                if k == "model_research" and providers.parse_model(v)[0]:
+                    raise ValueError("Research needs live web search, which only Claude provides here.")
             if k == "show_feedback_live":
                 v = "1" if v in (True, 1, "1", "true") else "0"
             conn.execute("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",

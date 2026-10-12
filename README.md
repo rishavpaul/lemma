@@ -7,7 +7,9 @@ against a web-researched reference brief. A Progress page tracks you over many s
 - Speech-to-text: `mlx-whisper` (`large-v3-turbo`), fully local and free.
 - Grading and research: the `claude` CLI in print mode (`claude -p`) through your **Claude Pro subscription**. No API key is
   used; `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` are stripped from the subprocess environment.
-- Everything is stored under `~/SystemDesignCoach/`. The server binds to `127.0.0.1` only.
+- Everything is stored under `~/SystemDesignCoach/`. Both servers bind to `127.0.0.1` only.
+- UI: Next.js (App Router) + Tailwind + shadcn/ui in `web/`, with Excalidraw for the diagram canvas. The Python API in `app/` is
+  unchanged in role; the browser reaches it through Next's `/api` proxy (`web/next.config.ts`).
 
 ## Start
 
@@ -16,20 +18,59 @@ cd sd-coach
 ./run.sh            # creates .venv, installs deps, starts the server, opens http://127.0.0.1:8765
 ```
 
-Needs `uv` and `ffmpeg` (`brew install uv ffmpeg`) and a logged-in `claude` CLI. `PORT=9000 ./run.sh` changes the port,
-`NO_OPEN=1 ./run.sh` skips opening the browser. The first launch downloads the Whisper model (about 1.5 GB) in the background;
+Needs `uv`, `ffmpeg` and `node` (`brew install uv ffmpeg node`) and a logged-in `claude` CLI. `./run.sh` starts the API on
+`:8765` and the web UI on `:3000` (open http://127.0.0.1:3000). `PORT=9000 WEB_PORT=4000 ./run.sh` changes the ports,
+`NO_OPEN=1 ./run.sh` skips opening the browser, `DEV=1 ./run.sh` runs the UI with hot reload. The UI is rebuilt automatically
+when `web/src` changes. The first launch downloads the Whisper model (about 1.5 GB) in the background;
 the Settings page shows its state.
+
+## Other models (OpenRouter, Groq)
+
+Settings > **API keys** takes an OpenRouter and/or a Groq key (stored in the macOS Keychain, checked against the provider before
+saving). Then each of **Section grading** and **Overall grade** can use Claude, OpenRouter or Groq, with the model list fetched
+from the provider (free OpenRouter models are listed first). The report's **Re-grade** control has the same picker, so you can
+grade one session with another model and compare. Research stays on Claude: it needs live web search.
+Models are stored as `openrouter:<id>` / `groq:<id>`; calls go through `app/providers.py` (OpenAI-compatible chat API, JSON
+schema output with a plain-JSON fallback) and use the same validate-and-retry path as Claude.
+Free tiers are rate limited (OpenRouter `:free` about 50 requests/day, Groq about 8k tokens/minute on some models), so a
+grading job can end in "rate limit"; use Retry on the report.
+
+## Mac app
+
+(Architecture, testing and publishing: see [DEVELOPMENT.md](DEVELOPMENT.md).)
+
+`./packaging/build_app.sh` builds `dist/Design Coach.app` (Apple Silicon): its own Python, ffmpeg and the exported UI, served by
+the API in one process inside a native window (pywebview). No node, uv or ffmpeg needed to run it. `DMG=1` also writes a
+.dmg. The app is ad-hoc signed, so on another Mac use right-click > Open the first time. The `claude` CLI is only needed
+if you use Claude models. Whisper weights download on first launch.
 
 ## Using it
 
 1. **Home** -> "Start suggested question" (picks one that stresses your weakest dimensions), "Random", or pick one.
-2. In the runner, press **Record** (or Space), talk through the section, **Stop**. Wait for the transcript, fix it,
+2. In the runner, press **Start talking** (or Space), talk through the section, **Stop**, and draw the system on the canvas as you go. Wait for the transcript, fix it,
    then **Save & Next** (⌘↵). The countdown goes amber at 80% of the budget and red when over.
 3. After the last section, **Save & Finish** takes you to the report, which fills in as grading jobs complete.
 4. **Progress** shows the score trend, the 10 dimensions, time vs budget, recurring gaps and your study queue.
 
 Reloading mid-session resumes at the first unsaved section. The first session on a question also runs a research job
 (web search for how real systems do it); section grading waits for it.
+
+## The diagram canvas
+
+The right half of the session runner is a canvas for the system diagram: add typed components (client, gateway, service, database,
+cache, queue, stream, ...), draw connections between them (label them, mark them sync or async), group things in boundaries
+(region, AZ, VPC), and drop notes. Click a component to add details the grader will read ("Postgres, sharded by user_id").
+It autosaves; undo/redo with Cmd/Ctrl+Z.
+
+**How it is graded.** `claude -p` runs without file tools, so it cannot see an image. The canvas is sent as text instead
+(`app/diagram.py`): every component with its type, notes and boundary, every connection with direction, label and sync/async,
+plus computed facts (unconnected components, unlabeled edges, stores nothing writes to). Each section is graded against the
+canvas as it stood when you saved that section (so the report can show how the drawing grew); the overall grade sees the final
+canvas. The grader is told to treat the drawing as part of the answer, credit what is drawn but unsaid, flag contradictions
+between drawing and narration, ignore layout aesthetics, and treat a missing diagram in high-level design and deep dives as a
+gap. Graded sections and the overall grade gain a `diagram_review` (assessment, issues with suggested fixes, said-vs-drawn
+mismatches). That field is added to the output schema in code, so your edited files in `config/schemas/` keep working.
+The report has a Diagram tab with read-only snapshots, and the markdown export includes the diagram text.
 
 ## Where things live
 
