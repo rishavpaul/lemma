@@ -8,8 +8,8 @@ import pwd
 import re
 import shutil
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from . import config, db, providers
 
@@ -102,7 +102,7 @@ async def _once(kind: str, system_prompt: str, payload: str, schema: dict, model
     _children.add(proc)
     try:
         out, err = await asyncio.wait_for(proc.communicate(payload.encode()), timeout=timeout_s)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         await proc.wait()
         return _fail("timeout", f"timed out after {timeout_s}s", None, time.time() - t0)

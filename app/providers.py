@@ -257,7 +257,7 @@ async def chat_json(provider: str, model: str, system: str, payload: str, schema
 
     try:
         data = await asyncio.wait_for(asyncio.to_thread(_chat_sync, provider, model, system, payload, schema, timeout_s), timeout_s + 5)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return fail("timeout", f"timed out after {timeout_s}s")
     except HttpError as e:
         return fail(_classify(e), _err_text(e), {"status": e.status, "body": e.body[:2000]})

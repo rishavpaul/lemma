@@ -79,7 +79,6 @@ class ProbeFlow(unittest.TestCase):
             self.assertEqual(c.delete(f"/api/sessions/{sid}").status_code, 200)
 
     def test_probed_section_prompt_is_self_contained(self):
-        q = {"title": "T", "prompt": "P", "crux_hints": ""}
         fw = {"key": "k", "title": "K", "cover": ["c"], "staff_bar": "bar"}
         probe = {"question": "Q?", "hint": "H", "answer": "A"}
         txt = prompts.section(fw, "anchors", None, {"title": "K", "text": "initial", "budget_sec": 60}, None, probe)
@@ -95,7 +94,6 @@ class ProbeFlow(unittest.TestCase):
         probe = {"question": "Q?", "hint": "H", "answer": "A"}
         self.assertIn("PROMPTED FOLLOW-UP", prompts.probe_text(probe))
         self.assertEqual(prompts.probe_text(None), "")
-        q = {"title": "T", "prompt": "P", "crux_hints": ""}
         fw = {"key": "k", "title": "K", "cover": ["c"], "staff_bar": "bar"}
         txt = prompts.section(fw, "anchors", [{"title": "E", "text": "t", "probe": probe}],
                               {"title": "K", "text": "x", "budget_sec": 60})

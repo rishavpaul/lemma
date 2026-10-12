@@ -3,7 +3,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 from . import config, db
 

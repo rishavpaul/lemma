@@ -53,6 +53,7 @@ def _allow_microphone() -> None:
 def _single_instance() -> bool:
     """One app per data directory: two servers would both run the job queue against the same database."""
     import fcntl
+
     from . import config
     config.DATA_DIR.mkdir(parents=True, exist_ok=True)
     global _lock

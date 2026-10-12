@@ -1,0 +1,27 @@
+[project]
+name = "sd-coach"
+version = "0.1.0"
+description = "Local-only practice app for staff-level system design interviews"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "python-multipart",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+# Apple Silicon only; imported lazily so tests run without it.
+whisper = ["mlx-whisper"]
+desktop = ["pywebview"]
+dev = ["ruff"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501", "E402", "E702", "E731"]

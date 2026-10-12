@@ -1,6 +1,4 @@
 """Session -> markdown."""
-import json
-import time
 from datetime import datetime
 
 from . import config
@@ -34,7 +32,7 @@ def session_markdown(p: dict) -> str:
             L += ["", "### Recurring patterns"] + [f"- {x}" for x in g["recurring_patterns_vs_previous"]]
         L += ["", "### Study plan"] + [f"{i}. **{x['concept']}** — {x['why']} ({x['resource']})"
                                         for i, x in enumerate(sorted(g["study_plan"], key=lambda x: x["priority"]), 1)]
-        L += ["", f"### Drill for next session", "", g["drill_for_next_session"], "", "### Model answer outline", "", g["model_answer_outline"], ""]
+        L += ["", "### Drill for next session", "", g["drill_for_next_session"], "", "### Model answer outline", "", g["model_answer_outline"], ""]
     else:
         L += ["*Holistic grade not available yet.*", ""]
     costs = []

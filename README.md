@@ -1,5 +1,7 @@
 # Staff System Design Coach
 
+[![CI](https://github.com/rishavpaul/sd-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/rishavpaul/sd-coach/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A local-only practice app for system design interviews. You answer out loud, section by section, using one fixed
 seven-part staff-level framework. Each clip is transcribed locally with Whisper, you fix the transcript, and Claude grades it
 against a web-researched reference brief. A Progress page tracks you over many sessions.
@@ -119,3 +121,11 @@ Re-grading a session repeats the 8 calls.
 - **"p99" transcribed oddly.** Add the term to the vocabulary in Settings; edit the transcript before saving anyway.
 - **Grading seems stuck.** Research runs first and can take several minutes; the report shows what is pending. Failed jobs
   show their error with a Retry button. Logs: `~/SystemDesignCoach/logs/app.log`.
+
+## Contributing, license, disclaimer
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [DEVELOPMENT.md](DEVELOPMENT.md). Licensed under the [MIT License](LICENSE).
+
+This is an independent project, not affiliated with or endorsed by Anthropic. Grading through the `claude` CLI uses your own
+logged-in account; you are responsible for complying with Anthropic's terms for that account. Grading and research text is
+sent to the provider you choose (Claude, OpenRouter or Groq); audio and transcription stay on your machine.

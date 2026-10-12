@@ -28,8 +28,8 @@ def warm(model: str) -> None:
     _state.update(whisper_loading=True, whisper_error=None)
     t0 = time.time()
     try:
-        import numpy as np
         import mlx_whisper
+        import numpy as np
         with _lock:
             mlx_whisper.transcribe(np.zeros(16000, dtype=np.float32), path_or_hf_repo=model, language="en")
         _state.update(whisper_loaded=True)

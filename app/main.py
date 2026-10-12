@@ -1,24 +1,23 @@
 """FastAPI app, routes and startup."""
 import asyncio
+import json
 import logging
 import os
-import threading
-from contextlib import asynccontextmanager
-from logging.handlers import RotatingFileHandler
-
-import json
 import random
 import re
+import threading
 import time
+from contextlib import asynccontextmanager
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
-
 from pydantic import BaseModel
 
-from . import config, db, diagram as diagram_mod, export, grader, jobs, pipeline, progress, providers, transcribe
+from . import config, db, export, grader, jobs, pipeline, progress, providers, transcribe
+from . import diagram as diagram_mod
 
 log = logging.getLogger("coach")
 
