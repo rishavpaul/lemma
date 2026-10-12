@@ -61,6 +61,30 @@ def _restore_context_menu() -> None:
     objc.classAddMethods(cocoa.BrowserView.WebKitHost, [objc.selector(will_open_menu, selector=b"willOpenMenu:withEvent:", signature=b"v@:@@")])
 
 
+def _add_edit_menu() -> None:
+    """Our custom menu bar has no Edit menu, so Cmd+C/V/X/A never reach WKWebView. Add the standard one."""
+    from PyObjCTools import AppHelper
+
+    def build():
+        from AppKit import NSApplication, NSMenu, NSMenuItem
+        main_menu = NSApplication.sharedApplication().mainMenu()
+        if main_menu is None:
+            return
+        edit = NSMenu.alloc().initWithTitle_("Edit")
+        for title, action, key in (("Undo", b"undo:", "z"), ("Redo", b"redo:", "Z"), (None, None, None),
+                                   ("Cut", b"cut:", "x"), ("Copy", b"copy:", "c"), ("Paste", b"paste:", "v"),
+                                   ("Select All", b"selectAll:", "a")):
+            if title is None:
+                edit.addItem_(NSMenuItem.separatorItem())
+                continue
+            edit.addItem_(NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, action, key))
+        holder = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("Edit", None, "")
+        holder.setSubmenu_(edit)
+        main_menu.insertItem_atIndex_(holder, min(1, main_menu.numberOfItems()))
+
+    AppHelper.callAfter(build)
+
+
 def _single_instance() -> bool:
     """One app per data directory: two servers would both run the job queue against the same database."""
     import fcntl
@@ -119,9 +143,9 @@ def main() -> None:
         _allow_microphone()
         _restore_context_menu()
         from webview.menu import Menu, MenuAction
-        window = webview.create_window("Design Coach", url, width=1440, height=920, min_size=(900, 600), js_api=Bridge())
+        window = webview.create_window("Design Coach", url, width=1440, height=920, min_size=(900, 600), js_api=Bridge(), text_select=True)
         reload_page = lambda: window.evaluate_js("location.reload()")  # noqa: E731
-        webview.start(menu=[Menu("Page", [MenuAction("Reload", reload_page)])])
+        webview.start(_add_edit_menu, menu=[Menu("Page", [MenuAction("Reload", reload_page)])])
     except ImportError:
         webbrowser.open(url)
         thread.join()
