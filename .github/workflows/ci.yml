@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv venv --python 3.12
-      - run: uv pip install fastapi "uvicorn[standard]" python-multipart pyyaml ruff
+      - run: uv pip install fastapi "uvicorn[standard]" python-multipart pyyaml httpx2 ruff
       - run: .venv/bin/ruff check app tests
       - run: .venv/bin/python -m unittest discover -s tests
 

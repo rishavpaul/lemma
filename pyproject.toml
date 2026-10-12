@@ -16,7 +16,7 @@ dependencies = [
 # Apple Silicon only; imported lazily so tests run without it.
 whisper = ["mlx-whisper"]
 desktop = ["pywebview"]
-dev = ["ruff"]
+dev = ["ruff", "httpx2"]  # httpx2 is required by starlette.testclient
 
 [tool.ruff]
 line-length = 130
