@@ -26,6 +26,7 @@ export default function ProgressPage() {
   const prov = useProviders();
   const [queued, setQueued] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [explained, setExplained] = useState<Record<string, { model: string; text?: string; loading?: boolean }>>({});
   const [confirmClear, setConfirmClear] = useState(false);
   const { data: imp, setData: setImp } = useApi<ImprovementReport | null>("/api/improvements/latest",
     (d) => (d && d.status !== "done" && d.job?.status !== "failed" ? 3000 : false));
@@ -46,6 +47,17 @@ export default function ProgressPage() {
       setItems([r, ...study.filter((x) => x.id !== r.id)]);
       setQueued(new Set(queued).add(c.concept.toLowerCase()));
     } catch (e) { toast.error((e as Error).message); }
+  }
+  async function explain(c: ImprovementConcept, m: "sonnet" | "opus" | "free") {
+    const k = c.concept;
+    setExplained((e) => ({ ...e, [k]: { model: m, loading: true } }));
+    try {
+      const r = await api<{ explanation: string }>("/api/explain", { method: "POST", body: { concept: c.concept, why: c.why, key_ideas: c.key_ideas, model: m } });
+      setExplained((e) => ({ ...e, [k]: { model: m, text: r.explanation } }));
+    } catch (e) {
+      toast.error((e as Error).message);
+      setExplained((x) => Object.fromEntries(Object.entries(x).filter(([key]) => key !== k)));
+    }
   }
   const recent = [...p.timeline].reverse().slice(0, 15);  // newest first
   const chosen = picked ?? recent.slice(0, 5).map((x) => x.session_id);
@@ -114,6 +126,13 @@ export default function ProgressPage() {
                   <p className="mt-2 text-sm">{c.why}</p>
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">{c.key_ideas.map((x, j) => <li key={j}>{x}</li>)}</ul>
                   <p className="mt-2 text-xs text-muted-foreground">Study: {c.study}</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Explain with</span>
+                    {([["sonnet", "Sonnet"], ["opus", "Opus"], ["free", "Free (Nemotron)"]] as const).map(([m, label]) => (
+                      <Button key={m} size="sm" variant="outline" disabled={explained[c.concept]?.loading} onClick={() => explain(c, m)}>{label}</Button>))}
+                    {explained[c.concept]?.loading && <span className="text-xs text-muted-foreground">Thinking with {explained[c.concept].model}...</span>}
+                  </div>
+                  {explained[c.concept]?.text && <div className="mt-3 whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-sm">{explained[c.concept].text}</div>}
                 </div>))}
             </div>)}
         </Panel>
