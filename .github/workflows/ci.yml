@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
       - run: uv venv --python 3.12
       - run: uv pip install fastapi "uvicorn[standard]" python-multipart pyyaml httpx2 ruff
       - run: .venv/bin/ruff check app tests
