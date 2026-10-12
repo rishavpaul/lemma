@@ -10,7 +10,7 @@ from . import config, db
 log = logging.getLogger("coach.jobs")
 
 TRANSCRIBE_TYPES = ("transcribe",)
-CLAUDE_TYPES = ("research", "grade_section", "grade_session", "probe")
+CLAUDE_TYPES = ("research", "grade_section", "grade_session", "probe", "improvement")
 TERMINAL = ("done", "failed")
 
 # type -> async handler(job: dict) -> None. A handler raises JobError to fail with a classified error.

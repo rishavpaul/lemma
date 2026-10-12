@@ -24,15 +24,20 @@ def session_markdown(p: dict) -> str:
               g["verdict"], "", "### Dimension scores", "", "| Dimension | Score | Rationale |", "|---|---|---|"]
         for k, d in g["dimension_scores"].items():
             L.append(f"| {k.replace('_', ' ')} | {d['score']} | {d['rationale'].replace('|', '/')} |")
-        L += ["", "### Top gaps"] + [f"- **{x['tag']}** — {x['description']} *Fix:* {x['how_to_fix']}" for x in g["top_gaps"]]
         L += ["", "### Strengths"] + [f"- {x}" for x in g["strengths"]]
         if g["improvements_vs_previous"]:
             L += ["", "### Improvements vs previous"] + [f"- {x}" for x in g["improvements_vs_previous"]]
         if g["recurring_patterns_vs_previous"]:
             L += ["", "### Recurring patterns"] + [f"- {x}" for x in g["recurring_patterns_vs_previous"]]
-        L += ["", "### Study plan"] + [f"{i}. **{x['concept']}** — {x['why']} ({x['resource']})"
-                                        for i, x in enumerate(sorted(g["study_plan"], key=lambda x: x["priority"]), 1)]
-        L += ["", "### Drill for next session", "", g["drill_for_next_session"], "", "### Model answer outline", "", g["model_answer_outline"], ""]
+        L += ["", "### Study plan"] + [f"{i}. **{x['concept']}** — {x['why']} ({x['resource']})" for i, x in enumerate(p.get("study_plan") or [], 1)]
+        L += ["", "### Drill for next session", "", g["drill_for_next_session"], ""]
+        f = g.get("interview_focus")
+        if f:
+            L += ["### What to explain in the hour", "", f["shape"], ""]
+            L += [f"{i}. **{x['topic']}** (~{round(x['minutes'])} min) — {x['explain']}" for i, x in enumerate(f["priorities"], 1)]
+            if f["can_skip"]:
+                L += ["", "Can skip or say in one line:"] + [f"- {x}" for x in f["can_skip"]]
+            L.append("")
     else:
         L += ["*Holistic grade not available yet.*", ""]
     costs = []
@@ -56,23 +61,19 @@ def session_markdown(p: dict) -> str:
         sg = s["grade"]
         if sg:
             L += [f"**Score {sg['score']} ({LEVELS[sg['level_signal']]})** — {sg['summary']}", ""]
-            if sg["strengths"]:
-                L += ["**Strengths**"] + [f"- {x}" for x in sg["strengths"]] + [""]
-            if sg["gaps"]:
-                L += ["**Gaps**"]
-                for x in sg["gaps"]:
-                    L += [f"- `{x['tag']}` ({x['severity']}) — {x['description']}",
-                          f"  - Why it matters at staff: {x['why_it_matters_at_staff']}",
-                          f"  - A staff answer sounds like: {x['what_a_staff_answer_sounds_like']}"]
-                L.append("")
-            if sg["fact_checks"]:
+            if sg.get("gap_summary"):
+                L += ["**Gaps**", "", sg["gap_summary"], ""]
+            elif sg.get("gaps"):  # grade written before gaps became a summary
+                L += ["**Gaps**"] + [f"- `{x['tag']}` ({x['severity']}) — {x['description']}" for x in sg["gaps"]] + [""]
+            lr = sg.get("language_review")
+            if lr:
+                L += [f"**Wording and terminology ({lr['register'].replace('_', ' ')})** — {lr['assessment']}", ""]
+                L += [f"- You said: \"{x['said']}\" — {x['problem']} Staff phrasing: {x['better']}" for x in lr["issues"]] + [""] if lr["issues"] else []
+            if sg.get("concepts_writeup"):
+                L += ["**What to learn**", "", sg["concepts_writeup"], ""]
+            if sg.get("fact_checks"):
                 L += ["**Fact checks**"] + [f"- {f['verdict']}: {f['claim']} — {f['explanation']}" + (f" ({f['url']})" if f.get("url") else "")
                                            for f in sg["fact_checks"]] + [""]
-            if sg["interviewer_followups"]:
-                L += ["**Interviewer follow-ups**"] + [f"- {x}" for x in sg["interviewer_followups"]] + [""]
-        if sg and sg.get("diagram_review"):
-            r = sg["diagram_review"]
-            L += ["**Diagram review** — " + r["assessment"], ""] + [f"- ({i['severity']}) {i['issue']} Suggestion: {i['suggestion']}" for i in r["issues"]] + [""]
         if s.get("diagram") and not diagram_mod.is_empty(s["diagram"]):
             L += ["<details><summary>Diagram as saved</summary>", "", "```", diagram_mod.render_text(s["diagram"]), "```", "", "</details>", ""]
         L += ["<details><summary>Transcript</summary>", "", s["transcript_edited"] or "(empty)", "", "</details>", ""]

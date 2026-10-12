@@ -38,15 +38,15 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false), [checking, setChecking] = useState(false);
   if (!f || !h.data) return <Page><Skeleton className="h-96 w-full" /></Page>;
   const set = (k: string, v: string) => setF({ ...f, [k]: v });
-  const model = (k: string, claudeOnly = false) => <ModelPicker value={f[k]} onChange={(v) => set(k, v)} providers={prov.data} claudeOnly={claudeOnly} />;
+  const model = (k: string, claudeOnly = false, allowDefault = false) => <ModelPicker value={f[k]} onChange={(v) => set(k, v)} providers={prov.data} claudeOnly={claudeOnly} allowDefault={allowDefault} />;
   const hl = h.data;
   const ok = (v: boolean) => (v ? <Pill tone="mint">ok</Pill> : <Pill tone="coral">problem</Pill>);
 
   async function save() {
     setSaving(true);
     try {
-      const { model_research, model_section, model_holistic, claude_concurrency, show_feedback_live, claude_path, whisper_model, vocabulary } = f!;
-      await api("/api/settings", { method: "PUT", body: { model_research, model_section, model_holistic, claude_concurrency, show_feedback_live, claude_path: claude_path.trim(), whisper_model: whisper_model.trim(), vocabulary } });
+      const { model_research, model_section, model_holistic, model_improvement, claude_concurrency, show_feedback_live, claude_path, whisper_model, vocabulary } = f!;
+      await api("/api/settings", { method: "PUT", body: { model_research, model_section, model_holistic, model_improvement, claude_concurrency, show_feedback_live, claude_path: claude_path.trim(), whisper_model: whisper_model.trim(), vocabulary } });
       toast.success("Settings saved");
     } catch (e) { toast.error("Could not save", { description: (e as Error).message }); }
     setSaving(false);
@@ -73,6 +73,7 @@ export default function SettingsPage() {
         <Row label="Research model" hint="Runs once per question and becomes the answer key. Needs live web search, so it runs on Claude only."><div>{model("model_research", true)}</div></Row>
         <Row label="Section grading model" hint="7 calls per session. Pick Claude, or a model from OpenRouter or Groq (free models work)."><div>{model("model_section")}</div></Row>
         <Row label="Overall grade model" hint="1 call per session: level, study plan and drill. Hardest judgment call, so test an open model before relying on it."><div>{model("model_holistic")}</div></Row>
+        <Row label="Concepts review model" hint="1 call each time you press Find concepts to study on the Progress page. &quot;Default models&quot; uses the Overall grade model. You can also pick a model per run there."><div>{model("model_improvement", false, true)}</div></Row>
         <Row label="Concurrent grading calls" hint="1 is safest for Claude plan limits and free-tier rate limits."><select className={field} value={f.claude_concurrency} onChange={(e) => set("claude_concurrency", e.target.value)}><option>1</option><option>2</option></select></Row>
         <Row label="Show feedback after each section" hint="Default for new sessions."><Switch checked={f.show_feedback_live === "1"} onCheckedChange={(v) => set("show_feedback_live", v ? "1" : "0")} /></Row>
         <Row label="Path to the claude CLI" hint="Leave empty to auto-detect."><input className={field} value={f.claude_path} placeholder="auto-detect" onChange={(e) => set("claude_path", e.target.value)} /></Row>

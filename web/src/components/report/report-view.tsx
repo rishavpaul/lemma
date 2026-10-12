@@ -14,7 +14,6 @@ import { Markdown } from "@/components/markdown";
 import { DiagramCanvas } from "@/components/canvas/diagram-canvas";
 import { diagramSize, emptyDiagram } from "@/components/canvas/legacy";
 import { DimensionChart, TimeChart } from "./charts";
-import { DiagramReviewCard } from "./diagram-review";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { cn } from "@/lib/utils";
@@ -94,38 +93,45 @@ function SectionCard({ s, reload }: { s: Sec; reload: () => void }) {
       {open && g && (
         <div className="space-y-5 border-t px-4 py-4 pl-11 text-sm">
           {g.ungrounded && <div className="rounded-md border border-signal/40 bg-signal/10 p-2 text-signal">Ungrounded: graded from general knowledge (no reference brief).</div>}
-          <p>{g.summary}</p>
-          {g.evidence.length > 0 && (
-            <details><summary className="cursor-pointer font-medium">Evidence ({g.evidence.length})</summary>
-              <div className="mt-2 space-y-3">{g.evidence.map((e, i) => <div key={i}><blockquote className="border-l-2 pl-3 italic text-muted-foreground">“{e.quote}”</blockquote><p className="mt-1">{e.observation}</p></div>)}</div></details>
-          )}
-          {g.strengths.length > 0 && <div><h4 className="mb-1 font-medium">Strengths</h4><ul className="list-disc space-y-1 pl-5">{g.strengths.map((x) => <li key={x}>{x}</li>)}</ul></div>}
-          {g.gaps.length > 0 && (
+          <p className="leading-relaxed">{g.summary}</p>
+          {g.gap_summary ? (
+            <div><h4 className="mb-1 font-medium">Where it fell short</h4>
+              <p className="leading-relaxed">{g.gap_summary}</p>
+              {g.gaps.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{g.gaps.map((x, i) => <Pill key={i} tone={x.severity === "high" ? "coral" : x.severity === "medium" ? "signal" : "muted"}>{x.tag}</Pill>)}</div>}
+            </div>
+          ) : g.gaps.length > 0 && (
             <div className="space-y-2"><h4 className="font-medium">Gaps</h4>
               {g.gaps.map((x, i) => (
                 <div key={i} className="rounded-lg border bg-background p-3">
-                  <div className="mb-1 flex items-center gap-2"><Pill tone={x.severity === "high" ? "coral" : x.severity === "medium" ? "signal" : "muted"}>{x.tag}</Pill></div>
+                  <div className="mb-1"><Pill tone={x.severity === "high" ? "coral" : x.severity === "medium" ? "signal" : "muted"}>{x.tag}</Pill></div>
                   <p>{x.description}</p>
-                  <p className="mt-1 text-muted-foreground">Why it matters at staff: {x.why_it_matters_at_staff}</p>
-                  <p className="mt-2 rounded-md bg-accent/60 p-2"><b>A staff answer sounds like: </b>{x.what_a_staff_answer_sounds_like}</p>
+                  {x.what_a_staff_answer_sounds_like && <p className="mt-2 rounded-md bg-accent/60 p-2"><b>A staff answer sounds like: </b>{x.what_a_staff_answer_sounds_like}</p>}
                 </div>
               ))}
             </div>
           )}
-          {g.diagram_review && <DiagramReviewCard r={g.diagram_review} />}
-          {g.interviewer_followups.length > 0 && <div><h4 className="mb-1 font-medium">Interviewer follow-ups</h4><ul className="list-disc space-y-1 pl-5">{g.interviewer_followups.map((x) => <li key={x}>{x}</li>)}</ul></div>}
-          {g.fact_checks.length > 0 && (
-            <div><h4 className="mb-1 font-medium">Fact checks</h4><ul className="space-y-2">{g.fact_checks.map((f, i) => (
-              <li key={i}><Pill tone={f.verdict === "correct" ? "mint" : f.verdict === "incorrect" ? "coral" : "signal"}>{f.verdict.replace("_", " ")}</Pill> {f.claim}. <span className="text-muted-foreground">{f.explanation}</span>{f.url && <a className="ml-1 inline-flex items-center gap-0.5 text-signal underline underline-offset-2" href={f.url} target="_blank" rel="noopener noreferrer">source<ExternalLink className="size-3" /></a>}</li>
-            ))}</ul></div>
+          {g.language_review && (
+            <div><h4 className="mb-1 flex items-center gap-2 font-medium">Wording and terminology <Pill tone={g.language_review.register === "staff" ? "mint" : g.language_review.register === "mixed" ? "signal" : "coral"}>{g.language_review.register === "staff" ? "staff register" : g.language_review.register === "mixed" ? "mixed" : "below staff"}</Pill></h4>
+              <p className="leading-relaxed">{g.language_review.assessment}</p>
+              {g.language_review.issues.length > 0 && <div className="mt-2 space-y-2">{g.language_review.issues.map((x, i) => (
+                <div key={i} className="rounded-lg border bg-background p-3">
+                  <p><span className="text-muted-foreground">You said: </span>&ldquo;{x.said}&rdquo;</p>
+                  <p className="mt-1 text-muted-foreground">{x.problem}</p>
+                  <p className="mt-2 rounded-md bg-accent/60 p-2"><b>A staff engineer would say: </b>{x.better}</p>
+                </div>))}</div>}
+            </div>
           )}
-          {g.concepts_to_study.length > 0 && (
-            <div><h4 className="mb-1 font-medium">Concepts to study</h4><ul className="space-y-2">{g.concepts_to_study.map((c) => (
-              <li key={c.concept} className="flex items-start gap-3"><div className="flex-1"><b>{c.concept}</b> <span className="text-muted-foreground">{c.why} ({c.resource})</span></div>
-                <Button size="xs" variant="outline" onClick={(e) => addStudy(c.concept, c.why, c.resource, null, e.currentTarget)}><Plus />Queue</Button></li>
-            ))}</ul></div>
+          {g.concepts_writeup && <div><h4 className="mb-1 font-medium">What to learn</h4><div className="rounded-lg bg-accent/60 p-3 leading-relaxed"><Markdown>{g.concepts_writeup}</Markdown></div></div>}
+          {(g.evidence.length > 0 || g.fact_checks.length > 0) && (
+            <details><summary className="cursor-pointer text-muted-foreground">Evidence and fact checks</summary>
+              <div className="mt-2 space-y-3">
+                {g.evidence.map((e, i) => <div key={i}><blockquote className="border-l-2 pl-3 italic text-muted-foreground">“{e.quote}”</blockquote><p className="mt-1">{e.observation}</p></div>)}
+                {g.fact_checks.map((f, i) => (
+                  <div key={i}><Pill tone={f.verdict === "correct" ? "mint" : f.verdict === "incorrect" ? "coral" : "signal"}>{f.verdict.replace("_", " ")}</Pill> {f.claim}. <span className="text-muted-foreground">{f.explanation}</span>{f.url && <a className="ml-1 inline-flex items-center gap-0.5 text-signal underline underline-offset-2" href={f.url} target="_blank" rel="noopener noreferrer">source<ExternalLink className="size-3" /></a>}</div>
+                ))}
+              </div>
+            </details>
           )}
-          {g.notes_for_candidate && <p className="rounded-md bg-accent/60 p-3">{g.notes_for_candidate}</p>}
         </div>
       )}
     </div>
@@ -205,15 +211,27 @@ export function ReportView() {
 
           {g && (
             <div className="mb-8 grid gap-4 lg:grid-cols-2">
-              <Panel><h2 className="mb-3 text-sm font-semibold">Top gaps</h2>
-                <div className="space-y-4">{g.top_gaps.map((x) => <div key={x.tag}><Pill tone="coral">{x.tag}</Pill><p className="mt-1.5 text-sm">{x.description}</p><p className="mt-1 rounded-md bg-accent/60 p-2 text-sm">{x.how_to_fix}</p></div>)}</div></Panel>
-              <Panel><h2 className="mb-3 text-sm font-semibold">Drill for next session</h2>
-                <p className="text-sm leading-relaxed">{g.drill_for_next_session}</p>
-                {g.strengths.length > 0 && <><h2 className="mb-2 mt-5 text-sm font-semibold">Strengths</h2><ul className="list-disc space-y-1 pl-5 text-sm">{g.strengths.map((x) => <li key={x}>{x}</li>)}</ul></>}
-              </Panel>
+              <Panel><h2 className="mb-2 text-sm font-semibold">Drill for next session</h2>
+                <p className="text-sm leading-relaxed">{g.drill_for_next_session}</p></Panel>
+              {g.strengths.length > 0 && <Panel><h2 className="mb-2 text-sm font-semibold">Strengths</h2><ul className="list-disc space-y-1 pl-5 text-sm">{g.strengths.map((x) => <li key={x}>{x}</li>)}</ul></Panel>}
             </div>
           )}
-          {g?.diagram_review && <div className="mb-8"><DiagramReviewCard r={g.diagram_review} /></div>}
+
+          {g?.interview_focus && (
+            <Section title="What to explain in the hour">
+              <Panel>
+                <p className="mb-4 text-sm leading-relaxed">{g.interview_focus.shape}</p>
+                <ol className="space-y-3 text-sm">
+                  {g.interview_focus.priorities.map((x, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                      <span className="num mt-0.5 w-5 text-muted-foreground">{i + 1}</span>
+                      <div className="flex-1"><b>{x.topic}</b> <span className="num text-xs text-muted-foreground">~{Math.round(x.minutes)} min</span><div className="text-muted-foreground">{x.explain}</div></div>
+                    </li>))}
+                </ol>
+                {g.interview_focus.can_skip.length > 0 && <div className="mt-4 border-t pt-3 text-sm"><h3 className="mb-1 font-medium">Can skip or say in one line</h3><ul className="list-disc space-y-1 pl-5 text-muted-foreground">{g.interview_focus.can_skip.map((x) => <li key={x}>{x}</li>)}</ul></div>}
+              </Panel>
+            </Section>
+          )}
 
           <Section title="Sections"><div className="space-y-2">{p.sections.map((s) => <SectionCard key={s.key} s={s} reload={reload} />)}</div></Section>
 
@@ -225,15 +243,16 @@ export function ReportView() {
           )}
           {g && (
             <>
-              <Section title="Study plan">
-                <div className="overflow-hidden rounded-xl border">{g.study_plan.slice().sort((a, b) => a.priority - b.priority).map((x) => (
-                  <div key={x.concept} className="flex items-start gap-3 border-b px-4 py-3 text-sm last:border-0">
-                    <span className="num mt-0.5 w-5 text-muted-foreground">{x.priority}</span>
-                    <div className="flex-1"><b>{x.concept}</b><div className="text-muted-foreground">{x.why}</div><div className="text-xs text-muted-foreground">{x.resource}</div></div>
-                    <Button size="xs" variant="outline" onClick={(e) => addStudy(x.concept, x.why, x.resource, p.session.id, e.currentTarget)}><Plus />Queue</Button>
-                  </div>))}</div>
-              </Section>
-              <Section title="Model answer outline"><Panel><Markdown>{g.model_answer_outline}</Markdown></Panel></Section>
+              {p.study_plan.length > 0 && (
+                <Section title="Study plan">
+                  <div className="overflow-hidden rounded-xl border">{p.study_plan.map((x, i) => (
+                    <div key={x.concept} className="flex items-start gap-3 border-b px-4 py-3 text-sm last:border-0">
+                      <span className="num mt-0.5 w-5 text-muted-foreground">{i + 1}</span>
+                      <div className="flex-1"><b>{x.concept}</b><div className="text-muted-foreground">{x.why}</div><div className="text-xs text-muted-foreground">{x.resource} · from {x.sections.join(", ")}</div></div>
+                      <Button size="xs" variant="outline" onClick={(e) => addStudy(x.concept, x.why, x.resource, p.session.id, e.currentTarget)}><Plus />Queue</Button>
+                    </div>))}</div>
+                </Section>
+              )}
               {g.sources.length > 0 && <Section title={`Sources (${g.sources.length})`}><ul className="space-y-1 text-sm">{g.sources.map((s) => <li key={s.url}><a className="text-signal underline underline-offset-2" href={s.url} target="_blank" rel="noopener noreferrer">{s.title || s.url}</a></li>)}</ul></Section>}
             </>
           )}

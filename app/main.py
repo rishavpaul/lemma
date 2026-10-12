@@ -146,6 +146,7 @@ def session_payload(sid: int) -> dict:
     return {
         "session": {k: v for k, v in ses.items() if k != "diagram_json"}, "question": q, "sections": secs,
         "diagram": diagram_mod.normalize(json.loads(ses["diagram_json"])) if ses.get("diagram_json") else diagram_mod.empty_diagram(),
+        "study_plan": progress.study_plan(secs),
         "research": research_status(ses["question_id"]),
         "grade": json.loads(sg["result_json"]) if sg else None,
         "grade_meta": {k: sg[k] for k in ("id", "model", "duration_s", "created_at")} if sg else None,
@@ -337,6 +338,30 @@ async def start_probe(sid: int, key: str):
     return {"job_id": jobs.enqueue("probe", sec["id"])}
 
 
+@app.post("/api/sessions/{sid}/sections/{key}/probe/transcribe")
+async def transcribe_probe_answer(sid: int, key: str, file: UploadFile = File(...)):
+    """Transcribe a spoken probe answer and return the text; nothing is stored, the candidate edits then submits it."""
+    import asyncio
+    import tempfile
+    from pathlib import Path
+    _section(sid, key)
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "empty upload")
+    ctype = (file.content_type or "").lower()
+    ext = "mp4" if ("mp4" in ctype or "m4a" in ctype or "aac" in ctype) else "webm"
+    with tempfile.TemporaryDirectory(dir=config.AUDIO_DIR if config.AUDIO_DIR.exists() else None) as tmp:
+        audio, wav = Path(tmp) / f"probe.{ext}", Path(tmp) / "probe.wav"
+        audio.write_bytes(data)
+        try:
+            await transcribe.convert_to_wav(audio, wav)
+        except RuntimeError as e:
+            raise HTTPException(400, str(e))
+        model = config.get_setting(db.connect(), "whisper_model")
+        result = await asyncio.to_thread(transcribe.transcribe_wav, wav, model, config.load_vocabulary())
+    return {"text": result["text"]}
+
+
 @app.put("/api/sessions/{sid}/sections/{key}/probe/answer")
 async def answer_probe(sid: int, key: str, body: ProbeAnswer):
     sec = _section(sid, key)
@@ -372,6 +397,65 @@ async def finish_session(sid: int):
         raise HTTPException(400, f"{unsaved} section(s) not saved yet")
     db.execute("UPDATE sessions SET status='grading', finished_at=? WHERE id=?", (time.time(), sid))
     return {"job_id": jobs.enqueue("grade_session", sid)}
+
+
+# ---- improvement areas -----------------------------------------------------------------
+
+class ImprovementBody(BaseModel):
+    session_ids: list[int] | None = None  # which graded sessions to review; default: the last k
+    k: int = 5
+    model: str = "default"
+    force: bool = False
+
+
+def _improvement_row(r: dict | None) -> dict | None:
+    if not r:
+        return None
+    job = db.one("SELECT id, status, error, error_kind FROM jobs WHERE type='improvement' AND ref_id=? ORDER BY id DESC LIMIT 1", (r["id"],))
+    return {"id": r["id"], "k": r["k"], "status": r["status"], "created_at": r["created_at"], "model": r["model"] or r["requested_model"],
+            "session_ids": json.loads(r["session_ids_json"]), "result": json.loads(r["result_json"]) if r["result_json"] else None,
+            "job": job}
+
+
+@app.post("/api/improvements")
+async def create_improvement(body: ImprovementBody):
+    if body.model != "default" and body.model not in config.MODEL_CHOICES and not body.model.startswith("claude-") \
+            and not providers.valid_model_setting(body.model):
+        raise HTTPException(400, "unknown model")
+    graded = [s["id"] for s in progress.graded_sessions()]
+    if body.session_ids is None:
+        if not 1 <= body.k <= 20:
+            raise HTTPException(400, "k must be between 1 and 20")
+        wanted = graded[-body.k:]
+    else:
+        wanted = [i for i in graded if i in set(body.session_ids)]
+    if not wanted:
+        raise HTTPException(400, "pick at least one graded session")
+    if len(wanted) > 20:
+        raise HTTPException(400, "pick at most 20 sessions")
+    model = pipeline.improvement_model(None if body.model == "default" else body.model)
+    if not body.force:  # same sessions and model already reviewed: reuse it instead of paying for another call
+        cached = db.one("SELECT * FROM improvement_reports WHERE status='done' AND session_ids_json=? AND model=? ORDER BY id DESC LIMIT 1",
+                        (json.dumps(wanted), model))
+        if cached:
+            return _improvement_row(cached)
+    rid = db.execute("INSERT INTO improvement_reports(k,session_ids_json,status,requested_model,created_at) VALUES(?,?,'queued',?,?)",
+                     (len(wanted), json.dumps(wanted), None if body.model == "default" else body.model, time.time()))
+    jobs.enqueue("improvement", rid)
+    return _improvement_row(db.one("SELECT * FROM improvement_reports WHERE id=?", (rid,)))
+
+
+@app.get("/api/improvements/latest")
+async def latest_improvement():
+    return _improvement_row(db.one("SELECT * FROM improvement_reports ORDER BY id DESC LIMIT 1"))
+
+
+@app.get("/api/improvements/{rid}")
+async def get_improvement(rid: int):
+    r = _improvement_row(db.one("SELECT * FROM improvement_reports WHERE id=?", (rid,)))
+    if not r:
+        raise HTTPException(404, "report not found")
+    return r
 
 
 @app.get("/api/jobs/{job_id}")
@@ -453,6 +537,13 @@ async def add_study_item(item: StudyItem):
 
 class StudyPatch(BaseModel):
     status: str
+
+
+@app.delete("/api/study_items")
+async def clear_study_items():
+    n = db.one("SELECT COUNT(*) n FROM study_items")["n"]
+    db.execute("DELETE FROM study_items")
+    return {"deleted": n}
 
 
 @app.patch("/api/study_items/{iid}")

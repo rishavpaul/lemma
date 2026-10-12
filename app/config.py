@@ -24,6 +24,7 @@ DEFAULT_SETTINGS = {
     "model_research": "opus",
     "model_section": "sonnet",
     "model_holistic": "opus",
+    "model_improvement": "default",  # "default" = follow model_holistic
     "claude_path": "",
     "claude_concurrency": "1",
     "show_feedback_live": "0",
@@ -36,7 +37,7 @@ DIMENSIONS = [
     "communication_drive", "time_management",
 ]
 MODEL_CHOICES = ("opus", "sonnet", "fable", "haiku")
-SECTION_KEYS = ["scope", "estimates", "api_data", "hld", "deep_dives", "reliability_ops", "tradeoffs_evolution"]
+SECTION_KEYS = ["scope", "hld", "deep_dives", "reliability_ops", "tradeoffs_evolution"]
 
 
 def ensure_dirs() -> None:
@@ -131,7 +132,7 @@ def put_settings(conn: sqlite3.Connection, data: dict) -> None:
                 v = str(max(1, min(2, int(v))))
             if k.startswith("model_"):
                 v = str(v)
-                if not (v in MODEL_CHOICES or v.startswith("claude-") or providers.valid_model_setting(v)):
+                if not (v in MODEL_CHOICES or (v == "default" and k == "model_improvement") or v.startswith("claude-") or providers.valid_model_setting(v)):
                     raise ValueError(f"unknown model {v!r} for {k}")
                 if k == "model_research" and providers.parse_model(v)[0]:
                     raise ValueError("Research needs live web search, which only Claude provides here.")

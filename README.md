@@ -3,7 +3,7 @@
 [![CI](https://github.com/rishavpaul/sd-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/rishavpaul/sd-coach/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A local-only practice app for system design interviews. You answer out loud, section by section, using one fixed
-seven-part staff-level framework. Each clip is transcribed locally with Whisper, you fix the transcript, and Claude grades it
+five-part staff-level framework. Each clip is transcribed locally with Whisper, you fix the transcript, and Claude grades it
 against a web-researched reference brief. A Progress page tracks you over many sessions.
 
 - Speech-to-text: `mlx-whisper` (`large-v3-turbo`), fully local and free.
@@ -17,7 +17,7 @@ against a web-researched reference brief. A Progress page tracks you over many s
 
 ![Today screen: question of the day, streak and recent sessions](docs/screenshots/today.png)
 
-- **Speak your answer, section by section.** A timed, seven-part staff-level framework (scope, estimates, APIs and data,
+- **Speak your answer, section by section.** A timed, five-part staff-level framework (requirements and scale, APIs, data and
   high-level design, deep dives, reliability and ops, tradeoffs). The clock only runs while you record.
 - **Local speech-to-text.** Audio is transcribed on your Mac with Whisper; you fix the transcript before it is graded.
 - **Draw while you talk.** An Excalidraw canvas whose contents are read by the grader along with your answer.
@@ -120,7 +120,7 @@ You can also add a custom question (title + prompt) on the Questions page.
 All Claude calls are `claude -p` subprocesses on your Pro plan:
 
 - **1 research call** the first time a question is used (re-run via "Refresh research"): about 5 minutes.
-- **7 section grades**: about 1 to 1.5 minutes each with Opus, about 25 s with Sonnet.
+- **5 section grades**: about 1 to 1.5 minutes each with Opus, about 25 s with Sonnet.
 - **1 holistic grade**: about 1 to 1.5 minutes with Opus, about 1 minute with Sonnet.
 
 So a repeat session is 8 calls (about 10 minutes of background grading, finishing shortly after you stop talking), and a first

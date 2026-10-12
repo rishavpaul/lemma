@@ -56,17 +56,15 @@
     },
     "staff_level_answer_outline": {
       "type": "object",
-      "description": "One string per framework section key: scope, estimates, api_data, hld, deep_dives, reliability_ops, tradeoffs_evolution",
+      "description": "One string per framework section key: scope, hld, deep_dives, reliability_ops, tradeoffs_evolution",
       "properties": {
         "scope": {"type": "string"},
-        "estimates": {"type": "string"},
-        "api_data": {"type": "string"},
         "hld": {"type": "string"},
         "deep_dives": {"type": "string"},
         "reliability_ops": {"type": "string"},
         "tradeoffs_evolution": {"type": "string"}
       },
-      "required": ["scope", "estimates", "api_data", "hld", "deep_dives", "reliability_ops", "tradeoffs_evolution"]
+      "required": ["scope", "hld", "deep_dives", "reliability_ops", "tradeoffs_evolution"]
     },
     "sources": {
       "type": "array",

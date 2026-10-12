@@ -18,6 +18,47 @@ def graded_sessions() -> list[dict]:
     return out
 
 
+TECHNICAL_DIMENSIONS = ("estimation", "data_modeling", "architecture", "technical_depth", "scalability_reliability", "operational_maturity")
+NON_TECHNICAL_TAGS = ("communication.", "time.", "language.")
+
+
+def improvement_input(ids: list[int]) -> tuple[list[int], list[dict]]:
+    """The chosen graded sessions, oldest first, reduced to the technical signal: gaps, flagged concepts and the rationale
+    for the technical dimensions. Ids that are not graded sessions are ignored."""
+    wanted = set(ids)
+    sessions = [s for s in graded_sessions() if s["id"] in wanted]
+    fw = {x["key"]: x["title"] for x in config.load_framework()}
+    out = []
+    for n, s in enumerate(sessions, 1):
+        g = s["grade"]
+        gaps = [r for r in db.rows("SELECT section_key, tag, description, severity FROM gaps WHERE session_id=? AND source='section'", (s["id"],))
+                if not r["tag"].startswith(NON_TECHNICAL_TAGS)]
+        concepts = []
+        for sec in db.rows("SELECT id, key FROM sections WHERE session_id=? ORDER BY ord", (s["id"],)):
+            sg = db.one("SELECT result_json FROM section_grades WHERE section_id=? AND status='done' ORDER BY id DESC LIMIT 1", (sec["id"],))
+            for c in (json.loads(sg["result_json"]).get("concepts_to_study", []) if sg else []):
+                concepts.append({"concept": c["concept"], "why": c.get("why"), "section": fw.get(sec["key"], sec["key"])})
+        out.append({
+            "session": n, "question": s["title"],
+            "gaps": [{"section": fw.get(r["section_key"], r["section_key"]), "tag": r["tag"], "severity": r["severity"], "description": r["description"]} for r in gaps],
+            "flagged_concepts": concepts,
+            "technical_dimensions": {d: {"score": g["dimension_scores"][d]["score"], "rationale": g["dimension_scores"][d].get("rationale")}
+                                     for d in TECHNICAL_DIMENSIONS if d in g["dimension_scores"]},
+        })
+    return [s["id"] for s in sessions], out
+
+
+def study_plan(sections: list[dict]) -> list[dict]:
+    """The concepts from every graded section, merged by name. Concepts that came up in more sections come first."""
+    found: dict[str, dict] = {}
+    for s in sections:
+        for c in (s.get("grade") or {}).get("concepts_to_study", []):
+            e = found.setdefault(c["concept"].strip().lower(), {**c, "sections": []})
+            if s["title"] not in e["sections"]:
+                e["sections"].append(s["title"])
+    return sorted(found.values(), key=lambda e: -len(e["sections"]))  # stable: ties keep section order
+
+
 def _avg(xs):
     return sum(xs) / len(xs) if xs else None
 

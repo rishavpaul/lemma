@@ -1,0 +1,66 @@
+{
+  "type": "object",
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "2-3 sentences: which parts of the technical foundation are holding the candidate back across these sessions"
+    },
+    "concepts": {
+      "type": "array",
+      "description": "The technical concepts to study, most important first (up to 8)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "concept": {
+            "type": "string",
+            "description": "A specific technical concept, e.g. 'Quorum reads and writes', not 'databases'"
+          },
+          "area": {
+            "type": "string",
+            "description": "Short topic area, e.g. 'Replication', 'Caching', 'Capacity estimation'"
+          },
+          "why": {
+            "type": "string",
+            "description": "What the candidate got wrong or left out, grounded in the sessions, in plain words"
+          },
+          "key_ideas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "2-4 short statements of what the candidate must understand to explain this at staff level"
+          },
+          "study": {
+            "type": "string",
+            "description": "Where to learn it: a specific book chapter, paper, engineering blog post or docs page"
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "Session numbers (1 = oldest in the window) where it showed up"
+          },
+          "gap_tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "concept",
+          "area",
+          "why",
+          "key_ideas",
+          "study",
+          "sessions"
+        ]
+      }
+    }
+  },
+  "required": [
+    "summary",
+    "concepts"
+  ]
+}

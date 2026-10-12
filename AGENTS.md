@@ -4,7 +4,7 @@ Local-only macOS app for practicing staff-level system design interviews. More d
 
 ## Features
 
-- Answer out loud, one section at a time, through a fixed seven-part framework (`app/seed/framework.yaml`).
+- Answer out loud, one section at a time, through a fixed five-part framework (`app/seed/framework.yaml`).
 - Local speech-to-text (mlx-whisper); the user edits the transcript before grading.
 - Excalidraw canvas for diagrams, sent to the grader as text.
 - A web-researched reference brief per question, then per-section grades, gaps and an overall grade.

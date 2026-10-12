@@ -193,29 +193,6 @@
         "time_management"
       ]
     },
-    "top_gaps": {
-      "type": "array",
-      "description": "max 3",
-      "items": {
-        "type": "object",
-        "properties": {
-          "tag": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "how_to_fix": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "tag",
-          "description",
-          "how_to_fix"
-        ]
-      }
-    },
     "strengths": {
       "type": "array",
       "items": {
@@ -234,39 +211,9 @@
         "type": "string"
       }
     },
-    "study_plan": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "priority": {
-            "type": "number"
-          },
-          "concept": {
-            "type": "string"
-          },
-          "why": {
-            "type": "string"
-          },
-          "resource": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "priority",
-          "concept",
-          "why",
-          "resource"
-        ]
-      }
-    },
     "drill_for_next_session": {
       "type": "string",
       "description": "one concrete behavior"
-    },
-    "model_answer_outline": {
-      "type": "string",
-      "description": "markdown"
     },
     "sources": {
       "type": "array",
@@ -285,6 +232,52 @@
           "url"
         ]
       }
+    },
+    "interview_focus": {
+      "type": "object",
+      "description": "What to actually explain in a 60-minute interview for this question. Nobody can cover everything in the feedback, so prioritize.",
+      "properties": {
+        "shape": {
+          "type": "string",
+          "description": "2-3 sentences: the shape of a strong one-hour answer to THIS question and the one thing that decides the interview."
+        },
+        "priorities": {
+          "type": "array",
+          "description": "5-7 items in the order to say them. Minutes sum to about 55.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "topic": {
+                "type": "string"
+              },
+              "minutes": {
+                "type": "number"
+              },
+              "explain": {
+                "type": "string",
+                "description": "1-2 sentences: the specific points to get across, not a generic heading."
+              }
+            },
+            "required": [
+              "topic",
+              "minutes",
+              "explain"
+            ]
+          }
+        },
+        "can_skip": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Things worth knowing but not worth the time: say them in one line or skip."
+        }
+      },
+      "required": [
+        "shape",
+        "priorities",
+        "can_skip"
+      ]
     }
   },
   "required": [
@@ -293,13 +286,11 @@
     "hire_signal_at_staff",
     "verdict",
     "dimension_scores",
-    "top_gaps",
     "strengths",
     "recurring_patterns_vs_previous",
     "improvements_vs_previous",
-    "study_plan",
     "drill_for_next_session",
-    "model_answer_outline",
+    "interview_focus",
     "sources"
   ]
 }

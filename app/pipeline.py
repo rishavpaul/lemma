@@ -4,12 +4,12 @@ import logging
 import re
 import time
 
-from . import config, db, grader, jobs, prompts
+from . import config, db, grader, jobs, progress, prompts
 from . import diagram as diagram_mod
 
 log = logging.getLogger("coach.pipeline")
 
-TIMEOUTS = {"research": 900, "grade_section": 600, "grade_session": 900, "probe": 240}
+TIMEOUTS = {"research": 900, "grade_section": 600, "grade_session": 900, "probe": 240, "improvement": 600}
 
 
 # ---------- validation ----------
@@ -115,9 +115,6 @@ def normalize_holistic(res: dict, known: dict) -> dict:
     res["overall_level"] = level_for(res["overall_score"])
     for d in res["dimension_scores"].values():
         d["score"] = _half(d["score"])
-    res["top_gaps"] = res["top_gaps"][:3]
-    for g in res["top_gaps"]:
-        g["tag"] = normalize_tag(g["tag"], known)
     return res
 
 
@@ -256,8 +253,6 @@ async def handle_grade_section(job: dict) -> None:
     known = config.load_gap_tags()
     schema = config.load_schema("section")
     dg = _load_diagram(sec["diagram_json"])
-    if not diagram_mod.is_empty(dg):
-        schema = diagram_mod.augment_schema(schema)
     payload = prompts.section(fw_sec, config.rubric_section(sec["key"]), earlier, this, dg, probe)
     model = task_model(ses, "section")
     cpath = _settings()[1]
@@ -268,12 +263,19 @@ async def handle_grade_section(job: dict) -> None:
         _raise(res)
     result = normalize_section(res["structured"], known)
     result["ungrounded"] = brief is None
-    if brief is None:
-        result["notes_for_candidate"] = ("[Ungrounded: no reference brief was available, so this grade used general knowledge only.] "
-                                         + result.get("notes_for_candidate", ""))
     db.execute("INSERT INTO section_grades(section_id,model,status,result_json,raw_response,duration_s,created_at) VALUES(?,?,?,?,?,?,?)",
                (sec["id"], model, "done", json.dumps(result), _raw(res), res["duration_s"], time.time()))
     rebuild_section_gaps(ses["id"], sec["key"], result)
+
+
+def _past_gaps(session_id: int, grade: dict) -> list[str]:
+    """The most serious gaps of an earlier session, for the overall grader to compare against."""
+    if grade.get("top_gaps"):  # grades written before the report dropped top gaps
+        return [x["tag"] + ": " + x["description"] for x in grade["top_gaps"]]
+    rank = {"high": 0, "medium": 1, "low": 2}
+    rows = sorted(db.rows("SELECT tag, severity, description FROM gaps WHERE session_id=? AND source='section'", (session_id,)),
+                  key=lambda r: rank.get(r["severity"], 3))
+    return [r["tag"] + ": " + r["description"] for r in rows[:5]]
 
 
 @jobs.register("grade_session")
@@ -283,18 +285,15 @@ async def handle_grade_session(job: dict) -> None:
     brief = latest_brief(q["id"])
     texts = _section_texts(ses["id"])
     prev = []
-    for g in db.rows("SELECT g.result_json FROM session_grades g WHERE g.status='done' AND g.session_id!=? AND g.session_id IN "
+    for g in db.rows("SELECT g.session_id, g.result_json FROM session_grades g WHERE g.status='done' AND g.session_id!=? AND g.session_id IN "
                      "(SELECT id FROM sessions WHERE started_at < ?) ORDER BY g.id DESC LIMIT 3", (ses["id"], ses["started_at"])):
         r = json.loads(g["result_json"])
         prev.append({"overall_level": r["overall_level"], "overall_score": r["overall_score"],
                      "dimension_scores": {k: v["score"] for k, v in r["dimension_scores"].items()},
-                     "top_gaps": [x["tag"] + ": " + x["description"] for x in r["top_gaps"]], "drill": r["drill_for_next_session"]})
+                     "top_gaps": _past_gaps(g["session_id"], r), "drill": r["drill_for_next_session"]})
     known = config.load_gap_tags()
     schema = config.load_schema("holistic")
-    dg = _load_diagram(ses["diagram_json"])
-    if not diagram_mod.is_empty(dg):
-        schema = diagram_mod.augment_schema(schema)
-    payload = prompts.holistic(texts, prev, dg)
+    payload = prompts.holistic(texts, prev)
     model = task_model(ses, "holistic")
     res = await grader.run_claude("grade_session", grader_system(q, brief, known),
                                   payload, schema, model, TIMEOUTS["grade_session"], _settings()[1], lambda r: validate_holistic(r, schema),
@@ -305,10 +304,7 @@ async def handle_grade_session(job: dict) -> None:
     conn = db.connect()
     conn.execute("INSERT INTO session_grades(session_id,model,status,result_json,raw_response,duration_s,created_at) VALUES(?,?,?,?,?,?,?)",
                  (ses["id"], model, "done", json.dumps(result), _raw(res), res["duration_s"], time.time()))
-    conn.execute("DELETE FROM gaps WHERE session_id=? AND source='holistic'", (ses["id"],))
-    for g in result["top_gaps"]:
-        conn.execute("INSERT INTO gaps(session_id,section_key,tag,description,severity,source) VALUES(?,NULL,?,?,'high','holistic')",
-                     (ses["id"], g["tag"], g["description"]))
+    conn.execute("DELETE FROM gaps WHERE session_id=? AND source='holistic'", (ses["id"],))  # old grades wrote these
     conn.execute("UPDATE sessions SET status='done' WHERE id=?", (ses["id"],))
     conn.commit()
 
@@ -346,3 +342,38 @@ async def handle_probe(job: dict) -> None:
     r = res["structured"]
     db.execute("UPDATE probes SET question=?, hint=?, model=? WHERE section_id=?",
                (str(r["question"]).strip(), str(r["hint"]).strip(), model, sec["id"]))
+
+
+def improvement_model(requested: str | None) -> str:
+    """An explicit choice for this run, else the Concepts review setting, else the Overall grade model."""
+    conn = db.connect()
+    for m in (requested, config.get_setting(conn, "model_improvement")):
+        if m and m != "default":
+            return m
+    return config.get_setting(conn, "model_holistic")
+
+
+def validate_improvement(res: dict, schema: dict) -> str | None:
+    err = check_schema(res, schema)
+    if err:
+        return err
+    if not 1 <= len(res["concepts"]) <= 8:
+        return "concepts must contain between 1 and 8 items"
+    return None
+
+
+@jobs.register("improvement")
+async def handle_improvement(job: dict) -> None:
+    rep = db.one("SELECT * FROM improvement_reports WHERE id=?", (job["ref_id"],))
+    ids, data = progress.improvement_input(json.loads(rep["session_ids_json"]))
+    if not data:
+        raise jobs.JobError("other", "no graded sessions to review")
+    schema = config.load_schema("improvement")
+    model = improvement_model(rep["requested_model"])
+    res = await grader.run_claude("improvement", config.load_text("improvement_system_prompt.md"), prompts.improvement(data), schema, model,
+                                  TIMEOUTS["improvement"], _settings()[1], lambda r: validate_improvement(r, schema), {}, web=False)
+    if not res["ok"]:
+        db.execute("UPDATE improvement_reports SET status='failed' WHERE id=?", (rep["id"],))
+        _raise(res)
+    db.execute("UPDATE improvement_reports SET status='done', result_json=?, model=?, session_ids_json=? WHERE id=?",
+               (json.dumps(res["structured"]), model, json.dumps(ids), rep["id"]))

@@ -66,7 +66,7 @@ export default function Today() {
                     {starting === "s" ? <Loader2 className="animate-spin" /> : <ArrowRight data-icon="inline-end" className="order-last" />}Start session
                   </Button>
                   <Button variant="outline" className="h-11" disabled={!!starting} onClick={() => start({ mode: "random" }, "r")}>{starting === "r" ? <Loader2 className="animate-spin" /> : <Dices />}Surprise me</Button>
-                  <span className="num text-sm text-muted-foreground">{totalSec ? `${Math.round(totalSec / 60)} min, 7 sections` : ""}</span>
+                  <span className="num text-sm text-muted-foreground">{totalSec ? `${Math.round(totalSec / 60)} min, 5 sections` : ""}</span>
                 </div>
                 {inProgress.length > 0 && (
                   <p className="mt-5 text-sm text-muted-foreground">Unfinished: {inProgress.slice(0, 2).map((s, i) => <span key={s.id}>{i > 0 && ", "}<Link href={`/session/?id=${s.id}`} className="font-medium text-signal underline underline-offset-4">{s.title} ({s.sections_saved}/7)</Link></span>)}</p>
@@ -77,7 +77,7 @@ export default function Today() {
 
           <Section title="Recent sessions" className="mt-10" aside={<Link href="/progress" className="text-xs text-muted-foreground hover:text-foreground">All progress</Link>}>
             {!sessions.data ? <Skeleton className="h-40 w-full" /> : sessions.data.length === 0 ? (
-              <Empty title="No sessions yet">Your first one takes about 45 minutes. Talk through each section out loud and sketch the system as you go.</Empty>
+              <Empty title="No sessions yet">Your first one takes about 55 minutes. Talk through each section out loud and sketch the system as you go.</Empty>
             ) : (
               <div className="overflow-hidden rounded-xl border">
                 <table className="w-full text-sm">

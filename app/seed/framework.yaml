@@ -1,52 +1,38 @@
 sections:
   - key: scope
-    title: Clarify scope and requirements
-    budget_sec: 300
+    title: Requirements and scale
+    budget_sec: 480
     cover:
       - Functional requirements, prioritized
       - Non-functional requirements with numbers
       - In scope / out of scope
       - What makes this hard
       - Assumptions you are making
+      - Users and QPS (average and peak), read/write ratio
+      - Storage, bandwidth and growth
     staff_bar: >-
       Crisp prioritized functional reqs; quantified non-functional reqs (p99 latency, availability,
       durability, consistency per operation); explicit out-of-scope; names the 1-2 hard problems that
-      will drive the design; states assumptions in place of interviewer answers.
-  - key: estimates
-    title: Scale and constraints
-    budget_sec: 180
-    cover:
-      - Users and QPS (average and peak)
-      - Read/write ratio
-      - Storage and bandwidth
-      - Growth
-    staff_bar: >-
-      Correct order of magnitude, peak vs average, and the numbers explicitly drive design decisions.
-  - key: api_data
-    title: APIs and data model
-    budget_sec: 300
+      will drive the design; states assumptions in place of interviewer answers. Estimates are the right
+      order of magnitude, separate peak from average, and explicitly drive design decisions.
+  - key: hld
+    title: APIs, data model and high-level design
+    budget_sec: 1020
     cover:
       - Core APIs
       - Entities and access patterns
-      - Storage choice
-      - Partition keys and indexes
-      - Consistency per entity
-    staff_bar: >-
-      APIs with idempotency/pagination where needed; schema driven by access patterns; deliberate
-      partition keys and indexes; storage choice and consistency justified per entity.
-  - key: hld
-    title: High-level design
-    budget_sec: 480
-    cover:
+      - Storage choice, partition keys and indexes, consistency per entity
       - Components
       - Main read path and write path, end to end
       - Sync vs async boundaries
     staff_bar: >-
-      Simplest design that meets the requirements; read and write paths walked end to end; every
-      component justified against the requirements.
+      APIs with idempotency/pagination where needed; schema driven by access patterns; deliberate
+      partition keys and indexes; storage choice and consistency justified per entity. Simplest design
+      that meets the requirements; read and write paths walked end to end; every component justified
+      against the requirements.
   - key: deep_dives
     title: Deep dives
-    budget_sec: 900
+    budget_sec: 1200
     cover:
       - Pick the 2-3 hardest parts
       - Mechanisms and numbers
@@ -56,7 +42,7 @@ sections:
       caching, hot spots) quantitatively; compares 2+ alternatives and decides with reasons.
   - key: reliability_ops
     title: Reliability and operations
-    budget_sec: 300
+    budget_sec: 360
     cover:
       - Failure modes and blast radius
       - Retries, idempotency, backpressure, degradation

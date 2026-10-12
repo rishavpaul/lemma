@@ -52,16 +52,9 @@ export interface SessionRow {
 export interface Gap {
   tag: string;
   description: string;
-  why_it_matters_at_staff: string;
-  what_a_staff_answer_sounds_like: string;
+  why_it_matters_at_staff?: string;
+  what_a_staff_answer_sounds_like?: string;
   severity: "low" | "medium" | "high";
-}
-
-export interface DiagramReview {
-  assessment: string;
-  strengths: string[];
-  issues: { severity: "low" | "medium" | "high"; issue: string; suggestion: string }[];
-  narration_mismatches: string[];
 }
 
 export interface SectionGrade {
@@ -70,14 +63,20 @@ export interface SectionGrade {
   summary: string;
   ungrounded?: boolean;
   evidence: { quote: string; observation: string }[];
-  strengths: string[];
+  /** One paragraph on the gaps. Absent on grades written before it existed; those have `gaps` with full text. */
+  gap_summary?: string;
+  /** Markdown teaching write-up of the concepts to learn. Absent on older grades. */
+  concepts_writeup?: string;
   gaps: Gap[];
-  interviewer_followups: string[];
+  /** Older grades only. */
+  strengths?: string[];
+  interviewer_followups?: string[];
   concepts_to_study: { concept: string; why: string; resource: string }[];
   fact_checks: { claim: string; verdict: "correct" | "partially_correct" | "incorrect"; explanation: string; url?: string }[];
+  /** Word choice and terminology. Absent on grades written before it existed. */
+  language_review?: { register: "below_staff" | "mixed" | "staff"; assessment: string; issues: { said: string; problem: string; better: string }[] };
   notes_for_candidate?: string;
   sources: { title: string; url: string }[];
-  diagram_review?: DiagramReview;
 }
 
 export interface Section {
@@ -124,16 +123,21 @@ export interface HolisticGrade {
   hire_signal_at_staff: Signal;
   verdict: string;
   dimension_scores: Record<string, { score: number; rationale: string }>;
-  top_gaps: { tag: string; description: string; how_to_fix: string }[];
   strengths: string[];
   improvements_vs_previous: string[];
   recurring_patterns_vs_previous: string[];
-  study_plan: { priority: number; concept: string; why: string; resource: string }[];
   drill_for_next_session: string;
-  model_answer_outline: string;
+  /** Absent on grades written before it existed. */
+  interview_focus?: {
+    shape: string;
+    priorities: { topic: string; minutes: number; explain: string }[];
+    can_skip: string[];
+  };
   sources: { title: string; url: string }[];
-  diagram_review?: DiagramReview;
 }
+
+/** A concept from the section grades, merged by name across sections. */
+export interface StudyConcept { concept: string; why: string; resource: string; sections: string[] }
 
 export interface SessionPayload {
   session: { id: number; question_id: number; status: SessionRow["status"]; started_at: number; show_feedback_live: number; model: string | null };
@@ -142,6 +146,7 @@ export interface SessionPayload {
   diagram: Diagram;
   research: { state: "none" | "researching" | "ready" | "failed"; job: Job | null; brief: { grounding_warning?: string } | null };
   grade: HolisticGrade | null;
+  study_plan: StudyConcept[];
   grade_meta: { model: string } | null;
   grade_job: Job | null;
   usage: { calls: number; total_tokens: number; cost_usd: number } | null;
@@ -157,7 +162,7 @@ export interface StudyItem {
 }
 
 export interface Progress {
-  timeline: { session_id: number; started_at: number; overall_score: number; dimensions: Record<string, number> }[];
+  timeline: { session_id: number; started_at: number; title: string; overall_level: Level; overall_score: number; dimensions: Record<string, number> }[];
   dimensions: string[];
   time_vs_budget: { title: string; avg_used: number; budget: number }[];
   gaps: { tag: string; count: number; last5: number; last_seen: number }[];
@@ -219,3 +224,19 @@ export interface DiagramEdge {
 }
 export interface LegacyDiagram { nodes: DiagramNode[]; edges: DiagramEdge[] }
 export type Diagram = SceneDiagram | LegacyDiagram;
+
+export interface ImprovementConcept {
+  concept: string; area: string; why: string; key_ideas: string[]; study: string; sessions: number[]; gap_tags?: string[];
+}
+export interface ImprovementReport {
+  id: number; k: number; status: "queued" | "done" | "failed"; created_at: number; model: string | null; session_ids: number[];
+  result: { summary: string; concepts: ImprovementConcept[] } | null;
+  job: { id: number; status: string; error: string | null; error_kind: string | null } | null;
+}
+
+export interface DiagramReview {
+  assessment: string;
+  strengths: string[];
+  issues: { severity: "low" | "medium" | "high"; issue: string; suggestion: string }[];
+  narration_mismatches: string[];
+}

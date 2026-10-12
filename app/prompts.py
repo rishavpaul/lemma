@@ -44,10 +44,11 @@ def research(question: dict, framework: list[dict]) -> str:
 
 
 def _diagram_block(diagram: dict | None, key: str | None, note: str) -> tuple[str, str]:
-    """(<diagram> block, task suffix). Empty diagrams are only mentioned where one is expected."""
+    """(<diagram> block, task suffix). Only sections where a drawing is expected get one: the diagram is repeated in every
+    call that carries it, so it is not sent to the others."""
+    if key not in diagram_mod.DIAGRAM_SECTIONS:
+        return "", ""
     if diagram_mod.is_empty(diagram):
-        if key is not None and key not in diagram_mod.DIAGRAM_SECTIONS:
-            return "", ""
         return "<diagram>\n(no diagram drawn)\n</diagram>\n\n", " " + diagram_mod.PROMPT_RULES
     return f"<diagram>\n{note}\n{diagram_mod.render_text(diagram)}\n</diagram>\n\n", " " + diagram_mod.PROMPT_RULES
 
@@ -90,30 +91,38 @@ def section(fw_section: dict, anchors: str, earlier: list[dict] | None, this: di
         f"<earlier_sections>\n{earlier_txt}\n</earlier_sections>\n\n"
         f"<this_section>\ntitle: {this['title']}\ntime: {time_txt}\ntranscript:\n{this['text'] or '(empty)'}{probe_text(this_probe)}\n</this_section>\n\n"
         + dblock +
-        "<task>\nGrade this section against the rubric anchors and the reference brief. Fact-check as instructed."
+        "<task>\nGrade this section against the rubric anchors and the reference brief. Fact-check as instructed. Also fill in language_review: judge the wording and terminology of this section as a staff engineer would hear it."
         + (" " + THIS_PROBE_RULES if this_probe else "")
         + (" " + PROBE_RULES if any(e.get("probe") for e in earlier) else "")
         + dtask + " Return the structured output only.\n</task>"
     )
 
 
-def holistic(sections: list[dict], previous: list[dict], diagram: dict | None = None) -> str:
+def _grade_digest(g: dict | None) -> str:
+    """The part of a section grade the overall grader needs. The long write-ups, quotes and fact checks stay out."""
+    if not g:
+        return "(not graded)"
+    keep = {"score": g["score"], "summary": g["summary"], "gap_summary": g.get("gap_summary"),
+            "gaps": [{"tag": x["tag"], "severity": x["severity"], "description": x["description"]} for x in g.get("gaps", [])]}
+    return json.dumps({k: v for k, v in keep.items() if v})
+
+
+def holistic(sections: list[dict], previous: list[dict]) -> str:
     parts = []
     for s in sections:
         used = f"{round(s['duration_sec'])}s used of {s['budget_sec']}s" if s.get("duration_sec") else f"time unknown; budget {s['budget_sec']}s"
         parts.append(f"## {s['title']} ({used})\ntranscript:\n{s['text'] or '(empty)'}{probe_text(s.get('probe'))}\n"
-                     f"section grade JSON:\n{json.dumps(s['grade']) if s['grade'] else '(not graded)'}")
+                     f"section grade:\n{_grade_digest(s['grade'])}")
     prev = json.dumps(previous, indent=1) if previous else "(no previous sessions)"
-    dblock, dtask = _diagram_block(diagram, "hld", "The final canvas at the end of the session.")
     return (
         f"<rubric_dimensions>\n{config.rubric_dimensions()}\n</rubric_dimensions>\n\n"
         f"<sections>\n{chr(10).join(parts)}\n</sections>\n\n"
         f"<previous_sessions>\n{prev}\n</previous_sessions>\n\n"
-        + dblock +
-        "<task>\nGive the holistic grade for the whole session: overall level, all 10 dimension scores (1-4), at most 3 top "
-        "gaps with tags, a study plan, ONE concrete drill for next session, and a model answer outline. Compare to previous "
-        "sessions when provided. time_management must be judged from the actual time used vs budget per section. "
-        "Return the structured output only." + (" " + PROBE_RULES if any(x.get("probe") for x in sections) else "") + dtask + "\n</task>"
+        "<task>\nGive the holistic grade for the whole session: overall level, all 10 dimension scores (1-4), ONE concrete drill "
+        "for next session, and the interview focus: what to explain in a real one-hour interview on this question, in priority "
+        "order. The section grades already took any diagram into account. Compare to previous sessions when provided. "
+        "time_management must be judged from the actual time used vs budget per section. "
+        "Return the structured output only." + (" " + PROBE_RULES if any(x.get("probe") for x in sections) else "") + "\n</task>"
     )
 
 
@@ -133,4 +142,12 @@ def probe(fw_section: dict, earlier: list[dict], window: list[dict], diagram: di
         f"<window>\nWhat the candidate said since the last probe. Probe this.\n{window_txt}\n</window>\n\n"
         + dblock +
         "<task>\nAsk the one probing question and the one hint, per the system rules. Return the structured output only.\n</task>"
+    )
+
+
+def improvement(sessions: list[dict]) -> str:
+    return (
+        f"<sessions note=\"oldest first; scores are 1-4, staff = 3\">\n{json.dumps(sessions, indent=1)}\n</sessions>\n\n"
+        f"<task>\nThese are the candidate's last {len(sessions)} graded sessions. List the technical concepts they should study, "
+        "ranked by priority, each tied to the sessions where it showed up. Return the structured output only.\n</task>"
     )

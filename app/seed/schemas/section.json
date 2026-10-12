@@ -1,39 +1,100 @@
 {
   "type": "object",
   "properties": {
-    "score": {"type": "number", "description": "1 to 4 in steps of 0.5"},
-    "level_signal": {"type": "string", "enum": ["below_senior", "senior", "staff", "senior_staff_plus"]},
-    "summary": {"type": "string"},
+    "score": {
+      "type": "number",
+      "description": "1 to 4 in steps of 0.5"
+    },
+    "level_signal": {
+      "type": "string",
+      "enum": [
+        "below_senior",
+        "senior",
+        "staff",
+        "senior_staff_plus"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "description": "3-4 sentences in plain prose: what the candidate did well and where it fell short of staff. If the section was probed, say how the probe and hint affected the score."
+    },
+    "gap_summary": {
+      "type": "string",
+      "description": "ONE cohesive paragraph of plain prose (no bullets, no lists) explaining the gaps in this section, most important first, and what a staff answer would have said instead. If there are no real gaps, say so in one sentence."
+    },
+    "concepts_writeup": {
+      "type": "string",
+      "description": "ONE short markdown write-up (150-300 words, short paragraphs, no nested bullets) that teaches the concepts the candidate needs to learn to close these gaps, in plain language, with a concrete example. Empty string if nothing needs studying."
+    },
+    "gaps": {
+      "type": "array",
+      "description": "Machine-readable tags for progress tracking. Not shown as a list to the candidate.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tag": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "description": "One short sentence."
+          }
+        },
+        "required": [
+          "tag",
+          "severity",
+          "description"
+        ]
+      }
+    },
+    "concepts_to_study": {
+      "type": "array",
+      "description": "The concepts named in concepts_writeup, one entry each. Feeds the study plan.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "concept": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string",
+            "description": "One short sentence."
+          },
+          "resource": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "concept",
+          "why",
+          "resource"
+        ]
+      }
+    },
     "evidence": {
       "type": "array",
       "items": {
         "type": "object",
-        "properties": {"quote": {"type": "string"}, "observation": {"type": "string"}},
-        "required": ["quote", "observation"]
-      }
-    },
-    "strengths": {"type": "array", "items": {"type": "string"}},
-    "gaps": {
-      "type": "array",
-      "items": {
-        "type": "object",
         "properties": {
-          "tag": {"type": "string"},
-          "description": {"type": "string"},
-          "why_it_matters_at_staff": {"type": "string"},
-          "what_a_staff_answer_sounds_like": {"type": "string"},
-          "severity": {"type": "string", "enum": ["low", "medium", "high"]}
+          "quote": {
+            "type": "string"
+          },
+          "observation": {
+            "type": "string"
+          }
         },
-        "required": ["tag", "description", "why_it_matters_at_staff", "what_a_staff_answer_sounds_like", "severity"]
-      }
-    },
-    "interviewer_followups": {"type": "array", "items": {"type": "string"}},
-    "concepts_to_study": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {"concept": {"type": "string"}, "why": {"type": "string"}, "resource": {"type": "string"}},
-        "required": ["concept", "why", "resource"]
+        "required": [
+          "quote",
+          "observation"
+        ]
       }
     },
     "fact_checks": {
@@ -41,23 +102,111 @@
       "items": {
         "type": "object",
         "properties": {
-          "claim": {"type": "string"},
-          "verdict": {"type": "string", "enum": ["correct", "partially_correct", "incorrect"]},
-          "explanation": {"type": "string"},
-          "url": {"type": "string"}
+          "claim": {
+            "type": "string"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "correct",
+              "partially_correct",
+              "incorrect"
+            ]
+          },
+          "explanation": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
         },
-        "required": ["claim", "verdict", "explanation"]
+        "required": [
+          "claim",
+          "verdict",
+          "explanation"
+        ]
       }
     },
-    "notes_for_candidate": {"type": "string"},
     "sources": {
       "type": "array",
       "items": {
         "type": "object",
-        "properties": {"title": {"type": "string"}, "url": {"type": "string"}},
-        "required": ["title", "url"]
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "url"
+        ]
       }
+    },
+    "language_review": {
+      "type": "object",
+      "description": "Word choice and terminology only, judged as a staff engineer would hear it. Not about whether the design is right.",
+      "properties": {
+        "register": {
+          "type": "string",
+          "enum": [
+            "below_staff",
+            "mixed",
+            "staff"
+          ],
+          "description": "Overall: would a staff engineer's peers hear this as staff-level technical speech?"
+        },
+        "assessment": {
+          "type": "string",
+          "description": "2-3 sentences in plain prose on precision of terminology, specificity, and tone."
+        },
+        "issues": {
+          "type": "array",
+          "description": "Up to 5 of the most important word-choice problems, most important first. Empty if the language was staff-appropriate.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "said": {
+                "type": "string",
+                "description": "Short verbatim quote from the transcript"
+              },
+              "problem": {
+                "type": "string",
+                "description": "Why this wording undersells or misstates the idea (vague, wrong term, imprecise, hedged, casual, filler-laden)"
+              },
+              "better": {
+                "type": "string",
+                "description": "How a staff engineer would say the same thing"
+              }
+            },
+            "required": [
+              "said",
+              "problem",
+              "better"
+            ]
+          }
+        }
+      },
+      "required": [
+        "register",
+        "assessment",
+        "issues"
+      ]
     }
   },
-  "required": ["score", "level_signal", "summary", "evidence", "strengths", "gaps", "interviewer_followups", "concepts_to_study", "fact_checks", "sources"]
+  "required": [
+    "score",
+    "level_signal",
+    "summary",
+    "gap_summary",
+    "concepts_writeup",
+    "gaps",
+    "concepts_to_study",
+    "evidence",
+    "fact_checks",
+    "sources",
+    "language_review"
+  ]
 }

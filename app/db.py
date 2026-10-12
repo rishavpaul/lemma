@@ -89,6 +89,17 @@ MIGRATIONS.append("""
         question TEXT, hint TEXT, answer TEXT, model TEXT, created_at REAL NOT NULL, answered_at REAL);
 """)
 
+MIGRATIONS.append("""
+    CREATE TABLE improvement_reports(
+        id INTEGER PRIMARY KEY, k INTEGER NOT NULL, session_ids_json TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'queued',
+        result_json TEXT, model TEXT, created_at REAL NOT NULL);
+""")
+
+MIGRATIONS.append("""
+    ALTER TABLE improvement_reports ADD COLUMN requested_model TEXT;
+""")
+
+
 
 def record_plan_usage(info: dict) -> None:
     """Store a plan-limit snapshot from the CLI's rate_limit_event (utilization is a 0-1 fraction)."""

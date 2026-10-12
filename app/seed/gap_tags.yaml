@@ -31,6 +31,10 @@ tags:
   cost.ignored: Cost ignored
   tradeoffs.not_articulated: Tradeoffs not articulated
   evolution.missing: No evolution / 10x story
+  language.vague_terms: Vague wording in place of a specific mechanism or number
+  language.imprecise_terminology: Imprecise or wrong technical terminology
+  language.hedging: Hedged or tentative phrasing on decisions the candidate owns
+  language.casual_register: Casual or junior phrasing for a staff-level discussion
   communication.not_driving: Not driving the conversation
   communication.unstructured: Unstructured delivery
   time.overran_section: Overran a section budget
