@@ -30,7 +30,13 @@ against a web-researched reference brief. A Progress page tracks you over many s
 
 ![Library of questions with answer keys](docs/screenshots/library.png)
 
+The interview: one section at a time, a timer that runs only while you talk, and a canvas to draw on.
+
 ![A session: prompt, section timer, record button and diagram canvas](docs/screenshots/session.png)
+
+The final report: overall level, ten-dimension scores, time against budget, strengths, a drill for next time and per-section grades.
+
+![Final report with grade, dimensions, time used and section grades](docs/screenshots/report.png)
 
 ## Start
 
