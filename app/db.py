@@ -229,3 +229,10 @@ MIGRATIONS.append("""
         question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
         PRIMARY KEY(article_id, question_id));
 """)
+
+
+MIGRATIONS.append("""
+    DROP TABLE kg_links;
+    ALTER TABLE kg_articles RENAME TO articles;
+    ALTER TABLE kg_article_questions RENAME TO article_questions;
+""")

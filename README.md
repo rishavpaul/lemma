@@ -25,8 +25,8 @@ against a web-researched reference brief. A Progress page tracks you over many s
   evidence quotes, gaps and follow-up questions, plus an overall level and hire signal.
 - **Your choice of model.** Grade with your Claude subscription, or with free OpenRouter and Groq models. Set it per task.
 - **Library of questions.** Practice the built-in set, read each answer key, or add prompts from your own interviews.
-- **Knowledge graph.** Explain with (Sonnet, Opus or free Nemotron) sends a concept plus a compressed view of your graph to the model, which
-  picks an existing article or writes a new linked one. Read, edit and ask questions about articles on the Knowledge page.
+- **Articles.** Explain with (Sonnet, Opus or free Nemotron) sends a concept plus your article list to the model, which picks an
+  existing article or writes a new one. Articles are grouped by design problem; read, edit and ask questions on the Articles page.
 - **Progress over time.** Streaks, recurring gaps and a study list that grows from your sessions.
 - **Usage tracking.** Calls, tokens, cost and plan-limit use for every model call.
 
@@ -40,9 +40,9 @@ The final report: overall level, ten-dimension scores, time against budget, stre
 
 ![Final report with grade, dimensions, time used and section grades](docs/screenshots/report.png)
 
-The knowledge graph: explainer articles linked to each other, with a reader, an editor and an ask-a-model box.
+Articles: explainer articles grouped by design problem, with a reader, an editor and an ask-a-model box.
 
-![Knowledge page with a linked article and the ask box](docs/screenshots/knowledge.png)
+![Articles page: grouped by design problem, with a reader and an ask box](docs/screenshots/articles.png)
 
 ## Start
 

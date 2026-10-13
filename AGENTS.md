@@ -9,7 +9,7 @@ Local-only macOS app for practicing staff-level system design interviews. More d
 - Excalidraw canvas for diagrams, sent to the grader as text.
 - A web-researched reference brief per question, then per-section grades, gaps and an overall grade.
 - Follow-up probes, session reports with markdown export, and a Progress page that tracks gaps across sessions.
-- Knowledge graph (`app/kg.py`, `/knowledge/`): explainer articles linked to each other; Explain picks an existing article or writes one.
+- Articles (`app/articles.py`, `/articles/`): explainer articles grouped by design problem; Explain picks an existing article or writes one.
 - Grading through the `claude` CLI (Pro login), OpenRouter or Groq, chosen per task; Usage page shows calls, tokens and cost.
 
 ## Architecture

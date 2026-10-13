@@ -53,7 +53,7 @@ export default function ProgressPage() {
     const k = c.concept;
     setExplained((e) => ({ ...e, [k]: { model: m, loading: true } }));
     try {
-      const r = await api<{ article: { id: number; title: string; summary: string }; created: boolean }>("/api/kg/explain",
+      const r = await api<{ article: { id: number; title: string; summary: string }; created: boolean }>("/api/articles/explain",
         { method: "POST", body: { concept: c.concept, why: c.why, key_ideas: c.key_ideas, model: m, session_ids: c.sessions.map((n) => imp?.session_ids[n - 1]).filter((x): x is number => typeof x === "number") } });
       setExplained((e) => ({ ...e, [k]: { model: m, article: r.article, created: r.created } }));
     } catch (e) {
@@ -136,8 +136,8 @@ export default function ProgressPage() {
                   </div>
                   {explained[c.concept]?.article && (
                     <div className="mt-3 rounded-lg bg-muted/40 p-3 text-sm">
-                      <span className="text-xs text-muted-foreground">{explained[c.concept].created ? "New article written" : "Found in your knowledge graph"}: </span>
-                      <Link className="font-medium underline underline-offset-4" href={`/knowledge/?id=${explained[c.concept].article!.id}`}>{explained[c.concept].article!.title}</Link>
+                      <span className="text-xs text-muted-foreground">{explained[c.concept].created ? "New article written" : "Found in your articles"}: </span>
+                      <Link className="font-medium underline underline-offset-4" href={`/articles/?id=${explained[c.concept].article!.id}`}>{explained[c.concept].article!.title}</Link>
                       <p className="mt-1 text-muted-foreground">{explained[c.concept].article!.summary}</p>
                     </div>)}
                 </div>))}

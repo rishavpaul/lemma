@@ -9,12 +9,12 @@ import { Markdown } from "@/components/markdown";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { cn } from "@/lib/utils";
-import type { KgArticle, KgGraph } from "@/lib/types";
+import type { Article, ArticleSummary } from "@/lib/types";
 
 export const EXPLAIN_MODELS = [["sonnet", "Sonnet"], ["opus", "Opus"], ["free", "Free (Nemotron)"]] as const;
 export type ExplainModel = (typeof EXPLAIN_MODELS)[number][0];
 
-function AskPanel({ a, onAppend }: { a: KgArticle; onAppend: (q: string, ans: string) => Promise<void> }) {
+function AskPanel({ a, onAppend }: { a: Article; onAppend: (q: string, ans: string) => Promise<void> }) {
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState<ExplainModel | null>(null);
   const [turns, setTurns] = useState<{ q: string; a: string; model: string }[]>([]);
@@ -22,7 +22,7 @@ function AskPanel({ a, onAppend }: { a: KgArticle; onAppend: (q: string, ans: st
     if (!q.trim()) return;
     setBusy(m);
     try {
-      const r = await api<{ answer: string }>(`/api/kg/articles/${a.id}/ask`, { method: "POST", body: { question: q, model: m } });
+      const r = await api<{ answer: string }>(`/api/articles/${a.id}/ask`, { method: "POST", body: { question: q, model: m } });
       setTurns((t) => [...t, { q, a: r.answer, model: m }]);
       setQ("");
     } catch (e) { toast.error((e as Error).message); }
@@ -47,19 +47,18 @@ function AskPanel({ a, onAppend }: { a: KgArticle; onAppend: (q: string, ans: st
   );
 }
 
-function Reader({ id, titles, reload, onGone }: { id: number; titles: Map<number, string>; reload: () => void; onGone: () => void }) {
-  const router = useRouter();
-  const { data: a, setData, error } = useApi<KgArticle>(`/api/kg/articles/${id}`);
+function Reader({ id, reload, onGone }: { id: number; reload: () => void; onGone: () => void }) {
+  const { data: a, setData, error } = useApi<Article>(`/api/articles/${id}`);
   const [edit, setEdit] = useState<{ title: string; summary: string; body: string } | null>(null);
   const [confirm, setConfirm] = useState(false);
   if (error) return <p className="text-sm text-destructive">{error}</p>;
   if (!a || a.id !== id) return <Skeleton className="h-64 w-full" />;
   async function save(next: { title: string; summary: string; body: string }) {
-    try { setData(await api<KgArticle>(`/api/kg/articles/${id}`, { method: "PUT", body: next })); reload(); return true; }
+    try { setData(await api<Article>(`/api/articles/${id}`, { method: "PUT", body: next })); reload(); return true; }
     catch (e) { toast.error((e as Error).message); return false; }
   }
   async function remove() {
-    try { await api(`/api/kg/articles/${id}`, { method: "DELETE" }); reload(); onGone(); }
+    try { await api(`/api/articles/${id}`, { method: "DELETE" }); reload(); onGone(); }
     catch (e) { toast.error((e as Error).message); }
   }
   return (
@@ -82,8 +81,6 @@ function Reader({ id, titles, reload, onGone }: { id: number; titles: Map<number
                 : <Button size="sm" variant="outline" onClick={() => setConfirm(true)}>Delete</Button>}
             </div>
           </div>
-          {a.links.length > 0 && <div className="mt-3 flex flex-wrap gap-2 text-xs">Related: {a.links.map((l) => (
-            <button key={l} className="rounded-full border px-2 py-0.5 hover:bg-accent" onClick={() => router.push(`/knowledge/?id=${l}`)}>{titles.get(l) ?? l}</button>))}</div>}
           <div className="mt-4"><Markdown>{a.body}</Markdown></div>
           <AskPanel a={a} onAppend={async (q, ans) => { if (await save({ title: a.title, summary: a.summary, body: `${a.body}\n\n## Q: ${q}\n\n${ans}` })) toast.success("Added to article"); }} />
         </>)}
@@ -91,23 +88,22 @@ function Reader({ id, titles, reload, onGone }: { id: number; titles: Map<number
   );
 }
 
-export function KnowledgeView() {
+export function ArticlesView() {
   const router = useRouter();
   const sp = useSearchParams();
   const id = Number(sp.get("id")) || null;
-  const { data: g, loading, error, reload } = useApi<KgGraph>("/api/kg");
+  const { data: list, loading, error, reload } = useApi<ArticleSummary[]>("/api/articles");
   if (loading) return <Page wide><Skeleton className="h-96 w-full" /></Page>;
-  if (error || !g) return <Page wide><p className="text-sm text-destructive">{error}</p></Page>;
-  const titles = new Map(g.nodes.map((n) => [n.id, n.title]));
+  if (error || !list) return <Page wide><p className="text-sm text-destructive">{error}</p></Page>;
   // An article appears under every design problem it was studied for; the rest go under "General".
-  const byProblem = new Map<string, KgGraph["nodes"]>();
-  for (const n of g.nodes) for (const q of n.questions.length ? n.questions : [{ id: 0, title: "General" }]) byProblem.set(q.title, [...(byProblem.get(q.title) ?? []), n]);
+  const byProblem = new Map<string, ArticleSummary[]>();
+  for (const n of list) for (const q of n.questions.length ? n.questions : [{ id: 0, title: "General" }]) byProblem.set(q.title, [...(byProblem.get(q.title) ?? []), n]);
   const groups = [...byProblem.entries()].sort(([a], [b]) => (a === "General" ? 1 : b === "General" ? -1 : a.localeCompare(b)));
-  const go = (x: number | null) => router.push(x ? `/knowledge/?id=${x}` : "/knowledge/");
+  const go = (x: number | null) => router.push(x ? `/articles/?id=${x}` : "/articles/");
   return (
     <Page wide>
-      <PageHeader title="Knowledge" subtitle="Articles on the concepts you have studied, grouped by design problem. Use Explain with on the Progress page to add more." />
-      {g.nodes.length === 0 ? <Panel><p className="text-sm text-muted-foreground">Nothing here yet. Click Explain with on a concept in Progress and its article lands here.</p></Panel> : (
+      <PageHeader title="Articles" subtitle="Articles on the concepts you have studied, grouped by design problem. Use Explain with on the Progress page to add more." />
+      {list.length === 0 ? <Panel><p className="text-sm text-muted-foreground">No articles yet. Click Explain with on a concept in Progress and its article lands here.</p></Panel> : (
         <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
           <div className="space-y-4">
             {groups.map(([title, nodes]) => (
@@ -120,7 +116,7 @@ export function KnowledgeView() {
                 </ul>
               </Panel>))}
           </div>
-          <Panel>{id ? <Reader key={id} id={id} titles={titles} reload={reload} onGone={() => go(null)} /> : <p className="text-sm text-muted-foreground">Pick an article from the graph or the list.</p>}</Panel>
+          <Panel>{id ? <Reader key={id} id={id} reload={reload} onGone={() => go(null)} /> : <p className="text-sm text-muted-foreground">Pick an article from the graph or the list.</p>}</Panel>
         </div>)}
     </Page>
   );

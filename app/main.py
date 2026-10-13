@@ -16,7 +16,7 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import config, db, export, grader, jobs, kg, pipeline, progress, providers, transcribe
+from . import articles, config, db, export, grader, jobs, pipeline, progress, providers, transcribe
 from . import diagram as diagram_mod
 
 log = logging.getLogger("coach")
@@ -501,7 +501,7 @@ async def delete_session(sid: int):
     return {"ok": True}
 
 
-app.include_router(kg.router)
+app.include_router(articles.router)
 
 
 # ---- study queue ---------------------------------------------------------------------
