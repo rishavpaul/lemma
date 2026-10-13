@@ -40,6 +40,10 @@ The final report: overall level, ten-dimension scores, time against budget, stre
 
 ![Final report with grade, dimensions, time used and section grades](docs/screenshots/report.png)
 
+The knowledge graph: explainer articles linked to each other, with a reader, an editor and an ask-a-model box.
+
+![Knowledge page with a linked article and the ask box](docs/screenshots/knowledge.png)
+
 ## Start
 
 ```bash

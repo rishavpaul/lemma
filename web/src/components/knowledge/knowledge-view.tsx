@@ -20,7 +20,7 @@ function GraphView({ g, selected, onPick }: { g: KgGraph; selected: number | nul
   const pos = new Map(g.nodes.map((x, i) => [x.id, { x: C + R * Math.cos((2 * Math.PI * i) / n - Math.PI / 2), y: C + R * Math.sin((2 * Math.PI * i) / n - Math.PI / 2) }]));
   const linked = new Set(g.edges.filter((e) => e.src === selected || e.dst === selected).flatMap((e) => [e.src, e.dst]));
   return (
-    <svg viewBox={`0 0 ${2 * C} ${2 * C}`} className="mx-auto w-full max-w-[560px]" role="img" aria-label="Knowledge graph">
+    <svg viewBox={`-95 0 ${2 * C + 190} ${2 * C}`} className="mx-auto w-full max-w-[640px]" role="img" aria-label="Knowledge graph">
       {g.edges.map((e, i) => {
         const a = pos.get(e.src), b = pos.get(e.dst);
         if (!a || !b) return null;
@@ -34,7 +34,7 @@ function GraphView({ g, selected, onPick }: { g: KgGraph; selected: number | nul
         return (
           <g key={x.id} className="cursor-pointer" onClick={() => onPick(x.id)}>
             <circle cx={p.x} cy={p.y} r={on ? 8 : 6} fill={on ? "var(--signal)" : near ? "var(--mint)" : "var(--muted-foreground)"} />
-            <text x={p.x + (left ? -11 : 11)} y={p.y + 4} textAnchor={left ? "end" : "start"} fontSize={11} fill="var(--foreground)">{x.title.length > 26 ? x.title.slice(0, 25) + "…" : x.title}</text>
+            <text x={p.x + (left ? -11 : 11)} y={p.y + 4} textAnchor={left ? "end" : "start"} fontSize={11} fill="var(--foreground)">{x.title.length > 20 ? x.title.slice(0, 19) + "…" : x.title}</text>
           </g>);
       })}
     </svg>
