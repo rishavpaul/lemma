@@ -14,33 +14,6 @@ import type { KgArticle, KgGraph } from "@/lib/types";
 export const EXPLAIN_MODELS = [["sonnet", "Sonnet"], ["opus", "Opus"], ["free", "Free (Nemotron)"]] as const;
 export type ExplainModel = (typeof EXPLAIN_MODELS)[number][0];
 
-function GraphView({ g, selected, onPick }: { g: KgGraph; selected: number | null; onPick: (id: number) => void }) {
-  const n = g.nodes.length;
-  const R = 150, C = 190;
-  const pos = new Map(g.nodes.map((x, i) => [x.id, { x: C + R * Math.cos((2 * Math.PI * i) / n - Math.PI / 2), y: C + R * Math.sin((2 * Math.PI * i) / n - Math.PI / 2) }]));
-  const linked = new Set(g.edges.filter((e) => e.src === selected || e.dst === selected).flatMap((e) => [e.src, e.dst]));
-  return (
-    <svg viewBox={`-95 0 ${2 * C + 190} ${2 * C}`} className="mx-auto w-full max-w-[640px]" role="img" aria-label="Knowledge graph">
-      {g.edges.map((e, i) => {
-        const a = pos.get(e.src), b = pos.get(e.dst);
-        if (!a || !b) return null;
-        const hot = e.src === selected || e.dst === selected;
-        return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={hot ? "var(--signal)" : "var(--border)"} strokeWidth={hot ? 2 : 1} />;
-      })}
-      {g.nodes.map((x) => {
-        const p = pos.get(x.id)!;
-        const on = x.id === selected, near = linked.has(x.id);
-        const left = p.x < C;
-        return (
-          <g key={x.id} className="cursor-pointer" onClick={() => onPick(x.id)}>
-            <circle cx={p.x} cy={p.y} r={on ? 8 : 6} fill={on ? "var(--signal)" : near ? "var(--mint)" : "var(--muted-foreground)"} />
-            <text x={p.x + (left ? -11 : 11)} y={p.y + 4} textAnchor={left ? "end" : "start"} fontSize={11} fill="var(--foreground)">{x.title.length > 20 ? x.title.slice(0, 19) + "…" : x.title}</text>
-          </g>);
-      })}
-    </svg>
-  );
-}
-
 function AskPanel({ a, onAppend }: { a: KgArticle; onAppend: (q: string, ans: string) => Promise<void> }) {
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState<ExplainModel | null>(null);
@@ -133,11 +106,10 @@ export function KnowledgeView() {
   const go = (x: number | null) => router.push(x ? `/knowledge/?id=${x}` : "/knowledge/");
   return (
     <Page wide>
-      <PageHeader title="Knowledge" subtitle="Concepts you have studied, linked to each other. Use Explain with on the Progress page to add more." />
+      <PageHeader title="Knowledge" subtitle="Articles on the concepts you have studied, grouped by design problem. Use Explain with on the Progress page to add more." />
       {g.nodes.length === 0 ? <Panel><p className="text-sm text-muted-foreground">Nothing here yet. Click Explain with on a concept in Progress and its article lands here.</p></Panel> : (
         <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
           <div className="space-y-4">
-            <Panel><GraphView g={g} selected={id} onPick={go} /></Panel>
             {groups.map(([title, nodes]) => (
               <Panel key={title} className="p-0">
                 <h3 className="border-b px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
