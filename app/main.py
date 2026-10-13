@@ -16,7 +16,7 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import config, db, export, grader, jobs, pipeline, progress, providers, transcribe
+from . import config, db, export, grader, jobs, kg, pipeline, progress, providers, transcribe
 from . import diagram as diagram_mod
 
 log = logging.getLogger("coach")
@@ -501,36 +501,7 @@ async def delete_session(sid: int):
     return {"ok": True}
 
 
-# ---- explain a concept -----------------------------------------------------------------
-
-EXPLAIN_MODELS = {"sonnet": "sonnet", "opus": "opus", "free": "openrouter:nvidia/nemotron-3-super-120b-a12b:free"}
-EXPLAIN_SYSTEM = ("You are a staff-level system design mentor. Explain the concept to an engineer preparing for a staff interview: "
-                  "what it is, why it matters, how it works with a concrete example, the tradeoffs and failure modes, and what to say "
-                  "out loud in an interview. Use short markdown sections and bullets. Keep it under 500 words.")
-EXPLAIN_SCHEMA = {"type": "object", "properties": {"explanation": {"type": "string"}}, "required": ["explanation"], "additionalProperties": False}
-
-
-class ExplainRequest(BaseModel):
-    concept: str
-    why: str = ""
-    key_ideas: list[str] = []
-    model: str = "sonnet"
-
-
-@app.post("/api/explain")
-async def explain_concept(req: ExplainRequest):
-    model = EXPLAIN_MODELS.get(req.model)
-    if not model:
-        raise HTTPException(400, f"model must be one of {', '.join(EXPLAIN_MODELS)}")
-    concept = req.concept.strip()
-    if not concept:
-        raise HTTPException(400, "concept is required")
-    payload = f"Concept: {concept}\nWhy it matters for this learner: {req.why}\nKey ideas to cover:\n" + "\n".join(f"- {k}" for k in req.key_ideas)
-    res = await grader.run_claude("explain", EXPLAIN_SYSTEM, payload, EXPLAIN_SCHEMA, model, 240,
-                                  pipeline._settings()[1], lambda r: None if str(r.get("explanation", "")).strip() else "explanation is empty", {}, web=False)
-    if not res["ok"]:
-        raise HTTPException(502, res["error"] or "the model call failed")
-    return {"explanation": res["structured"]["explanation"], "model": model}
+app.include_router(kg.router)
 
 
 # ---- study queue ---------------------------------------------------------------------

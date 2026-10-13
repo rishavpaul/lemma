@@ -240,3 +240,7 @@ export interface DiagramReview {
   issues: { severity: "low" | "medium" | "high"; issue: string; suggestion: string }[];
   narration_mismatches: string[];
 }
+
+export interface KgNode { id: number; title: string; summary: string; updated_at: number }
+export interface KgGraph { nodes: KgNode[]; edges: { src: number; dst: number }[] }
+export interface KgArticle extends KgNode { body: string; model: string | null; links: number[] }

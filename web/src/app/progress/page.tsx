@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, BarChart } from "recharts";
@@ -26,7 +27,7 @@ export default function ProgressPage() {
   const prov = useProviders();
   const [queued, setQueued] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
-  const [explained, setExplained] = useState<Record<string, { model: string; text?: string; loading?: boolean }>>({});
+  const [explained, setExplained] = useState<Record<string, { model: string; article?: { id: number; title: string; summary: string }; created?: boolean; loading?: boolean }>>({});
   const [confirmClear, setConfirmClear] = useState(false);
   const { data: imp, setData: setImp } = useApi<ImprovementReport | null>("/api/improvements/latest",
     (d) => (d && d.status !== "done" && d.job?.status !== "failed" ? 3000 : false));
@@ -52,8 +53,9 @@ export default function ProgressPage() {
     const k = c.concept;
     setExplained((e) => ({ ...e, [k]: { model: m, loading: true } }));
     try {
-      const r = await api<{ explanation: string }>("/api/explain", { method: "POST", body: { concept: c.concept, why: c.why, key_ideas: c.key_ideas, model: m } });
-      setExplained((e) => ({ ...e, [k]: { model: m, text: r.explanation } }));
+      const r = await api<{ article: { id: number; title: string; summary: string }; created: boolean }>("/api/kg/explain",
+        { method: "POST", body: { concept: c.concept, why: c.why, key_ideas: c.key_ideas, model: m } });
+      setExplained((e) => ({ ...e, [k]: { model: m, article: r.article, created: r.created } }));
     } catch (e) {
       toast.error((e as Error).message);
       setExplained((x) => Object.fromEntries(Object.entries(x).filter(([key]) => key !== k)));
@@ -132,7 +134,12 @@ export default function ProgressPage() {
                       <Button key={m} size="sm" variant="outline" disabled={explained[c.concept]?.loading} onClick={() => explain(c, m)}>{label}</Button>))}
                     {explained[c.concept]?.loading && <span className="text-xs text-muted-foreground">Thinking with {explained[c.concept].model}...</span>}
                   </div>
-                  {explained[c.concept]?.text && <div className="mt-3 whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-sm">{explained[c.concept].text}</div>}
+                  {explained[c.concept]?.article && (
+                    <div className="mt-3 rounded-lg bg-muted/40 p-3 text-sm">
+                      <span className="text-xs text-muted-foreground">{explained[c.concept].created ? "New article written" : "Found in your knowledge graph"}: </span>
+                      <Link className="font-medium underline underline-offset-4" href={`/knowledge/?id=${explained[c.concept].article!.id}`}>{explained[c.concept].article!.title}</Link>
+                      <p className="mt-1 text-muted-foreground">{explained[c.concept].article!.summary}</p>
+                    </div>)}
                 </div>))}
             </div>)}
         </Panel>

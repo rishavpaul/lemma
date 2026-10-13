@@ -209,3 +209,15 @@ def execute(sql: str, args: tuple = ()) -> int:
     cur = conn.execute(sql, args)
     conn.commit()
     return cur.lastrowid
+
+
+MIGRATIONS.append("""
+    CREATE TABLE kg_articles(
+        id INTEGER PRIMARY KEY, title TEXT NOT NULL, summary TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '',
+        model TEXT, created_at REAL NOT NULL, updated_at REAL NOT NULL);
+    CREATE UNIQUE INDEX kg_title ON kg_articles(lower(title));
+    CREATE TABLE kg_links(
+        src INTEGER NOT NULL REFERENCES kg_articles(id) ON DELETE CASCADE,
+        dst INTEGER NOT NULL REFERENCES kg_articles(id) ON DELETE CASCADE,
+        PRIMARY KEY(src, dst));
+""")

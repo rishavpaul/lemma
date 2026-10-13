@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useSyncExternalStore } from "react";
-import { BarChart3, BookOpenCheck, Gauge, Home, Library, Moon, Settings, Sun, TriangleAlert } from "lucide-react";
+import { BarChart3, BookOpenCheck, Gauge, Home, Library, Network, Moon, Settings, Sun, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
 import type { Health, PlanUsage } from "@/lib/types";
@@ -13,6 +13,7 @@ const NAV = [
   { href: "/", label: "Today", icon: Home },
   { href: "/progress", label: "Progress", icon: BarChart3 },
   { href: "/questions", label: "Library", icon: Library },
+  { href: "/knowledge", label: "Knowledge", icon: Network },
   { href: "/usage", label: "Usage", icon: Gauge },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

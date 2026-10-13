@@ -25,6 +25,8 @@ against a web-researched reference brief. A Progress page tracks you over many s
   evidence quotes, gaps and follow-up questions, plus an overall level and hire signal.
 - **Your choice of model.** Grade with your Claude subscription, or with free OpenRouter and Groq models. Set it per task.
 - **Library of questions.** Practice the built-in set, read each answer key, or add prompts from your own interviews.
+- **Knowledge graph.** Explain with (Sonnet, Opus or free Nemotron) sends a concept plus a compressed view of your graph to the model, which
+  picks an existing article or writes a new linked one. Read, edit and ask questions about articles on the Knowledge page.
 - **Progress over time.** Streaks, recurring gaps and a study list that grows from your sessions.
 - **Usage tracking.** Calls, tokens, cost and plan-limit use for every model call.
 
