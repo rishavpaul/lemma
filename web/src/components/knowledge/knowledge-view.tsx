@@ -102,7 +102,7 @@ function Reader({ id, titles, reload, onGone }: { id: number; titles: Map<number
       ) : (
         <>
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div><h2 className="text-xl font-semibold">{a.title}</h2><p className="mt-1 text-sm text-muted-foreground">{a.summary}</p></div>
+            <div><h2 className="text-xl font-semibold">{a.title}</h2>{a.questions.length > 0 && <p className="mt-1 text-xs text-muted-foreground">From: {a.questions.map((q) => q.title).join(", ")}</p>}<p className="mt-1 text-sm text-muted-foreground">{a.summary}</p></div>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={() => setEdit({ title: a.title, summary: a.summary, body: a.body })}>Edit</Button>
               {confirm ? <Button size="sm" variant="destructive" onClick={remove}>Confirm delete</Button>
@@ -126,6 +126,10 @@ export function KnowledgeView() {
   if (loading) return <Page wide><Skeleton className="h-96 w-full" /></Page>;
   if (error || !g) return <Page wide><p className="text-sm text-destructive">{error}</p></Page>;
   const titles = new Map(g.nodes.map((n) => [n.id, n.title]));
+  // An article appears under every design problem it was studied for; the rest go under "General".
+  const byProblem = new Map<string, KgGraph["nodes"]>();
+  for (const n of g.nodes) for (const q of n.questions.length ? n.questions : [{ id: 0, title: "General" }]) byProblem.set(q.title, [...(byProblem.get(q.title) ?? []), n]);
+  const groups = [...byProblem.entries()].sort(([a], [b]) => (a === "General" ? 1 : b === "General" ? -1 : a.localeCompare(b)));
   const go = (x: number | null) => router.push(x ? `/knowledge/?id=${x}` : "/knowledge/");
   return (
     <Page wide>
@@ -134,13 +138,15 @@ export function KnowledgeView() {
         <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
           <div className="space-y-4">
             <Panel><GraphView g={g} selected={id} onPick={go} /></Panel>
-            <Panel className="p-0">
-              <ul className="max-h-[420px] divide-y overflow-y-auto">
-                {g.nodes.map((n) => (
-                  <li key={n.id}><button className={cn("block w-full px-4 py-2 text-left text-sm hover:bg-accent/40", n.id === id && "bg-accent/60")} onClick={() => go(n.id)}>
-                    <b>{n.title}</b><span className="block truncate text-xs text-muted-foreground">{n.summary}</span></button></li>))}
-              </ul>
-            </Panel>
+            {groups.map(([title, nodes]) => (
+              <Panel key={title} className="p-0">
+                <h3 className="border-b px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+                <ul className="divide-y">
+                  {nodes.map((n) => (
+                    <li key={n.id}><button className={cn("block w-full px-4 py-2 text-left text-sm hover:bg-accent/40", n.id === id && "bg-accent/60")} onClick={() => go(n.id)}>
+                      <b>{n.title}</b><span className="block truncate text-xs text-muted-foreground">{n.summary}</span></button></li>))}
+                </ul>
+              </Panel>))}
           </div>
           <Panel>{id ? <Reader key={id} id={id} titles={titles} reload={reload} onGone={() => go(null)} /> : <p className="text-sm text-muted-foreground">Pick an article from the graph or the list.</p>}</Panel>
         </div>)}

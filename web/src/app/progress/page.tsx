@@ -54,7 +54,7 @@ export default function ProgressPage() {
     setExplained((e) => ({ ...e, [k]: { model: m, loading: true } }));
     try {
       const r = await api<{ article: { id: number; title: string; summary: string }; created: boolean }>("/api/kg/explain",
-        { method: "POST", body: { concept: c.concept, why: c.why, key_ideas: c.key_ideas, model: m } });
+        { method: "POST", body: { concept: c.concept, why: c.why, key_ideas: c.key_ideas, model: m, session_ids: c.sessions.map((n) => imp?.session_ids[n - 1]).filter((x): x is number => typeof x === "number") } });
       setExplained((e) => ({ ...e, [k]: { model: m, article: r.article, created: r.created } }));
     } catch (e) {
       toast.error((e as Error).message);

@@ -62,6 +62,7 @@ def article(aid: int) -> dict:
     a = db.one("SELECT * FROM kg_articles WHERE id=?", (aid,))
     if not a:
         raise HTTPException(404, "no such article")
+    a["questions"] = db.rows("SELECT q.id,q.title FROM kg_article_questions k JOIN questions q ON q.id=k.question_id WHERE k.article_id=? ORDER BY q.title", (aid,))
     a["links"] = [r["id"] for r in db.rows("SELECT dst id FROM kg_links WHERE src=? UNION SELECT src FROM kg_links WHERE dst=?", (aid, aid))]
     return a
 
@@ -71,6 +72,12 @@ class ExplainRequest(BaseModel):
     why: str = ""
     key_ideas: list[str] = []
     model: str = "sonnet"
+    session_ids: list[int] = []  # sessions where the concept showed up; their design problems group the article
+
+
+def _tag_questions(aid: int, session_ids: list[int]) -> None:
+    for r in db.rows(f"SELECT DISTINCT question_id FROM sessions WHERE id IN ({','.join('?' * len(session_ids))})", tuple(session_ids)) if session_ids else []:
+        db.execute("INSERT OR IGNORE INTO kg_article_questions(article_id,question_id) VALUES(?,?)", (aid, r["question_id"]))
 
 
 @router.post("/explain")
@@ -87,12 +94,14 @@ async def explain(req: ExplainRequest):
         reason = pick.get("reason", "")
         aid = pick.get("article_id")
         if aid is not None and db.one("SELECT 1 FROM kg_articles WHERE id=?", (aid,)):
+            _tag_questions(aid, req.session_ids)
             return {"article": article(aid), "created": False, "reason": reason}
     w = await _call("kg_write", WRITE_SYSTEM, f"{detail}\n\nExisting knowledge graph:\n{graph or '(empty)'}", WRITE_SCHEMA, model,
                     lambda r: None if str(r.get("title", "")).strip() and str(r.get("body", "")).strip() else "title and body must be non-empty")
     title = w["title"].strip()
     same = db.one("SELECT id FROM kg_articles WHERE lower(title)=lower(?)", (title,))
     if same:
+        _tag_questions(same["id"], req.session_ids)
         return {"article": article(same["id"]), "created": False, "reason": reason}
     now = time.time()
     aid = db.execute("INSERT INTO kg_articles(title,summary,body,model,created_at,updated_at) VALUES(?,?,?,?,?,?)",
@@ -100,12 +109,17 @@ async def explain(req: ExplainRequest):
     for rid in set(w.get("related_ids", [])):
         if rid != aid and db.one("SELECT 1 FROM kg_articles WHERE id=?", (rid,)):
             db.execute("INSERT OR IGNORE INTO kg_links(src,dst) VALUES(?,?)", (aid, rid))
+    _tag_questions(aid, req.session_ids)
     return {"article": article(aid), "created": True, "reason": reason}
 
 
 @router.get("")
 async def graph():
-    return {"nodes": db.rows("SELECT id,title,summary,updated_at FROM kg_articles ORDER BY title COLLATE NOCASE"),
+    qs: dict[int, list[dict]] = {}
+    for r in db.rows("SELECT k.article_id aid,q.id,q.title FROM kg_article_questions k JOIN questions q ON q.id=k.question_id ORDER BY q.title"):
+        qs.setdefault(r["aid"], []).append({"id": r["id"], "title": r["title"]})
+    nodes = db.rows("SELECT id,title,summary,updated_at FROM kg_articles ORDER BY title COLLATE NOCASE")
+    return {"nodes": [dict(n, questions=qs.get(n["id"], [])) for n in nodes],
             "edges": db.rows("SELECT src,dst FROM kg_links")}
 
 

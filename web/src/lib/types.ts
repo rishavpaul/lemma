@@ -241,6 +241,6 @@ export interface DiagramReview {
   narration_mismatches: string[];
 }
 
-export interface KgNode { id: number; title: string; summary: string; updated_at: number }
+export interface KgNode { id: number; title: string; summary: string; updated_at: number; questions: { id: number; title: string }[] }
 export interface KgGraph { nodes: KgNode[]; edges: { src: number; dst: number }[] }
 export interface KgArticle extends KgNode { body: string; model: string | null; links: number[] }

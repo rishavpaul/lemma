@@ -26,7 +26,12 @@ class Knowledge(unittest.TestCase):
         grader.run_claude = fake_run_claude
         with TestClient(main.app) as c:
             body = {"concept": "Quorum reads", "model": "free"}
-            r = c.post("/api/kg/explain", json=body).json()
+            from app import db
+            qid = db.one("SELECT id FROM questions LIMIT 1")["id"]
+            sid = db.execute("INSERT INTO sessions(question_id,status,started_at) VALUES(?,'done',1)", (qid,))
+            r = c.post("/api/kg/explain", json=dict(body, session_ids=[sid])).json()
+            self.assertEqual([q["id"] for q in r["article"]["questions"]], [qid])
+            self.assertEqual([q["id"] for q in c.get("/api/kg").json()["nodes"][0]["questions"]], [qid])
             self.assertTrue(r["created"])
             self.assertEqual([k for k, _, _ in CALLS], ["kg_write"])  # empty graph: no pick call
             self.assertIn("nemotron", CALLS[0][1])

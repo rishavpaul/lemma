@@ -221,3 +221,11 @@ MIGRATIONS.append("""
         dst INTEGER NOT NULL REFERENCES kg_articles(id) ON DELETE CASCADE,
         PRIMARY KEY(src, dst));
 """)
+
+
+MIGRATIONS.append("""
+    CREATE TABLE kg_article_questions(
+        article_id INTEGER NOT NULL REFERENCES kg_articles(id) ON DELETE CASCADE,
+        question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+        PRIMARY KEY(article_id, question_id));
+""")
