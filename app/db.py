@@ -236,3 +236,18 @@ MIGRATIONS.append("""
     ALTER TABLE kg_articles RENAME TO articles;
     ALTER TABLE kg_article_questions RENAME TO article_questions;
 """)
+
+
+MIGRATIONS.append("""
+    DROP TABLE IF EXISTS study_items;
+    ALTER TABLE articles ADD COLUMN status TEXT NOT NULL DEFAULT 'pending';
+    ALTER TABLE articles ADD COLUMN rating INTEGER;
+""")
+
+
+MIGRATIONS.append("""
+    CREATE TABLE article_comments(
+        id INTEGER PRIMARY KEY, article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+        question TEXT, body TEXT NOT NULL, model TEXT, created_at REAL NOT NULL);
+    CREATE INDEX idx_article_comments ON article_comments(article_id);
+""")

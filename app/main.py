@@ -446,8 +446,12 @@ async def create_improvement(body: ImprovementBody):
 
 
 @app.get("/api/improvements/latest")
-async def latest_improvement():
-    return _improvement_row(db.one("SELECT * FROM improvement_reports ORDER BY id DESC LIMIT 1"))
+async def latest_improvement(session_id: int | None = None):
+    """The newest report; with session_id, the newest one made for exactly that session (the report page)."""
+    for r in db.rows("SELECT * FROM improvement_reports ORDER BY id DESC"):
+        if session_id is None or json.loads(r["session_ids_json"]) == [session_id]:
+            return _improvement_row(r)
+    return None
 
 
 @app.get("/api/improvements/{rid}")
@@ -456,6 +460,17 @@ async def get_improvement(rid: int):
     if not r:
         raise HTTPException(404, "report not found")
     return r
+
+
+@app.delete("/api/improvements/{rid}")
+async def delete_improvement(rid: int):
+    if not db.one("SELECT 1 FROM improvement_reports WHERE id=?", (rid,)):
+        raise HTTPException(404, "report not found")
+    if db.one("SELECT 1 FROM jobs WHERE type='improvement' AND ref_id=? AND status='running'", (rid,)):
+        raise HTTPException(409, "This review is still running. Try again in a moment.")
+    db.execute("DELETE FROM jobs WHERE type='improvement' AND ref_id=?", (rid,))
+    db.execute("DELETE FROM improvement_reports WHERE id=?", (rid,))
+    return {"ok": True}
 
 
 @app.get("/api/jobs/{job_id}")
@@ -489,7 +504,6 @@ async def delete_session(sid: int):
     if db.one(f"SELECT 1 FROM jobs WHERE status='running' AND ((type IN ('transcribe','grade_section','probe') AND ref_id IN ({ph})) "
               "OR (type='grade_session' AND ref_id=?))", (*secs, sid)):
         raise HTTPException(409, "A job for this session is still running. Try again in a moment.")
-    conn.execute("UPDATE study_items SET source_session_id=NULL WHERE source_session_id=?", (sid,))
     for sec in secs:
         conn.execute("DELETE FROM jobs WHERE type IN ('transcribe','grade_section','probe') AND ref_id=?", (sec,))
     conn.execute("DELETE FROM jobs WHERE type='grade_session' AND ref_id=?", (sid,))
@@ -502,61 +516,6 @@ async def delete_session(sid: int):
 
 
 app.include_router(articles.router)
-
-
-# ---- study queue ---------------------------------------------------------------------
-
-class StudyItem(BaseModel):
-    concept: str
-    why: str = ""
-    resource: str = ""
-    source_session_id: int | None = None
-
-
-def upsert_study_item(item: StudyItem) -> dict:
-    concept = item.concept.strip()
-    existing = db.one("SELECT * FROM study_items WHERE lower(concept)=lower(?)", (concept,))
-    if existing:
-        why = existing["why"] if item.why in (existing["why"] or "") else (existing["why"] + " | " + item.why if existing["why"] else item.why)
-        res = existing["resource"] or item.resource
-        db.execute("UPDATE study_items SET why=?, resource=? WHERE id=?", (why, res, existing["id"]))
-        return db.one("SELECT * FROM study_items WHERE id=?", (existing["id"],))
-    iid = db.execute("INSERT INTO study_items(concept,why,resource,source_session_id,created_at) VALUES(?,?,?,?,?)",
-                     (concept, item.why, item.resource, item.source_session_id, time.time()))
-    return db.one("SELECT * FROM study_items WHERE id=?", (iid,))
-
-
-@app.get("/api/study_items")
-async def list_study_items():
-    return db.rows("SELECT * FROM study_items ORDER BY CASE status WHEN 'doing' THEN 0 WHEN 'todo' THEN 1 ELSE 2 END, id DESC")
-
-
-@app.post("/api/study_items")
-async def add_study_item(item: StudyItem):
-    if not item.concept.strip():
-        raise HTTPException(400, "concept required")
-    return upsert_study_item(item)
-
-
-class StudyPatch(BaseModel):
-    status: str
-
-
-@app.delete("/api/study_items")
-async def clear_study_items():
-    n = db.one("SELECT COUNT(*) n FROM study_items")["n"]
-    db.execute("DELETE FROM study_items")
-    return {"deleted": n}
-
-
-@app.patch("/api/study_items/{iid}")
-async def patch_study_item(iid: int, body: StudyPatch):
-    if body.status not in ("todo", "doing", "done"):
-        raise HTTPException(400, "status must be todo|doing|done")
-    if not db.one("SELECT 1 FROM study_items WHERE id=?", (iid,)):
-        raise HTTPException(404, "not found")
-    db.execute("UPDATE study_items SET status=? WHERE id=?", (body.status, iid))
-    return db.one("SELECT * FROM study_items WHERE id=?", (iid,))
 
 
 @app.get("/api/questions/suggest")

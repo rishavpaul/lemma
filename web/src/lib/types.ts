@@ -153,20 +153,11 @@ export interface SessionPayload {
   costs?: { overall: Cost | null; answer_key: Cost | null };
 }
 
-export interface StudyItem {
-  id: number;
-  concept: string;
-  why: string;
-  resource: string;
-  status: "todo" | "doing" | "done";
-}
-
 export interface Progress {
   timeline: { session_id: number; started_at: number; title: string; overall_level: Level; overall_score: number; dimensions: Record<string, number> }[];
   dimensions: string[];
   time_vs_budget: { title: string; avg_used: number; budget: number }[];
   gaps: { tag: string; count: number; last5: number; last_seen: number }[];
-  study_items: StudyItem[];
   focus: { drill: string | null; suggested: { question_id: number; title: string; reason: string } };
 }
 
@@ -241,5 +232,6 @@ export interface DiagramReview {
   narration_mismatches: string[];
 }
 
-export interface ArticleSummary { id: number; title: string; summary: string; updated_at: number; questions: { id: number; title: string }[] }
-export interface Article extends ArticleSummary { body: string; model: string | null }
+export interface ArticleSummary { id: number; title: string; summary: string; updated_at: number; status: "pending" | "read"; rating: number | null; questions: { id: number; title: string }[] }
+export interface ArticleComment { id: number; question: string | null; body: string; model: string | null; created_at: number }
+export interface Article extends ArticleSummary { body: string; model: string | null; comments: ArticleComment[] }

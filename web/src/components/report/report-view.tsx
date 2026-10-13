@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ModelPicker, useProviders } from "@/components/model-picker";
 import { toast } from "sonner";
-import { ChevronRight, Download, ExternalLink, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { ChevronRight, Download, ExternalLink, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,6 +14,7 @@ import { Markdown } from "@/components/markdown";
 import { DiagramCanvas } from "@/components/canvas/diagram-canvas";
 import { diagramSize, emptyDiagram } from "@/components/canvas/legacy";
 import { DimensionChart, TimeChart } from "./charts";
+import { ConceptsPanel } from "@/components/concepts-panel";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { cn } from "@/lib/utils";
@@ -70,11 +71,6 @@ function JobNote({ job, what, onRetry }: { job: Job | null; what: string; onRetr
     );
   }
   return null;
-}
-
-async function addStudy(concept: string, why: string, resource: string, sid: number | null, btn: HTMLButtonElement) {
-  try { await api("/api/study_items", { method: "POST", body: { concept, why, resource, source_session_id: sid } }); btn.disabled = true; toast.success("Added to your study queue"); }
-  catch (e) { toast.error((e as Error).message); }
 }
 
 function SectionCard({ s, reload }: { s: Sec; reload: () => void }) {
@@ -249,10 +245,10 @@ export function ReportView() {
                     <div key={x.concept} className="flex items-start gap-3 border-b px-4 py-3 text-sm last:border-0">
                       <span className="num mt-0.5 w-5 text-muted-foreground">{i + 1}</span>
                       <div className="flex-1"><b>{x.concept}</b><div className="text-muted-foreground">{x.why}</div><div className="text-xs text-muted-foreground">{x.resource} · from {x.sections.join(", ")}</div></div>
-                      <Button size="xs" variant="outline" onClick={(e) => addStudy(x.concept, x.why, x.resource, p.session.id, e.currentTarget)}><Plus />Queue</Button>
                     </div>))}</div>
                 </Section>
               )}
+              <Section title="Concepts to study"><ConceptsPanel fixedSession={p.session.id} /></Section>
               {g.sources.length > 0 && <Section title={`Sources (${g.sources.length})`}><ul className="space-y-1 text-sm">{g.sources.map((s) => <li key={s.url}><a className="text-signal underline underline-offset-2" href={s.url} target="_blank" rel="noopener noreferrer">{s.title || s.url}</a></li>)}</ul></Section>}
             </>
           )}

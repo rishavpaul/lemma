@@ -25,8 +25,10 @@ WRITE_SYSTEM = ("You are a staff-level system design mentor writing one knowledg
                 "Mention related existing articles in the body by title.")
 WRITE_SCHEMA = {"type": "object", "properties": {"title": {"type": "string"}, "summary": {"type": "string"}, "body": {"type": "string"}},
                 "required": ["title", "summary", "body"], "additionalProperties": False}
-ASK_SYSTEM = ("You answer a learner's question about the article below. Ground the answer in the article, add what is missing, and say so "
-              "when the article is wrong or incomplete. Be concise, in markdown.")
+ASK_SYSTEM = ("You answer a learner's question about an article in their library. You always get its title and summary; the article text, "
+              "the learner's saved comments and the earlier turns of this conversation come only when included below. Use what you are given, "
+              "add what is missing, and say so when the article looks wrong or incomplete, or when you would need text you were not given. "
+              "Be concise, in markdown.")
 ASK_SCHEMA = {"type": "object", "properties": {"answer": {"type": "string"}}, "required": ["answer"], "additionalProperties": False}
 
 
@@ -55,6 +57,7 @@ def article(aid: int) -> dict:
     if not a:
         raise HTTPException(404, "no such article")
     a["questions"] = db.rows("SELECT q.id,q.title FROM article_questions k JOIN questions q ON q.id=k.question_id WHERE k.article_id=? ORDER BY q.title", (aid,))
+    a["comments"] = db.rows("SELECT id,question,body,model,created_at FROM article_comments WHERE article_id=? ORDER BY id", (aid,))
     return a
 
 
@@ -106,7 +109,7 @@ async def list_articles():
     qs: dict[int, list[dict]] = {}
     for r in db.rows("SELECT k.article_id aid,q.id,q.title FROM article_questions k JOIN questions q ON q.id=k.question_id ORDER BY q.title"):
         qs.setdefault(r["aid"], []).append({"id": r["id"], "title": r["title"]})
-    return [dict(n, questions=qs.get(n["id"], [])) for n in db.rows("SELECT id,title,summary,updated_at FROM articles ORDER BY title COLLATE NOCASE")]
+    return [dict(n, questions=qs.get(n["id"], [])) for n in db.rows("SELECT id,title,summary,updated_at,status,rating FROM articles ORDER BY title COLLATE NOCASE")]
 
 
 @router.get("/{aid}")
@@ -136,13 +139,67 @@ async def edit_article(aid: int, e: ArticleEdit):
 async def delete_article(aid: int):
     article(aid)
     db.execute("DELETE FROM article_questions WHERE article_id=?", (aid,))
+    db.execute("DELETE FROM article_comments WHERE article_id=?", (aid,))
     db.execute("DELETE FROM articles WHERE id=?", (aid,))
     return {"ok": True}
+
+
+class ArticleState(BaseModel):
+    status: str | None = None  # pending | read
+    rating: int | None = None  # 1-5; 0 clears it
+
+
+@router.patch("/{aid}")
+async def set_state(aid: int, st: ArticleState):
+    article(aid)
+    if st.status is not None:
+        if st.status not in ("pending", "read"):
+            raise HTTPException(400, "status must be pending or read")
+        db.execute("UPDATE articles SET status=? WHERE id=?", (st.status, aid))
+    if st.rating is not None:
+        if not 0 <= st.rating <= 5:
+            raise HTTPException(400, "rating must be 0-5")
+        db.execute("UPDATE articles SET rating=? WHERE id=?", (st.rating or None, aid))
+    return article(aid)
+
+
+class CommentBody(BaseModel):
+    body: str
+    question: str | None = None  # set when the comment saves an answer from Ask
+    model: str | None = None
+
+
+@router.post("/{aid}/comments")
+async def add_comment(aid: int, c: CommentBody):
+    article(aid)
+    body = c.body.strip()
+    if not body:
+        raise HTTPException(400, "comment is empty")
+    db.execute("INSERT INTO article_comments(article_id,question,body,model,created_at) VALUES(?,?,?,?,?)",
+               (aid, (c.question or "").strip() or None, body, c.model, time.time()))
+    return article(aid)
+
+
+@router.delete("/{aid}/comments/{cid}")
+async def delete_comment(aid: int, cid: int):
+    article(aid)
+    if not db.one("SELECT 1 FROM article_comments WHERE id=? AND article_id=?", (cid, aid)):
+        raise HTTPException(404, "no such comment")
+    db.execute("DELETE FROM article_comments WHERE id=?", (cid,))
+    return article(aid)
+
+
+class Turn(BaseModel):
+    q: str
+    a: str
 
 
 class AskRequest(BaseModel):
     question: str
     model: str = "sonnet"
+    include_body: bool = False      # send the full article text
+    include_comments: bool = False  # send the saved comments
+    history: list[Turn] = []        # earlier questions and answers from this conversation
 
 
 @router.post("/{aid}/ask")
@@ -152,6 +209,13 @@ async def ask(aid: int, req: AskRequest):
     q = req.question.strip()
     if not q:
         raise HTTPException(400, "question is required")
-    r = await _call("article_ask", ASK_SYSTEM, f"# {a['title']}\n\n{a['body']}\n\n---\nQuestion: {q}", ASK_SCHEMA, model,
+    parts = [f"# {a['title']}\n\nSummary: {a['summary']}"]
+    if req.include_body:
+        parts.append(f"## Article text\n\n{a['body']}")
+    if req.include_comments and a["comments"]:
+        parts.append("## Saved comments\n\n" + "\n\n".join(f"{('Q: ' + c['question'] + chr(10)) if c['question'] else ''}{c['body']}" for c in a["comments"]))
+    if req.history:
+        parts.append("## Earlier in this conversation\n\n" + "\n\n".join(f"Q: {t.q}\nA: {t.a}" for t in req.history))
+    r = await _call("article_ask", ASK_SYSTEM, "\n\n".join(parts) + f"\n\n---\nQuestion: {q}", ASK_SCHEMA, model,
                     lambda r: None if str(r.get("answer", "")).strip() else "answer is empty")
     return {"answer": r["answer"], "model": model}

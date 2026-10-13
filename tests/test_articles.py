@@ -49,7 +49,30 @@ class Knowledge(unittest.TestCase):
             self.assertEqual(c.get("/api/articles").json()[0]["title"], "Quorum reads")
             e = c.put(f"/api/articles/{aid}", json={"title": "Quorums", "summary": "s", "body": "new"}).json()
             self.assertEqual(e["body"], "new")
+            self.assertEqual(c.get("/api/articles").json()[0]["status"], "pending")
+            r = c.patch(f"/api/articles/{aid}", json={"status": "read", "rating": 4}).json()
+            self.assertEqual((r["status"], r["rating"]), ("read", 4))
+            self.assertIsNone(c.patch(f"/api/articles/{aid}", json={"rating": 0}).json()["rating"])
+            self.assertEqual(c.patch(f"/api/articles/{aid}", json={"rating": 6}).status_code, 400)
+            a = c.post(f"/api/articles/{aid}/comments", json={"body": "my note"}).json()
+            c.post(f"/api/articles/{aid}/comments", json={"body": "ans", "question": "why?", "model": "sonnet"})
+            self.assertEqual([x["body"] for x in c.get(f"/api/articles/{aid}").json()["comments"]], ["my note", "ans"])
+            self.assertEqual(c.get(f"/api/articles/{aid}").json()["body"], "new")  # comments never touch the body
+            self.assertEqual(c.post(f"/api/articles/{aid}/comments", json={"body": " "}).status_code, 400)
+            self.assertEqual(len(c.delete(f"/api/articles/{aid}/comments/{a['comments'][0]['id']}").json()["comments"]), 1)
+            self.assertEqual(c.delete(f"/api/articles/{aid}/comments/9999").status_code, 404)
             self.assertEqual(c.post(f"/api/articles/{aid}/ask", json={"question": "why?", "model": "sonnet"}).json()["answer"], "because")
+            url = f"/api/articles/{aid}/ask"
+            c.post(url, json={"question": "plain?"})
+            p = CALLS[-1][2]
+            self.assertIn("Summary: s", p)
+            self.assertNotIn("new", p.split("Question:")[0].replace("Summary", ""))  # body "new" not sent by default
+            self.assertNotIn("Saved comments", p)
+            c.post(url, json={"question": "all?", "include_body": True, "include_comments": True, "history": [{"q": "q1", "a": "a1"}]})
+            p = CALLS[-1][2]
+            self.assertIn("## Article text\n\nnew", p)
+            self.assertIn("ans", p.split("## Saved comments")[1])
+            self.assertIn("Q: q1\nA: a1", p)
             self.assertEqual(c.post("/api/articles/explain", json={"concept": "x", "model": "gpt"}).status_code, 400)
             self.assertEqual(c.post("/api/articles/explain", json={"concept": " ", "model": "opus"}).status_code, 400)
             self.assertEqual(c.delete(f"/api/articles/{aid}").status_code, 200)

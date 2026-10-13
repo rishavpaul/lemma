@@ -57,10 +57,10 @@ class Improvement(unittest.TestCase):
             self.assertEqual(len(CALLS), 1)
             self.assertNotEqual(c.post("/api/improvements", json={"k": 2, "force": True}).json()["id"], rid)
             self.assertEqual(c.get("/api/improvements/latest").json()["k"], 2)
-            # clearing the study queue
-            c.post("/api/study_items", json={"concept": "Quorum reads"})
-            self.assertEqual(c.delete("/api/study_items").json()["deleted"], 1)
-            self.assertEqual(c.get("/api/study_items").json(), [])
+            # clearing a report
+            last = c.get("/api/improvements/latest").json()["id"]
+            self.assertEqual(c.delete(f"/api/improvements/{last}").status_code, 200)
+            self.assertEqual(c.get(f"/api/improvements/{last}").status_code, 404)
             # an explicit selection and model
             chosen = [s["session_id"] for s in db.rows("SELECT session_id FROM session_grades ORDER BY session_id")][:1]
             r = c.post("/api/improvements", json={"session_ids": chosen + [9999], "model": "sonnet"}).json()

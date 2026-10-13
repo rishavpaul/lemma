@@ -131,9 +131,8 @@ def progress() -> dict:
     focus = {"drill": latest["drill_for_next_session"] if latest else None,
              "session_id": sessions[-1]["id"] if sessions else None,
              "suggested": suggest()}
-    study = db.rows("SELECT * FROM study_items ORDER BY CASE status WHEN 'doing' THEN 0 WHEN 'todo' THEN 1 ELSE 2 END, id DESC")
     return {"timeline": timeline, "dimensions": config.DIMENSIONS, "time_vs_budget": time_rows, "gaps": gap_rows,
-            "focus": focus, "study_items": study}
+            "focus": focus}
 
 
 # ---- LLM usage ledger ---------------------------------------------------------
