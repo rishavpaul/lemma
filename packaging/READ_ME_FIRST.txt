@@ -1,4 +1,4 @@
-DESIGN COACH: practice system design interviews out loud
+LEMMA: practice staff-level interviews, system design out loud and coding
 
 INSTALL
 1. Drag "Lemma" onto the Applications folder.
