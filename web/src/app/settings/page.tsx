@@ -5,8 +5,10 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { Page, PageHeader, Panel } from "@/components/shell/page-header";
-import { Pill } from "@/components/score-chip";
+import { Page, PageHeader, Section } from "@/components/shell/page-header";
+import { useTheme } from "next-themes";
+import { useSyncExternalStore } from "react";
+import { cn } from "@/lib/utils";
 import { ModelPicker, useProviders, type Providers } from "@/components/model-picker";
 import { KeyField } from "@/components/setup-guide";
 import { api } from "@/lib/api";
@@ -14,17 +16,40 @@ import { useApi } from "@/lib/use-api";
 import type { Health } from "@/lib/types";
 
 type S = Record<string, string>;
-const field = "h-9 w-full rounded-lg border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30";
+const field = "h-9 w-full rounded-[3px] bg-card px-3 text-[14px] outline-none focus-visible:outline-2 focus-visible:outline-ring";
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return <div className="grid gap-2 border-b py-5 last:border-0 md:grid-cols-[260px_1fr] md:gap-8"><div><div className="text-sm font-medium">{label}</div>{hint && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{hint}</p>}</div><div className="max-w-md">{children}</div></div>;
+  return <div className="grid gap-2 py-4 md:grid-cols-[300px_1fr] md:gap-10"><div><div className="text-[15px] font-semibold">{label}</div>{hint && <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">{hint}</p>}</div><div className="max-w-md">{children}</div></div>;
+}
+
+/** Paper (light), slate (dark), or whatever the Mac is set to. */
+function Appearance() {
+  const { theme, setTheme } = useTheme();
+  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
+  const opts = [["light", "Paper", "#f5f5f1", "#1b1b18"], ["dark", "Slate", "#151513", "#ecebe4"], ["system", "Follow the Mac", "", ""]] as const;
+  return (
+    <Section title="Appearance">
+      <div role="radiogroup" aria-label="Appearance" className="grid max-w-2xl gap-2 sm:grid-cols-3">
+        {opts.map(([v, label, bg, fg]) => {
+          const on = mounted && theme === v;
+          return (
+            <button key={v} type="button" role="radio" aria-checked={on} onClick={() => setTheme(v)}
+              className={cn("rounded-[3px] p-3 text-left transition-colors", on ? "bg-[color-mix(in_oklch,var(--signal)_16%,var(--background))]" : "bg-card hover:bg-muted")}>
+              <span aria-hidden className="mb-3 flex h-14 items-end overflow-hidden rounded-[2px] p-2 font-serif text-[1.5rem] leading-none" style={bg ? { background: bg, color: fg } : { background: "linear-gradient(90deg, #f5f5f1 50%, #151513 50%)", color: "#a35f00" }}>Aa</span>
+              <span className="text-[14px] font-semibold">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </Section>
+  );
 }
 
 function KeyRow({ name, p, onChange }: { name: string; p: Providers[string]; onChange: (d: Providers) => void }) {
   return (
     <Row label={p.label} hint={p.configured ? undefined : "Free keys are available."}>
       <KeyField name={name} p={p} onChange={onChange} />
-      {!p.configured && <a className="mt-1.5 inline-block text-xs text-signal hover:underline" href={p.keys_url} target="_blank" rel="noreferrer">Get a {p.label} key</a>}
+      {!p.configured && <a className="mt-1.5 inline-block text-[13px] underline underline-offset-4" href={p.keys_url} target="_blank" rel="noreferrer">Get a {p.label} key</a>}
     </Row>
   );
 }
@@ -40,7 +65,7 @@ export default function SettingsPage() {
   const set = (k: string, v: string) => setF({ ...f, [k]: v });
   const model = (k: string, claudeOnly = false, allowDefault = false) => <ModelPicker value={f[k]} onChange={(v) => set(k, v)} providers={prov.data} claudeOnly={claudeOnly} allowDefault={allowDefault} />;
   const hl = h.data;
-  const ok = (v: boolean) => (v ? <Pill tone="mint">ok</Pill> : <Pill tone="coral">problem</Pill>);
+  const ok = (v: boolean) => (v ? <span className="font-medium text-mint">Working</span> : <span className="font-medium text-coral">Not working</span>);
 
   async function save() {
     setSaving(true);
@@ -53,23 +78,22 @@ export default function SettingsPage() {
   }
   return (
     <Page>
-      <PageHeader title="Settings" actions={<Button onClick={save} disabled={saving}>{saving && <Loader2 className="animate-spin" />}Save settings</Button>} />
-      <Panel className="mb-8">
-        <h2 className="mb-3 text-sm font-semibold">Health</h2>
-        <dl className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-[140px_1fr]">
+      <PageHeader title="Settings" subtitle="Which model does which job, the speech model, and how Lemma looks. Everything is stored on this Mac." actions={<Button onClick={save} disabled={saving}>{saving && <Loader2 className="animate-spin" />}Save settings</Button>} />
+      <Appearance />
+      <Section title="Health">
+        <dl className="grid gap-x-10 gap-y-3 text-[15px] sm:grid-cols-[300px_1fr]">
           <dt className="text-muted-foreground">Claude CLI</dt><dd>{ok(hl.claude_ok === true)} <span className="text-muted-foreground">{hl.claude_version} {hl.claude_path}</span>{hl.claude_error && <div className="mt-1 text-xs text-coral">{hl.claude_error}</div>}</dd>
           <dt className="text-muted-foreground">ffmpeg</dt><dd>{ok(hl.ffmpeg_ok)}</dd>
-          <dt className="text-muted-foreground">Speech model</dt><dd>{hl.whisper_loaded ? <Pill tone="mint">loaded</Pill> : hl.whisper_loading ? <Pill tone="signal">loading</Pill> : <Pill tone="coral">not loaded</Pill>} {hl.whisper_error}</dd>
-          <dt className="text-muted-foreground">Data directory</dt><dd className="num text-xs">{hl.data_dir}</dd>
+          <dt className="text-muted-foreground">Speech model</dt><dd>{hl.whisper_loaded ? <span className="font-medium text-mint">Loaded</span> : hl.whisper_loading ? <span className="font-medium text-signal">Loading</span> : <span className="font-medium text-coral">Not loaded</span>} {hl.whisper_error}</dd>
+          <dt className="text-muted-foreground">Data directory</dt><dd className="break-all font-mono text-[13px]">{hl.data_dir}</dd>
         </dl>
-        <Button className="mt-4" variant="outline" size="sm" disabled={checking} onClick={async () => { setChecking(true); try { await api("/api/health/recheck", { method: "POST" }); await h.reload(); } finally { setChecking(false); } }}>{checking && <Loader2 className="animate-spin" />}Re-check Claude</Button>
-      </Panel>
-      <Panel className="mb-8">
-        <h2 className="mb-1 text-sm font-semibold">API keys</h2>
-        <p className="mb-2 text-xs leading-relaxed text-muted-foreground">Keys are stored in the macOS Keychain on this Mac and only sent to the provider. They are never shown again after saving.</p>
+        <Button className="mt-5" variant="outline" size="sm" disabled={checking} onClick={async () => { setChecking(true); try { await api("/api/health/recheck", { method: "POST" }); await h.reload(); } finally { setChecking(false); } }}>{checking && <Loader2 className="animate-spin" />}Re-check Claude</Button>
+      </Section>
+      <Section title="API keys">
+        <p className="mb-2 max-w-[62ch] text-[14px] leading-relaxed text-muted-foreground">Keys are stored in the macOS Keychain on this Mac and only sent to the provider. They are never shown again after saving.</p>
         {prov.data && Object.entries(prov.data).map(([name, p]) => <KeyRow key={name} name={name} p={p} onChange={(d) => prov.setData(d)} />)}
-      </Panel>
-      <Panel>
+      </Section>
+      <Section title="Models and speech">
         <Row label="Research model" hint="Runs once per question and becomes the answer key. Needs live web search, so it runs on Claude only."><div>{model("model_research", true)}</div></Row>
         <Row label="Section grading model" hint="7 calls per session. Pick Claude, or a model from OpenRouter or Groq (free models work)."><div>{model("model_section")}</div></Row>
         <Row label="Overall grade model" hint="1 call per session: level, study plan and drill. Hardest judgment call, so test an open model before relying on it."><div>{model("model_holistic")}</div></Row>
@@ -82,7 +106,7 @@ export default function SettingsPage() {
         <Row label="Path to the claude CLI" hint="Leave empty to auto-detect."><input className={field} value={f.claude_path} placeholder="auto-detect" onChange={(e) => set("claude_path", e.target.value)} /></Row>
         <Row label="Whisper model" hint="A Hugging Face repo. Applies to the next transcription."><input className={field} value={f.whisper_model} onChange={(e) => set("whisper_model", e.target.value)} /></Row>
         <Row label="Speech vocabulary" hint="Comma-separated technical terms. Only the first 800 characters are used."><textarea className={field + " h-32 py-2"} value={f.vocabulary} onChange={(e) => set("vocabulary", e.target.value)} /></Row>
-      </Panel>
+      </Section>
     </Page>
   );
 }

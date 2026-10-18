@@ -2,11 +2,12 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Loader2, MessageCircleQuestion, Mic, PenTool, RotateCcw, Square } from "lucide-react";
+import { Check, Loader2, MessageCircleQuestion, Mic, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Pill, ScoreChip } from "@/components/score-chip";
+import { ScoreChip } from "@/components/score-chip";
+import { Statement, Tomb } from "@/components/shell/page-header";
 import { DiagramCanvas, type CanvasHandle } from "@/components/canvas/diagram-canvas";
 import { emptyDiagram } from "@/components/canvas/legacy";
 import { Stepper } from "./stepper";
@@ -20,7 +21,6 @@ import { ListenButton } from "@/components/listen-button";
 import { feedbackSpeech } from "@/lib/speech";
 import { useApi } from "@/lib/use-api";
 import { cn } from "@/lib/utils";
-import { mmss } from "@/lib/format";
 import type { Job, SceneDiagram, SessionPayload } from "@/lib/types";
 
 const Canvas = memo(DiagramCanvas);
@@ -237,36 +237,36 @@ export function SessionRunner() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b bg-card/50 px-5 pb-3 pt-4 md:px-8">
-        <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1">
-          <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight" title={data.question.title}>{data.question.title}</h1>
-          {rs === "researching" && <Pill tone="signal"><Loader2 className="size-3 animate-spin" />Building the answer key</Pill>}
-          {rs === "ready" && <Pill tone="mint">Answer key ready</Pill>}
-          {rs === "failed" && <Pill tone="coral">Answer key failed: grading will be ungrounded</Pill>}
+      <div className="shrink-0 px-5 pb-4 pt-5 md:px-8">
+        <div className="mb-4 flex flex-wrap items-baseline gap-x-6 gap-y-1">
+          <h1 className="min-w-0 flex-1 truncate font-serif text-[1.6rem] font-medium tracking-tight" title={data.question.title}>{data.question.title}</h1>
+          {rs === "researching" && <span className="inline-flex items-center gap-1.5 text-[13px] text-signal"><Loader2 className="size-3.5 animate-spin" />Building the answer key</span>}
+          {rs === "ready" && <span className="text-[13px] text-muted-foreground">Answer key ready</span>}
+          {rs === "failed" && <span className="text-[13px] text-coral">No answer key: grading will be ungrounded</span>}
           <TotalTimer getStart={() => sessionStart.current} />
         </div>
         <Stepper sections={sections} current={idx} />
       </div>
 
-      <div className="flex shrink-0 border-b lg:hidden" role="tablist">
-        {([["speak", "Speak", Mic], ["draw", "Draw", PenTool]] as const).map(([k, l, Icon]) => (
-          <button key={k} role="tab" aria-selected={pane === k} onClick={() => setPane(k)} className={cn("flex flex-1 items-center justify-center gap-2 py-2 text-sm font-medium", pane === k ? "border-b-2 border-signal text-foreground" : "text-muted-foreground")}><Icon className="size-4" />{l}</button>
+      <div className="flex shrink-0 gap-6 px-5 lg:hidden" role="tablist">
+        {([["speak", "Speak"], ["draw", "Draw"]] as const).map(([k, l]) => (
+          <button key={k} role="tab" aria-selected={pane === k} onClick={() => setPane(k)} className={cn("relative py-2 text-[15px] font-medium after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:bg-foreground after:transition-transform", pane === k ? "text-foreground after:scale-x-100" : "text-muted-foreground after:scale-x-0")}>{l}</button>
         ))}
       </div>
 
-      <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(380px,440px)_1fr]">
-        <aside className={cn("min-h-0 overflow-y-auto border-r px-5 py-5 md:px-6", pane !== "speak" && "hidden lg:block")}>
-          <details className="group mb-5 rounded-lg border bg-card/60 px-3 py-2 text-sm" open={idx === 0}>
-            <summary className="cursor-pointer select-none font-medium">The prompt</summary>
-            <p className="mt-2 leading-relaxed text-muted-foreground">{data.question.prompt}</p>
+      <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(400px,480px)_1fr]">
+        <aside className={cn("min-h-0 overflow-y-auto px-5 pb-10 pt-4 md:px-8", pane !== "speak" && "hidden lg:block")}>
+          <details className="group mb-8" open={idx === 0}>
+            <summary className="cursor-pointer select-none text-[14px] font-medium text-muted-foreground hover:text-foreground">The question</summary>
+            <Statement label={`Lemma ${data.question.id}`} tone="design" className="mt-2 text-[1.08rem]">{data.question.prompt}</Statement>
           </details>
 
           {openProbe && <ProbePanel key={openProbe.key} sec={openProbe} sessionId={id} onChange={reload} interactive={interactive} />}
 
           {!openProbe && !review && allSaved && data.session.status === "in_progress" && (
-            <div className="space-y-3 rounded-2xl border bg-card p-5 text-sm">
-              <p className="font-medium">All sections are done.</p>
-              <Button size="lg" onClick={finish} disabled={busy}>{busy ? <Loader2 className="animate-spin" /> : <Check />}Finish and grade</Button>
+            <div className="rise space-y-5">
+              <p className="display text-[2.4rem]">Every part is answered.<Tomb className="ml-3 text-signal" /></p>
+              <Button variant="design" size="lg" className="h-12 w-full text-base" onClick={finish} disabled={busy}>{busy ? <Loader2 className="animate-spin" /> : <Check />}Finish and send to the referee</Button>
             </div>
           )}
 
@@ -278,82 +278,84 @@ export function SessionRunner() {
           })()}
 
           {sec && !openProbe && !review && (
-            <>
-              <div className="flex items-start justify-between gap-4">
+            <div key={sec.key} className="rise">
+              <div className="flex items-start justify-between gap-6">
                 <div className="min-w-0">
-                  <h2 className="text-xl font-semibold tracking-tight">{sec.title}</h2>
-                  <p className="mt-0.5 text-sm text-muted-foreground">Section {idx + 1} of {sections.length}, {mmss(sec.budget_sec)} budget</p>
-                  <ListenButton id={`sec:${sec.key}`} className="mt-2" label="Read it to me" text={introText} />
+                  <h2 className="display text-[2.3rem]">{sec.title}</h2>
+                  <p className="mt-2 text-[14px] text-muted-foreground">Part {idx + 1} of {sections.length}. {Math.round(sec.budget_sec / 60)} minutes.</p>
                 </div>
-                <div className="w-28 shrink-0"><SectionTimer getUsedSec={getUsedSec} budget={sec.budget_sec} /></div>
+                <div className="w-28 shrink-0 pt-1"><SectionTimer getUsedSec={getUsedSec} budget={sec.budget_sec} /></div>
               </div>
 
-              <ul className="mt-4 space-y-1.5 text-sm">
+              <ul className="mt-5 space-y-2 text-[15px] leading-snug">
                 {sec.cover.map((c) => (
-                  <li key={c} className="flex gap-2 text-muted-foreground"><span className="mt-2 size-1 shrink-0 rounded-full bg-muted-foreground/50" />{c}</li>
+                  <li key={c} className="flex gap-3"><span aria-hidden className="mt-[0.45em] size-[5px] shrink-0 bg-signal" />{c}</li>
                 ))}
               </ul>
+              <ListenButton id={`sec:${sec.key}`} className="mt-4" label="Read it to me" text={introText} />
 
-              <div className="mt-6">
+              <div className="mt-8">
                 {phase === "recording" ? (
-                  <button onClick={stopRec} className="rec-pulse flex w-full items-center justify-center gap-3 rounded-2xl bg-coral px-6 py-5 text-lg font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-                    <Square className="size-5 fill-current" /> Stop <kbd className="num rounded border border-white/40 px-1.5 text-xs font-normal">Space</kbd>
+                  <button onClick={stopRec} className="flex w-full items-center justify-center gap-3 rounded-[3px] bg-coral px-6 py-6 text-lg font-semibold text-white transition-transform active:scale-[0.99] dark:text-ink">
+                    <span className="rec-dot size-3 rounded-full bg-current" />Listening. Stop<kbd className="ml-1 rounded-[2px] bg-black/15 px-1.5 text-xs font-medium">Space</kbd>
                   </button>
                 ) : processing ? (
-                  <div className="flex items-center gap-3 rounded-2xl border bg-card px-5 py-5 text-sm"><Loader2 className="size-5 animate-spin text-signal" />{phase === "uploading" ? "Uploading your recording" : "Transcribing on this machine"}</div>
+                  <div className="flex items-center gap-3 rounded-[3px] bg-card px-5 py-6 text-[15px]"><Loader2 className="size-5 animate-spin text-signal" />{phase === "uploading" ? "Uploading your recording" : "Transcribing on this Mac"}</div>
                 ) : effectiveStatus === "transcribed" ? (
                   <div>
-                    <label htmlFor="transcript" className="mb-1.5 block text-sm font-medium">Check the transcript</label>
-                    <p className="mb-2 text-xs text-muted-foreground">Fix speech-to-text mistakes (terms like p99 or Kafka) before saving. This text is what gets graded.</p>
-                    <textarea id="transcript" value={text} onChange={(e) => setText(e.target.value)} className="min-h-[220px] w-full resize-y rounded-lg border bg-card p-3 text-sm leading-relaxed outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30" />
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <Button variant="outline" onClick={() => setRerecord(sec.key)}><RotateCcw /> Re-record</Button>
-                      <Button variant="outline" onClick={probeMe} disabled={busy || rs !== "ready"} title={rs === "ready" ? "Save this section and get one question from the interviewer" : "The answer key is still being prepared"}>
-                        <MessageCircleQuestion /> Probe me
+                    <label htmlFor="transcript" className="block text-[15px] font-semibold">What you said</label>
+                    <p className="mb-3 mt-0.5 text-[13px] text-muted-foreground">Fix speech-to-text mistakes (p99, Kafka) before saving. This text is what the referee reads.</p>
+                    <textarea id="transcript" value={text} onChange={(e) => setText(e.target.value)} className="min-h-[240px] w-full resize-y rounded-[3px] bg-card p-4 font-serif text-[1.05rem] leading-relaxed outline-none focus-visible:outline-2 focus-visible:outline-ring" />
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <Button variant="ghost" onClick={() => setRerecord(sec.key)}><RotateCcw />Re-record</Button>
+                      <Button variant="outline" onClick={probeMe} disabled={busy || rs !== "ready"} title={rs === "ready" ? "Save this part and get one question from the interviewer" : "The answer key is still being prepared"}>
+                        <MessageCircleQuestion />Probe me
                       </Button>
-                      <Button className="ml-auto" size="lg" onClick={save} disabled={busy}>
-                        {busy ? <Loader2 className="animate-spin" /> : <Check />}{isLast ? "Save and finish" : "Save and next"}
-                        <kbd className="num ml-1 text-[10px] opacity-70">⌘↵</kbd>
+                      <Button variant="design" className="ml-auto" size="lg" onClick={save} disabled={busy}>
+                        {busy ? <Loader2 className="animate-spin" /> : <Check />}{isLast ? "Save and finish" : "Save, next part"}
+                        <kbd className="ml-1 text-[11px] opacity-70">⌘↵</kbd>
                       </Button>
                     </div>
                   </div>
                 ) : (
-                  <button onClick={startRec} className="flex w-full items-center justify-center gap-3 rounded-2xl bg-signal px-6 py-5 text-lg font-semibold text-signal-foreground transition-transform hover:brightness-105 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-                    <Mic className="size-5" /> Start talking <kbd className="num rounded border border-black/30 px-1.5 text-xs font-normal">Space</kbd>
+                  <button onClick={startRec} className="group flex w-full items-center justify-center gap-3 rounded-[3px] bg-signal px-6 py-6 text-lg font-semibold text-signal-foreground transition-[transform,background-color] hover:bg-[color-mix(in_oklch,var(--signal),var(--foreground)_12%)] active:scale-[0.99]">
+                    <Mic className="size-5 transition-transform group-hover:scale-110" />Start talking<kbd className="ml-1 rounded-[2px] bg-black/15 px-1.5 text-xs font-medium">Space</kbd>
                   </button>
                 )}
               </div>
-              {phase === "idle" && effectiveStatus === "pending" && <p className="mt-3 text-xs text-muted-foreground">The clock only runs while you record. Draw on the canvas as you go; it is read with your answer.</p>}
-            </>
+              {phase === "idle" && effectiveStatus === "pending" && <p className="mt-3 text-[13px] text-muted-foreground">The clock runs only while you record. Draw as you go: the diagram is read with your answer.</p>}
+            </div>
           )}
 
-          <label className="mt-8 flex items-center gap-3 text-sm">
-            <Switch checked={interactive} onCheckedChange={toggleLive} aria-label="Interactive coaching" />
-            <span>Interactive coaching<span className="block text-xs text-muted-foreground">Grade each section as you submit it and read the feedback aloud.</span></span>
-          </label>
-          {!interactive && (
-            <label className="mt-4 flex items-center gap-3 text-sm">
-              <Switch checked={tts.autoRead} onCheckedChange={(v) => { speech.unlock(); speech.setAutoRead(v); if (v && sec && !openProbe) speech.play(`sec:${sec.key}`, introText); else if (!v) speech.stop(); }} aria-label="Read each section aloud" />
-              Read each section and probe aloud
+          <div className="mt-12 space-y-4 bg-card p-4">
+            <label className="flex items-start gap-3 text-[14px]">
+              <Switch className="mt-0.5" checked={interactive} onCheckedChange={toggleLive} aria-label="Interactive coaching" />
+              <span>Interactive coaching<span className="block text-[13px] text-muted-foreground">Grade each part as you submit it and read the feedback aloud.</span></span>
             </label>
-          )}
-          {!!data.session.show_feedback_live && (
-            <div className="mt-3 space-y-2">
+            {!interactive && (
+              <label className="flex items-center gap-3 text-[14px]">
+                <Switch checked={tts.autoRead} onCheckedChange={(v) => { speech.unlock(); speech.setAutoRead(v); if (v && sec && !openProbe) speech.play(`sec:${sec.key}`, introText); else if (!v) speech.stop(); }} aria-label="Read each part aloud" />
+                Read each part and probe aloud
+              </label>
+            )}
+          </div>
+          {!!data.session.show_feedback_live && sections.some((s) => s.status === "saved") && (
+            <div className="mt-8 space-y-6">
               {sections.filter((s) => s.status === "saved").map((s) => (
-                <div key={s.key} className="rounded-lg border bg-card p-3 text-sm">
-                  <div className="flex items-center justify-between gap-2"><span className="font-medium">{s.title}</span>{s.grade ? <ScoreChip score={s.grade.score} level={s.grade.level_signal} /> : <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><Loader2 className="size-3 animate-spin" />{s.probe && !s.probe.answer ? "after your probe" : "grading"}</span>}</div>
-                  {s.grade && <p className="mt-1.5 text-muted-foreground">{s.grade.summary}</p>}
-                  {s.grade && <ListenButton id={`fb:${s.key}`} className="mt-1.5" text={`${s.title}. ${s.grade.summary}`} />}
+                <div key={s.key} className="text-[15px]">
+                  <div className="flex items-baseline justify-between gap-2"><span className="font-serif text-[1.15rem]">{s.title}</span>{s.grade ? <ScoreChip score={s.grade.score} level={s.grade.level_signal} /> : <span className="flex items-center gap-1.5 text-[13px] text-muted-foreground"><Loader2 className="size-3 animate-spin" />{s.probe && !s.probe.answer ? "after your probe" : "grading"}</span>}</div>
+                  {s.grade && <p className="mt-1 leading-relaxed text-muted-foreground">{s.grade.summary}</p>}
+                  {s.grade && <ListenButton id={`fb:${s.key}`} className="mt-2" text={`${s.title}. ${s.grade.summary}`} />}
                 </div>
               ))}
             </div>
           )}
         </aside>
 
-        <div className={cn("relative min-h-0", pane !== "draw" && "hidden lg:block")}>
+        <div className={cn("relative min-h-0 bg-card", pane !== "draw" && "hidden lg:block")}>
           <Canvas key={id} initial={data.diagram ?? emptyDiagram()} onChange={onDiagramChange} handleRef={canvas} />
-          <div className="pointer-events-none absolute left-1/2 top-3 hidden -translate-x-1/2 rounded-full border bg-card/90 px-2.5 py-1 text-[11px] text-muted-foreground backdrop-blur lg:block" aria-live="polite">
-            {saveState === "saving" ? "Saving diagram…" : saveState === "error" ? "Diagram not saved: check the server" : "Diagram saved"}
+          <div className="pointer-events-none absolute bottom-3 left-1/2 hidden -translate-x-1/2 text-[12px] text-muted-foreground lg:block" aria-live="polite">
+            {saveState === "saving" ? "Saving the diagram…" : saveState === "error" ? "Diagram not saved: check the server" : "Diagram saved"}
           </div>
         </div>
       </div>

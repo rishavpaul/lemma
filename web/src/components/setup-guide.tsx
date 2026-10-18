@@ -1,16 +1,16 @@
 "use client";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Check, CircleDashed, Loader2, TriangleAlert } from "lucide-react";
+import { Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Panel } from "@/components/shell/page-header";
+import { Tomb } from "@/components/shell/page-header";
 import { removeKey, saveKey, splitModel, useProviders, type ProviderStatus, type Providers } from "@/components/model-picker";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import type { Health } from "@/lib/types";
 
 type S = Record<string, string>;
-const input = "h-9 w-full rounded-lg border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30";
+const input = "h-9 w-full rounded-[3px] bg-card px-3 text-[14px] outline-none focus-visible:outline-2 focus-visible:outline-ring";
 
 /** Key entry for one provider: save (verified with the provider first) and remove. */
 export function KeyField({ name, p, onChange, onSaved }: { name: string; p: ProviderStatus; onChange: (d: Providers) => void; onSaved?: () => void }) {
@@ -49,11 +49,9 @@ export function KeyField({ name, p, onChange, onSaved }: { name: string; p: Prov
 function Step({ done, title, children }: { done: boolean; title: string; children?: React.ReactNode }) {
   return (
     <li className="flex gap-3">
-      <span className={"mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full " + (done ? "bg-mint/20 text-mint" : "border border-dashed text-muted-foreground")}>
-        {done ? <Check className="size-3" /> : <CircleDashed className="size-3" />}
-      </span>
+      <Tomb done={done} className={"mt-1.5 shrink-0 text-[1rem] " + (done ? "text-mint" : "text-signal")} label={done ? "Done" : "To do"} />
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium">{title}</div>
+        <div className="text-[16px] font-semibold">{title}</div>
         {children && <div className="mt-1.5 text-sm text-muted-foreground">{children}</div>}
       </div>
     </li>
@@ -88,10 +86,10 @@ export function SetupGuide() {
   }
 
   return (
-    <Panel className="mb-8 border-signal/40">
-      <h2 className="text-base font-semibold">Finish setting up</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Two things have to be ready before your first session. It only takes a few minutes.</p>
-      <ol className="mt-5 space-y-5">
+    <section className="rise mb-16 bg-card p-6 md:-mx-8 md:p-8">
+      <h2 className="display text-[2.2rem]">Two things before the first session</h2>
+      <p className="mt-2 text-[15px] text-muted-foreground">Two things have to be ready before your first session. It only takes a few minutes.</p>
+      <ol className="mt-8 max-w-3xl space-y-7">
         <Step done={speechReady} title="Speech recognition">
           {speechReady ? null : h.whisper_error ? (
             <span className="flex items-start gap-1.5 text-coral"><TriangleAlert className="mt-0.5 size-4 shrink-0" />The speech model could not load: {h.whisper_error}. Check your internet connection, then quit and reopen the app.</span>
@@ -103,8 +101,8 @@ export function SetupGuide() {
           {gradingReady ? null : (
             <div className="space-y-4">
               <p>Your answers are graded by an AI model. Pick one of these:</p>
-              <div className="rounded-lg border p-3">
-                <div className="text-sm font-medium text-foreground">Option A: a free model (no subscription)</div>
+              <div className="rounded-[3px] bg-background p-4">
+                <div className="text-[15px] font-semibold text-foreground">Option A: a free model (no subscription)</div>
                 <p className="mt-1 text-xs">Create a free account with either service, copy an API key, and paste it here.</p>
                 <div className="mt-3 space-y-3">
                   {Object.entries(p).map(([name, st]) => (
@@ -118,9 +116,9 @@ export function SetupGuide() {
                 {busy && <p className="mt-3 flex items-center gap-2 text-xs"><Loader2 className="size-3 animate-spin" />Choosing a model…</p>}
                 <p className="mt-3 text-xs">Free models are rate limited and may grade less strictly than Claude. You can change the model anytime in Settings.</p>
               </div>
-              <div className="rounded-lg border p-3">
-                <div className="text-sm font-medium text-foreground">Option B: Claude (Pro or Max subscription)</div>
-                <p className="mt-1 text-xs">Install <a className="text-signal hover:underline" href="https://claude.com/claude-code" target="_blank" rel="noreferrer">Claude Code</a>, open the Terminal app, run <code className="rounded bg-muted px-1">claude</code> and sign in with <code className="rounded bg-muted px-1">/login</code>. Then re-check.</p>
+              <div className="rounded-[3px] bg-background p-4">
+                <div className="text-[15px] font-semibold text-foreground">Option B: Claude (Pro or Max subscription)</div>
+                <p className="mt-1 text-xs">Install <a className="text-signal hover:underline" href="https://claude.com/claude-code" target="_blank" rel="noreferrer">Claude Code</a>, open the Terminal app, run <code className="rounded-[2px] bg-muted px-1">claude</code> and sign in with <code className="rounded-[2px] bg-muted px-1">/login</code>. Then re-check.</p>
                 <Button className="mt-2" size="sm" variant="outline" onClick={async () => { await api("/api/health/recheck", { method: "POST" }); await health.reload(); }}>Re-check Claude</Button>
                 {h.claude_error && <p className="mt-2 text-xs text-coral">{h.claude_error}</p>}
               </div>
@@ -129,6 +127,6 @@ export function SetupGuide() {
           )}
         </Step>
       </ol>
-    </Panel>
+    </section>
   );
 }

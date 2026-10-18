@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Check, Loader2, MessageCircleQuestion, Mic, RotateCcw, SkipForward, Square } from "lucide-react";
+import { Check, Loader2, Mic, RotateCcw, SkipForward, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useWakeLock } from "@/lib/use-wake-lock";
@@ -67,15 +67,16 @@ export function ProbePanel({ sec, sessionId, onChange, interactive }: { sec: Sec
   }
 
   return (
-    <div className="mt-2 space-y-4" aria-live="polite">
-      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><MessageCircleQuestion className="size-4" />Interviewer probe on “{sec.title}”</div>
+    <div className="rise space-y-5" aria-live="polite">
+      <h2 className="display text-[2.1rem]">The interviewer asks</h2>
+      <p className="-mt-3 text-[14px] text-muted-foreground">One follow-up on {sec.title}. Answer it once, then move on.</p>
 
       {!probe?.question && !failed && (
-        <div className="flex items-center gap-3 rounded-2xl border bg-card px-5 py-5 text-sm"><Loader2 className="size-5 animate-spin text-signal" />The interviewer is reading your answer…</div>
+        <div className="flex items-center gap-3 rounded-[3px] bg-card px-5 py-6 text-[15px]"><Loader2 className="size-5 animate-spin text-signal" />The interviewer is reading your answer…</div>
       )}
 
       {failed && (
-        <div className="space-y-3 rounded-2xl border border-coral/40 bg-card p-4 text-sm">
+        <div className="space-y-3 rounded-[3px] bg-coral/10 p-4 text-[15px]">
           <p className="text-coral">Could not get a probe: {job?.error || job?.status}</p>
           <div className="flex gap-2">
             <Button variant="outline" disabled={busy} onClick={() => act(() => api(`/api/jobs/${job!.id}/retry`, { method: "POST" }), "Retry failed")}><RotateCcw /> Try again</Button>
@@ -86,17 +87,17 @@ export function ProbePanel({ sec, sessionId, onChange, interactive }: { sec: Sec
 
       {probe?.question && (
         <>
-          <div className="space-y-2 rounded-2xl border bg-card p-4 text-sm leading-relaxed">
-            <p className="font-medium">{probe.question}</p>
+          <div className="space-y-3">
+            <p className="statement text-[1.35rem]">{probe.question}</p>
             <ListenButton id={`probe:${sec.key}`} label="Read it to me" text={spoken} />
-            {probe.hint && <p className="text-muted-foreground"><span className="font-medium text-foreground">Nudge:</span> {probe.hint}</p>}
+            {probe.hint && <p className="text-[15px] text-muted-foreground"><span className="font-semibold text-foreground">A nudge: </span>{probe.hint}</p>}
           </div>
           <div>
-            <label htmlFor="probe-answer" className="mb-1.5 block text-sm font-medium">Your answer</label>
+            <label htmlFor="probe-answer" className="mb-2 block text-[15px] font-semibold">Your answer</label>
             <textarea id="probe-answer" autoFocus value={text} onChange={(e) => setText(e.target.value)}
-              className="min-h-[160px] w-full resize-y rounded-lg border bg-card p-3 text-sm leading-relaxed outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
+              className="min-h-[180px] w-full resize-y rounded-[3px] bg-card p-4 font-serif text-[1.05rem] leading-relaxed outline-none focus-visible:outline-2 focus-visible:outline-ring"
               placeholder="Answer once, then move on. This is read by the graders along with the section." />
-            <div className="mt-3 flex items-center justify-end gap-2">
+            <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
               {rec === "recording" ? (
                 <Button size="lg" variant="destructive" onClick={stopRec}><Square /> Stop recording</Button>
               ) : (
@@ -104,7 +105,7 @@ export function ProbePanel({ sec, sessionId, onChange, interactive }: { sec: Sec
                   {rec === "transcribing" ? <Loader2 className="animate-spin" /> : <Mic />}{rec === "transcribing" ? "Transcribing…" : "Record answer"}
                 </Button>
               )}
-              <Button size="lg" disabled={busy || rec !== "idle" || !text.trim()} onClick={() => act(() => api(`${base}/answer`, { method: "PUT", body: { text } }), "Could not save the answer")}>
+              <Button variant="design" size="lg" disabled={busy || rec !== "idle" || !text.trim()} onClick={() => act(() => api(`${base}/answer`, { method: "PUT", body: { text } }), "Could not save the answer")}>
                 {busy ? <Loader2 className="animate-spin" /> : <Check />}Submit and continue
               </Button>
             </div>

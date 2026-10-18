@@ -9,7 +9,7 @@ interface ModelInfo { id: string; name: string; free: boolean; context: number |
 
 export const CLAUDE_MODELS = ["opus", "sonnet", "fable", "haiku"];
 const CUSTOM = "__custom__";
-const field = "h-9 rounded-lg border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30";
+const field = "h-9 rounded-[3px] bg-card px-3 text-[14px] outline-none focus-visible:outline-2 focus-visible:outline-ring";
 
 export function splitModel(v: string): { provider: string; model: string } {
   const i = v.indexOf(":");
@@ -29,7 +29,7 @@ export function ModelPicker({ value, onChange, providers, claudeOnly, allowDefau
   const hosted = provider === "openrouter" || provider === "groq";
   const list = useApi<ModelInfo[]>(hosted ? `/api/providers/${provider}/models` : null);
   const [custom, setCustom] = useState(false);
-  const cls = compact ? "h-7 rounded-lg border bg-background px-2 text-[0.8rem]" : field;
+  const cls = compact ? "h-8 rounded-[3px] bg-muted px-2 text-[13px] outline-none focus-visible:outline-2 focus-visible:outline-ring" : field;
 
   const known = list.data?.some((m) => m.id === model);
   const showCustom = hosted && (custom || (!!list.data && !!model && !known) || (!!list.error && !list.data));

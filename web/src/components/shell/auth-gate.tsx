@@ -47,12 +47,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (state === "checking") return <div className="h-full" aria-busy="true" />;
   return (
     <div className="flex h-full items-center justify-center p-6">
-      <form className="w-full max-w-sm space-y-4" onSubmit={(e) => { e.preventDefault(); void login(token.trim()); }}>
-        <h1><Wordmark /></h1>
-        <p className="text-sm text-muted-foreground">Enter the access token from your Mac. Run <code className="num">./scripts/mobile.sh</code> there to see it.</p>
+      <form className="rise w-full max-w-sm space-y-5" onSubmit={(e) => { e.preventDefault(); void login(token.trim()); }}>
+        <h1><Wordmark size="lg" /></h1>
+        <p className="text-[15px] leading-relaxed text-muted-foreground">Enter the access token from your Mac. Run <code className="font-mono text-[13px]">./scripts/mobile.sh</code> there to see it.</p>
         <Input value={token} onChange={(e) => setToken(e.target.value)} placeholder="Access token" autoCapitalize="off" autoCorrect="off" spellCheck={false} autoFocus />
         {error && <p className="text-sm text-coral">{error}</p>}
-        <Button type="submit" disabled={busy || !token.trim()} className="w-full">{busy ? "Checking…" : "Continue"}</Button>
+        <Button type="submit" variant="design" size="lg" disabled={busy || !token.trim()} className="w-full">{busy ? "Checking…" : "Continue"}</Button>
       </form>
     </div>
   );

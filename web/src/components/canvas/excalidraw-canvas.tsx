@@ -113,16 +113,16 @@ export default function ExcalidrawCanvas({ initial, readOnly = false, onChange, 
 
       {empty && !readOnly && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6 max-sm:pt-24">
-          <div className="pointer-events-auto max-w-sm rounded-2xl border border-dashed bg-card/80 p-6 text-center backdrop-blur">
-            <h3 className="text-base font-semibold">Draw while you talk</h3>
-            <p className="mt-1.5 text-sm text-muted-foreground">
+          <div className="pointer-events-auto max-w-md rounded-[3px] bg-background p-7 shadow-2xl">
+            <h3 className="font-serif text-[1.6rem] font-medium leading-tight">Draw while you talk</h3>
+            <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
               Pick a shape from the toolbar (or press R for a box, O for a circle, A for an arrow, T for text). Double-click a shape or arrow to
               label it. Draw arrows from one shape to another so they stay attached. The grader reads the whole diagram along with your answer.
             </p>
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <div className="mt-5 flex flex-wrap gap-2">
               {TEMPLATES.map((t) => (
                 <Button key={t.id} variant="outline" size="sm" title={t.blurb} onClick={() => startFrom(t.build)}>
-                  Start with: {t.title}
+                  Start from {t.title.toLowerCase()}
                 </Button>
               ))}
             </div>

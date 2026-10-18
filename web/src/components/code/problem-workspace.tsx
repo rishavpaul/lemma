@@ -2,11 +2,12 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Award, ChevronRight, Clock, FlaskConical, Lightbulb, Loader2, Play, RotateCcw, Send, Sparkles, TriangleAlert, Unlock } from "lucide-react";
+import { ArrowLeft, ChevronRight, Lightbulb, Loader2, Play, RotateCcw, Send, TriangleAlert, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Markdown } from "@/components/markdown";
 import { Pill } from "@/components/score-chip";
+import { Statement, Tomb } from "@/components/shell/page-header";
 import { JavaEditor } from "@/components/code/java-editor";
 import { ResultsPanel } from "@/components/code/results-panel";
 import { ReviewView } from "@/components/code/review-view";
@@ -23,10 +24,10 @@ type RightTab = "results" | "review" | "hints" | "solution";
 
 function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: T; label: React.ReactNode }[]; value: T; onChange: (t: T) => void }) {
   return (
-    <div role="tablist" className="flex gap-1 border-b">
+    <div role="tablist" className="flex flex-wrap gap-x-6">
       {tabs.map((t) => (
         <button key={t.id} role="tab" aria-selected={value === t.id} onClick={() => onChange(t.id)}
-          className={cn("-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors", value === t.id ? "border-signal text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
+          className={cn("relative py-2 text-[15px] font-medium transition-colors after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:origin-left after:bg-code after:transition-transform", value === t.id ? "text-foreground after:scale-x-100" : "text-muted-foreground after:scale-x-0 hover:text-foreground")}>
           {t.label}
         </button>
       ))}
@@ -59,16 +60,16 @@ export function ProblemWorkspace({ slug, attemptParam }: { slug: string; attempt
   if (!d) return <div className="p-6"><Skeleton className="h-96 w-full" /></div>;
   const p = d.problem;
   return (
-    <div className="mx-auto w-full max-w-[1500px] px-4 py-4 md:px-6">
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        <Link href="/code" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />Roadmap</Link>
-        <h1 className="text-xl font-semibold tracking-tight">{p.num ? <span className="num mr-2 text-muted-foreground">{p.num}</span> : null}{p.title}</h1>
-        <Pill tone={DIFF_TONE[p.difficulty] ?? "muted"}>{p.difficulty}</Pill>
+    <div className="mx-auto w-full max-w-[1560px] px-5 pb-10 pt-5 md:px-8">
+      <div className="mb-5 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <Link href="/code" className="inline-flex items-center gap-1 text-[14px] text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4 self-center" />Roadmap</Link>
+        <h1 className="font-serif text-[1.85rem] font-medium tracking-tight">{p.num ? <span className="num mr-2.5 font-sans text-[1rem] text-muted-foreground">{p.num}</span> : null}{p.title}</h1>
+        <span className={cn("text-[14px] font-medium", { mint: "text-mint", signal: "text-signal", coral: "text-coral", muted: "text-muted-foreground" }[DIFF_TONE[p.difficulty] ?? "muted"])}>{p.difficulty}</span>
         {p.premium && <Pill>premium</Pill>}
-        {p.status === "done" && p.rating && <Pill tone={p.rating === "clean" ? "mint" : "signal"}>{RATING_TEXT[p.rating]}</Pill>}
+        {p.status === "done" && p.rating && <span className={cn("text-[14px]", p.rating === "clean" ? "text-mint" : "text-signal")}><Tomb className="mr-1.5" />{RATING_TEXT[p.rating]}</span>}
       </div>
       {!d.brief && !d.spec ? (p.spec === "failed" ? (
-          <div className="rounded-xl border border-coral/40 bg-coral/5 p-5">
+          <div className="rounded-[3px] bg-coral/10 p-5">
             <p className="flex items-center gap-2 font-medium text-coral"><TriangleAlert className="size-4" />This problem could not be written.</p>
             <p className="mt-2 max-w-[70ch] text-sm text-muted-foreground">{p.spec_error ?? "Unknown error."}</p>
             <Button className="mt-3" onClick={async () => { await api(`/api/code/problems/${slug}/generate`, { method: "POST" }); detail.reload(); }}>Try again</Button>
@@ -82,26 +83,26 @@ export function ProblemWorkspace({ slug, attemptParam }: { slug: string; attempt
 
 function Preparing({ detail }: { detail: CodeProblemDetail }) {
   return (
-    <div className="rounded-xl border p-8 text-center">
-      <Loader2 className="mx-auto size-6 animate-spin text-signal" />
-      <p className="mt-3 font-medium">Writing {detail.problem.title}</p>
-      <p className="mx-auto mt-1 max-w-[56ch] text-sm text-muted-foreground">The statement and your starter file appear in about 20 seconds. The tests are built in the background after that, so you can start reading and coding straight away.</p>
+    <div className="rounded-[3px] bg-card p-10">
+      <Loader2 className="size-6 animate-spin text-code" />
+      <p className="display mt-4 text-[2rem]">Writing {detail.problem.title}</p>
+      <p className="mt-2 max-w-[56ch] text-[15px] text-muted-foreground">The statement and your starter file appear in about 20 seconds. The tests are built in the background after that, so you can start reading and coding straight away.</p>
     </div>
   );
 }
 
 function StartScreen({ d, onStart, onOpen }: { d: CodeProblemDetail; onStart: (restart: boolean) => void; onOpen: (id: number) => void }) {
   return (
-    <div className="max-w-2xl">
-      <p className="text-sm text-muted-foreground">{d.problem.note}</p>
-      <Button className="mt-4" size="lg" onClick={() => onStart(true)}><Play />{d.attempts.length ? "Start a new attempt" : "Start"}</Button>
+    <div className="max-w-2xl pt-6">
+      <Statement label={d.problem.num ? `Problem ${d.problem.num}` : "Build"} tone="code" className="text-[1.4rem]">{d.problem.note}</Statement>
+      <Button variant="code" className="mt-8 h-12 px-6 text-base" size="lg" onClick={() => onStart(true)}>{d.attempts.length ? "Start a new attempt" : "Start the clock"}<Play /></Button>
       {d.attempts.length > 0 && (
         <div className="mt-8">
-          <h2 className="mb-2 text-sm font-semibold">Earlier attempts</h2>
-          <ul className="overflow-hidden rounded-xl border">
+          <h2 className="mb-3 font-serif text-[1.45rem] font-medium">Earlier attempts</h2>
+          <ul className="overflow-hidden rounded-[3px] bg-card">
             {d.attempts.map((a) => (
               <li key={a.id} className="border-b last:border-0">
-                <button className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-muted/40" onClick={() => onOpen(a.id)}>
+                <button className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] transition-colors hover:bg-muted" onClick={() => onOpen(a.id)}>
                   <span className="flex-1">{fmtDate(a.started_at)}</span>
                   {a.status === "solved" ? <Pill tone={a.rating === "clean" ? "mint" : "signal"}>{RATING_TEXT[a.rating]}</Pill> : <Pill>{a.status === "in_progress" ? "unfinished" : a.status}</Pill>}
                   <span className="num text-xs text-muted-foreground">{mmss(a.active_sec)}</span>
@@ -186,16 +187,16 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
   const reviewing = a.reviews.some((r) => r.job && ["queued", "running"].includes(r.job.status));
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+    <div className="grid gap-x-8 gap-y-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
       <section className="min-w-0 lg:max-h-[calc(100vh-7.5rem)] lg:overflow-y-auto lg:pr-1">
         <Tabs<LeftTab> value={left} onChange={setLeft} tabs={[{ id: "problem", label: "Problem" }, { id: "tests", label: spec ? `Tests (${spec.cases.length}${spec.hidden_cases ? ` + ${spec.hidden_cases} hidden` : ""})` : "Tests" }, { id: "about", label: "About" }]} />
-        <div className="py-4">
+        <div className="py-5">
           {left === "problem" && (
             <>
               <Markdown>{pub.statement_md}</Markdown>
-              {pub.constraints.length > 0 && <><h3 className="mt-4 text-sm font-semibold">Constraints</h3><ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm">{pub.constraints.map((c, i) => <li key={i}><code className="num text-xs">{c}</code></li>)}</ul></>}
+              {pub.constraints.length > 0 && <><h3 className="mt-6 font-serif text-[1.15rem] font-semibold">Constraints</h3><ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm">{pub.constraints.map((c, i) => <li key={i}><code className="font-mono text-xs">{c}</code></li>)}</ul></>}
               {pub.levels.slice(0, a.level).map((lv) => (
-                <div key={lv.n} className="mt-5 rounded-lg border p-3">
+                <div key={lv.n} className="mt-6 rounded-[3px] bg-card p-4">
                   <div className="mb-1 flex items-center gap-2 text-sm font-semibold"><Pill tone="signal">Level {lv.n}</Pill>{lv.title}{d.levels_text?.[lv.n - 1]?.staff && <Pill tone="coral">staff</Pill>}</div>
                   <Markdown>{lv.statement_md}</Markdown>
                 </div>
@@ -207,11 +208,11 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
           {left === "tests" && spec && (
             <ul className="space-y-3">
               {spec.cases.filter((c) => c.level <= a.level).map((c) => (
-                <li key={c.id} className="rounded-lg border p-3">
+                <li key={c.id} className="rounded-[3px] bg-card p-3">
                   <div className="mb-1.5 flex items-center gap-2 text-sm font-medium">{c.name}<Pill>{c.kind === "example" ? "example" : "edge case"}</Pill>{c.level > 1 && <Pill tone="signal">L{c.level}</Pill>}</div>
                   <div className="grid gap-2 sm:grid-cols-2">
-                    <div><div className="text-[11px] uppercase tracking-wide text-muted-foreground">Input</div><pre className="num max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-muted px-2 py-1 text-xs">{c.input}</pre></div>
-                    <div><div className="text-[11px] uppercase tracking-wide text-muted-foreground">Expected</div><pre className="num max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-muted px-2 py-1 text-xs">{c.expected}</pre></div>
+                    <div><div className="text-[12px] font-medium text-muted-foreground">Input</div><pre className="font-mono max-h-32 overflow-auto whitespace-pre-wrap break-all rounded-[2px] bg-muted px-2 py-1 text-xs">{c.input}</pre></div>
+                    <div><div className="text-[12px] font-medium text-muted-foreground">Expected</div><pre className="font-mono max-h-32 overflow-auto whitespace-pre-wrap break-all rounded-[2px] bg-muted px-2 py-1 text-xs">{c.expected}</pre></div>
                   </div>
                 </li>
               ))}
@@ -222,7 +223,7 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
             <div className="space-y-4 text-sm">
               <p className="text-muted-foreground">{d.problem.note}</p>
               <div className="flex flex-wrap gap-1.5">{d.problem.tags.map((t) => <Pill key={t}>{t}</Pill>)}</div>
-              {spec && <div className="rounded-lg border p-3">
+              {spec && <div className="rounded-[3px] bg-card p-3">
                 <p className="font-medium">How these tests were built</p>
                 <p className="mt-1 text-muted-foreground">Model {spec.model}. {spec.report.kept ?? spec.cases.length} cases kept{spec.report.dropped ? `, ${spec.report.dropped} dropped because the reference and the brute force disagreed` : ""}{spec.report.unverified ? `, ${spec.report.unverified} larger cases checked against the reference only` : ""}. {spec.report.rounds && spec.report.rounds.length > 1 ? `It took ${spec.report.rounds.length} rounds of fixing before the two solutions agreed.` : "The two solutions agreed on the first try."}</p>
                 {spec.status === "partial" && <p className="mt-2 text-coral">Some cases could not be validated and were left out, so coverage is thinner than usual. {spec.report.issues?.[0]}</p>}
@@ -236,28 +237,28 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
       <section className="min-w-0">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           {nLevels > 1 && <Pill tone="signal">Level {a.level} of {nLevels}</Pill>}
-          <span className="num inline-flex items-center gap-1.5 text-sm text-muted-foreground" title="Active time, paused when this tab is hidden"><Clock className="size-3.5" />{mmss(elapsed)}<span className="text-xs">/ {mmss(target)} target</span></span>
+          <span className="inline-flex items-baseline gap-1.5 text-[14px] text-muted-foreground" title="Active time, paused when this tab is hidden"><span className={cn("fig text-[1.6rem]", elapsed > target ? "text-coral" : "text-foreground")}>{mmss(elapsed)}</span>of {mmss(target)}</span>
           <div className="ml-auto flex flex-wrap gap-2">
             <Button size="sm" variant="ghost" title="Replace your code with the starter file" onClick={() => { if (code === pub.starter_code || window.confirm("Replace your code with the starter file?")) { setCode(pub.starter_code); dirty.current = true; } }}><RotateCcw />Reset</Button>
             <Button size="sm" variant="outline" disabled={!!running || !testsReady} title={testsReady ? undefined : "Unlocks when the tests are built"} onClick={onRun}>{running === "run" ? <Loader2 className="animate-spin" /> : <Play />}Run</Button>
-            <Button size="sm" disabled={!!running || !testsReady} title={testsReady ? undefined : "Unlocks when the tests are built"} onClick={onSubmit}>{running === "submit" ? <Loader2 className="animate-spin" /> : <Send />}Submit</Button>
+            <Button size="sm" variant="code" disabled={!!running || !testsReady} title={testsReady ? undefined : "Unlocks when the tests are built"} onClick={onSubmit}>{running === "submit" ? <Loader2 className="animate-spin" /> : <Send />}Submit</Button>
           </div>
         </div>
         {!testsReady && (
-          <div className={cn("mb-2 flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-sm", d.problem.spec === "failed" ? "border-coral/40 bg-coral/5 text-coral" : "border-signal/40 bg-signal/10")}>
+          <div className={cn("mb-2 flex flex-wrap items-center gap-3 rounded-[3px] bg-card px-3 py-2 text-sm", d.problem.spec === "failed" ? "border-coral/40 bg-coral/5 text-coral" : "bg-code/10")}>
             {d.problem.spec === "failed" ? (
               <><TriangleAlert className="size-4 shrink-0" /><span className="min-w-0 flex-1">The tests could not be built: {d.problem.spec_error ?? "unknown error"}</span>
                 <Button size="sm" variant="outline" onClick={async () => { await api(`/api/code/problems/${d.problem.slug}/generate`, { method: "POST" }); reload(); }}>Try again</Button></>
             ) : (
-              <><Loader2 className="size-4 shrink-0 animate-spin text-signal" /><span className="min-w-0 flex-1"><b>Building the tests in the background</b> (about a minute). Keep reading and coding. Run and Submit unlock when they are ready.</span></>
+              <><Loader2 className="size-4 shrink-0 animate-spin text-code" /><span className="min-w-0 flex-1"><b>Building the tests in the background</b> (about a minute). Keep reading and coding. Run and Submit unlock when they are ready.</span></>
             )}
           </div>
         )}
         <JavaEditor value={code} onChange={(v) => { setCode(v); dirty.current = true; }} onRun={onRun} onSubmit={onSubmit} attemptId={a.id} height="clamp(320px, 48vh, 620px)" />
 
         {(solved || levelPassed) && (
-          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-mint/40 bg-mint/10 p-3">
-            <Award className="size-5 text-mint" />
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-[3px] bg-mint/12 p-3">
+            <Tomb className="text-[1.4rem] text-mint" />
             <div className="min-w-0 flex-1 text-sm">
               {solved ? <><b>{RATING_TEXT[a.rating]}</b> in {mmss(Math.round(a.active_sec || seconds))}. {a.rating !== "clean" && "This problem is in your review list."}</>
                 : <><b>Level {a.level} passed.</b> Unlock the next level and extend the same class.</>}
@@ -267,13 +268,13 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
           </div>
         )}
 
-        <div className="mt-3 overflow-hidden rounded-xl border">
-          <Tabs<RightTab> value={right} onChange={setRight} tabs={[
-            { id: "results", label: <span className="inline-flex items-center gap-1.5"><FlaskConical className="size-3.5" />Results</span> },
-            { id: "review", label: <span className="inline-flex items-center gap-1.5"><Sparkles className="size-3.5" />Staff review{reviewing && <Loader2 className="size-3 animate-spin" />}</span> },
-            { id: "hints", label: <span className="inline-flex items-center gap-1.5"><Lightbulb className="size-3.5" />Hints{a.hints_used > 0 && <span className="num text-xs text-muted-foreground">{a.hints_used}</span>}</span> },
+        <div className="mt-4 overflow-hidden rounded-[3px] bg-card px-1 pt-1">
+          <div className="px-4"><Tabs<RightTab> value={right} onChange={setRight} tabs={[
+            { id: "results", label: "Results" },
+            { id: "review", label: <span className="inline-flex items-center gap-1.5">Staff review{reviewing && <Loader2 className="size-3 animate-spin" />}</span> },
+            { id: "hints", label: <span className="inline-flex items-center gap-1.5">Hints{a.hints_used > 0 && <span className="num text-xs text-signal">{a.hints_used}</span>}</span> },
             { id: "solution", label: "Solution" },
-          ]} />
+          ]} /></div>
           {right === "results" && <ResultsPanel run={run} running={running} />}
           {right === "review" && <ReviewTab a={a} explanation={explanation} setExplanation={(v) => { setExplanation(v); dirty.current = true; }} code={code} hasRun={!!run} lastReview={lastReview} reload={reload} />}
           {right === "hints" && (spec ? <HintsTab a={a} spec={spec} code={code} reload={reload} /> : <WaitingForTests what="Hints and the coach" />)}
@@ -290,7 +291,7 @@ function WaitingForTests({ what }: { what: string }) {
 
 function TestsPending({ building, d, reload }: { building: boolean; d: CodeProblemDetail; reload: () => void }) {
   return (
-    <div className="rounded-lg border border-dashed p-4 text-sm">
+    <div className="rounded-[3px] bg-card p-4 text-sm">
       {building ? (
         <><p className="flex items-center gap-2 font-medium"><Loader2 className="size-4 animate-spin text-signal" />Building the tests</p>
           <p className="mt-1 text-muted-foreground">Claude writes a reference solution and an independent brute-force solution, and the app keeps only the cases they agree on. You can keep working: your code is saved, and Run unlocks when this finishes.</p></>
@@ -316,23 +317,23 @@ function ReviewTab({ a, explanation, setExplanation, code, hasRun, lastReview, r
     setBusy(false);
   }
   const form = (
-    <div className="p-4">
+    <div className="p-5 text-[15px]">
       <p className="text-sm text-muted-foreground">A staff-level interviewer reads your code the way a hiring committee would: correctness and the expected approach first, then structure, tradeoffs, production awareness and how you would test it. It is graded on the same 1-4 scale as your design sessions, where 3.0 is staff.</p>
       <label htmlFor="explain" className="mt-4 block text-sm font-medium">Explain your approach, as you would out loud <span className="font-normal text-muted-foreground">(optional)</span></label>
       <p className="text-xs text-muted-foreground">Approach, complexity, tradeoffs, what you would test, what you left out. Without it, communication is not graded.</p>
-      <textarea id="explain" value={explanation} onChange={(e) => setExplanation(e.target.value)} rows={6} placeholder="I would key each word by its sorted letters, so anagrams share a key. That is O(n k log k) time..." className="mt-2 w-full rounded-lg border bg-background p-3 text-sm outline-none focus-visible:border-ring" />
+      <textarea id="explain" value={explanation} onChange={(e) => setExplanation(e.target.value)} rows={6} placeholder="I would key each word by its sorted letters, so anagrams share a key. That is O(n k log k) time..." className="mt-2 w-full rounded-[3px] bg-background p-3 font-serif text-[1.02rem] leading-relaxed outline-none focus-visible:outline-2 focus-visible:outline-ring" />
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <Button disabled={busy || !hasRun} onClick={request}>{busy ? <Loader2 className="animate-spin" /> : <Sparkles />}Get staff review</Button>
+        <Button variant="code" disabled={busy || !hasRun} onClick={request}>{busy ? <Loader2 className="animate-spin" /> : null}Ask for the staff review</Button>
         {!hasRun && <span className="text-xs text-muted-foreground">Run the tests once first so the review starts from real results.</span>}
         {a.hints_used > 0 && <span className="text-xs text-muted-foreground">Using hints or the solution lowers the cap on your score.</span>}
       </div>
     </div>
   );
   if (running) return <div className="flex items-center gap-3 p-6 text-sm text-muted-foreground"><Loader2 className="size-5 animate-spin text-signal" />The reviewer is reading your code. This usually takes one to three minutes.</div>;
-  if (showForm || !lastReview) return <>{failed && <p className="mx-4 mt-4 rounded-md border border-coral/40 bg-coral/5 p-3 text-sm text-coral">The last review failed: {failed.job?.error ?? "unknown error"}</p>}{form}</>;
+  if (showForm || !lastReview) return <>{failed && <p className="mx-4 mt-4 rounded-[3px] bg-coral/10 p-3 text-sm text-coral">The last review failed: {failed.job?.error ?? "unknown error"}</p>}{form}</>;
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2 px-5 pt-4 text-[13px] text-muted-foreground">
         <span>Reviewed {fmtDate(lastReview.created_at)} by {lastReview.model}</span>
         <Button size="sm" variant="outline" className="ml-auto" onClick={() => setShowForm(true)}>Review again</Button>
       </div>
@@ -361,26 +362,26 @@ function HintsTab({ a, spec, code, reload }: { a: CodeAttempt; spec: { hint_coun
     setBusy(false);
   }
   return (
-    <div className="p-4">
+    <div className="p-5 text-[15px]">
       <p className="text-sm text-muted-foreground">Hints are how you would get unstuck with a real interviewer, and they count: a solve with hints is marked for review and caps your review score at 3.0.</p>
       {prepared.length > 0 && (
-        <ol className="mt-4 space-y-2">{prepared.map((h, i) => <li key={i} className="rounded-lg border p-3 text-sm"><span className="num mr-2 text-xs text-muted-foreground">Hint {i + 1}</span>{h}</li>)}</ol>
+        <ol className="mt-4 space-y-2">{prepared.map((h, i) => <li key={i}><Statement label={`Hint ${i + 1}`} className="text-[1.05rem]">{h}</Statement></li>)}</ol>
       )}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {left > 0 && !confirm && <Button variant="outline" size="sm" onClick={() => setConfirm(true)}><Lightbulb />Show hint {Math.min(a.hints_used, spec.hint_count) + 1} of {spec.hint_count}</Button>}
         {left > 0 && confirm && <><span className="text-sm">This marks the attempt as using hints.</span><Button size="sm" disabled={busy} onClick={nextHint}>Show it</Button><Button size="sm" variant="ghost" onClick={() => setConfirm(false)}>Cancel</Button></>}
         {left === 0 && <span className="text-sm text-muted-foreground">You have seen all {spec.hint_count} prepared hints.</span>}
       </div>
-      <div className="mt-6 border-t pt-4">
-        <h3 className="text-sm font-semibold">Ask the coach about your code</h3>
+      <div className="mt-10">
+        <h3 className="font-serif text-[1.3rem] font-medium">Ask the coach about your code</h3>
         <p className="text-xs text-muted-foreground">It reads your code and your latest test results and gives one nudge, never the solution. Counts as a hint.</p>
         <div className="mt-2 flex gap-2">
-          <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !busy) void ask(); }} placeholder="Why does my third example fail? (or leave empty)" aria-label="Question for the coach" className="h-9 min-w-0 flex-1 rounded-lg border bg-background px-3 text-sm outline-none focus-visible:border-ring" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !busy) void ask(); }} placeholder="Why does my third example fail? (or leave empty)" aria-label="Question for the coach" className="h-9 min-w-0 flex-1 rounded-[3px] bg-background px-3 text-[14px] outline-none focus-visible:outline-2 focus-visible:outline-ring" />
           <Button size="sm" disabled={busy} onClick={ask}>{busy ? <Loader2 className="animate-spin" /> : null}Ask</Button>
         </div>
         <ul className="mt-3 space-y-2">
           {[...coach].reverse().map((h) => (
-            <li key={h.id} className="rounded-lg border p-3 text-sm">
+            <li key={h.id} className="rounded-[3px] bg-background p-4 text-[15px]">
               {h.question && <p className="mb-1 text-xs text-muted-foreground">You: {h.question}</p>}
               {h.text ? <p>{h.text}</p> : h.job && ["failed", "pending_retry"].includes(h.job.status) ? <p className="text-coral">Could not get a hint: {h.job.error}</p> : <p className="flex items-center gap-2 text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />Thinking...</p>}
             </li>
@@ -404,7 +405,7 @@ function SolutionTab({ a, reload }: { a: CodeAttempt; reload: () => void }) {
   }
   if (!sol) {
     return (
-      <div className="p-4">
+      <div className="p-5 text-[15px]">
         <p className="text-sm text-muted-foreground">{solved ? "You solved this one. Compare your approach with the reference and read what interviewers look for." : "Reading the reference solution ends a clean attempt: it is marked as needing the solution, and your review score is capped at 2.0. Try a hint first."}</p>
         <div className="mt-3 flex items-center gap-2">
           {!solved && !confirm && !a.solution_viewed ? <Button variant="outline" size="sm" onClick={() => setConfirm(true)}>Show the solution</Button> :
@@ -415,8 +416,8 @@ function SolutionTab({ a, reload }: { a: CodeAttempt; reload: () => void }) {
     );
   }
   return (
-    <div className="p-4">
-      <div className="flex flex-wrap gap-2 text-sm"><Pill tone="signal">Time {sol.time_complexity}</Pill><Pill tone="signal">Space {sol.space_complexity}</Pill></div>
+    <div className="p-5 text-[15px]">
+      <p className="mb-3 text-[14px]"><span className="text-muted-foreground">Time </span><span className="font-mono text-[13px]">{sol.time_complexity}</span><span className="ml-4 text-muted-foreground">Space </span><span className="font-mono text-[13px]">{sol.space_complexity}</span></p>
       <Markdown>{sol.approach_md}</Markdown>
       <h3 className="mt-4 text-sm font-semibold">Reference solution</h3>
       <div className="mt-1"><JavaEditor value={sol.reference_solution} readOnly height="320px" /></div>

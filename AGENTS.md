@@ -2,6 +2,9 @@
 
 Lemma: a local-only macOS app for practicing staff-level interviews, in two tracks (system design and coding) that share one shell,
 streak and settings. In the UI, design is amber (`--signal`) and code is blue (`--code`); the logo is code braces around a system diagram.
+The UI is set like a mathematics paper: STIX Two Text for headlines and reading, Schibsted Grotesk for controls, monospace
+only for real code; theorem-style statements (`Statement`), the end-of-proof mark `Tomb` for done things, surfaces told apart by
+tone (no borders, shadows, gradients, pills or tiny uppercase labels). Tokens and rules are in `web/src/app/globals.css`.
 The data folder is `~/Lemma` (copied from `~/SystemDesignCoach` on first launch by `config.migrate_legacy_data`). More detail in [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Features

@@ -26,11 +26,11 @@ export function ListenButton({ id, text, label = "Listen", controls, className }
       )}
       {controls && (
         <>
-          <select className="h-8 rounded-md border bg-background px-2 text-xs" aria-label="Reading speed" value={s.rate} onChange={(e) => speech.setRate(Number(e.target.value))}>
+          <select className="h-8 rounded-[3px] bg-card px-2 text-xs" aria-label="Reading speed" value={s.rate} onChange={(e) => speech.setRate(Number(e.target.value))}>
             {RATES.map((r) => <option key={r} value={r}>{r}x</option>)}
           </select>
           {s.voices.length > 1 && (
-            <select className="h-8 max-w-40 rounded-md border bg-background px-2 text-xs" aria-label="Voice" value={s.voice} onChange={(e) => speech.setVoice(e.target.value)}>
+            <select className="h-8 max-w-40 rounded-[3px] bg-card px-2 text-xs" aria-label="Voice" value={s.voice} onChange={(e) => speech.setVoice(e.target.value)}>
               {s.engine === "browser" && <option value="">Auto voice</option>}
               {s.voices.map((v) => <option key={v.uri} value={v.uri}>{v.name}</option>)}
             </select>

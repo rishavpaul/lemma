@@ -1,28 +1,45 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTheme } from "next-themes";
-import { useEffect, useSyncExternalStore } from "react";
-import { BarChart3, Code2, Gauge, Home, Library, Newspaper, Moon, Settings, Sun, TriangleAlert } from "lucide-react";
+import { useEffect } from "react";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
 import type { Health, PlanUsage } from "@/lib/types";
 import { fmtDate } from "@/lib/format";
 
-/** Two practice tracks share one shell: system design (amber) and coding (blue). Usage and Settings are shared. */
-type NavItem = { href: string; label: string; icon: typeof Home };
-const NAV: { group: string | null; accent: string; items: NavItem[] }[] = [
-  { group: null, accent: "text-signal", items: [{ href: "/", label: "Today", icon: Home }] },
-  { group: "Design", accent: "text-signal", items: [
-    { href: "/questions", label: "Questions", icon: Library },
-    { href: "/progress", label: "Progress", icon: BarChart3 },
-    { href: "/articles", label: "Articles", icon: Newspaper },
+/**
+ * A running head, the way a paper has one: the name, then the pages, grouped by track. System design pages carry the
+ * ochre rule when active, the coding page the blue one. Usage and Settings are shared. On a phone the same links sit
+ * in a bar at the bottom, within reach of a thumb.
+ */
+type NavItem = { href: string; label: string; track: "design" | "code" | null };
+const NAV: { group: string | null; track: "design" | "code" | null; items: NavItem[] }[] = [
+  { group: null, track: null, items: [{ href: "/", label: "Today", track: null }] },
+  { group: "Design", track: "design", items: [
+    { href: "/questions", label: "Questions", track: "design" },
+    { href: "/progress", label: "Progress", track: "design" },
+    { href: "/articles", label: "Articles", track: "design" },
   ] },
-  { group: "Code", accent: "text-code", items: [{ href: "/code", label: "Problems", icon: Code2 }] },
-  { group: null, accent: "text-signal", items: [{ href: "/usage", label: "Usage", icon: Gauge }, { href: "/settings", label: "Settings", icon: Settings }] },
+  { group: "Code", track: "code", items: [{ href: "/code", label: "Problems", track: "code" }] },
 ];
+const UTIL: NavItem[] = [{ href: "/usage", label: "Usage", track: null }, { href: "/settings", label: "Settings", track: null }];
+const rule = (t: NavItem["track"]) => (t === "design" ? "bg-signal" : t === "code" ? "bg-code" : "bg-foreground");
 
+function NavLink({ item, active, compact }: { item: NavItem; active: boolean; compact?: boolean }) {
+  return (
+    <Link href={item.href} aria-current={active ? "page" : undefined}
+      className={cn("group relative flex shrink-0 items-center whitespace-nowrap font-medium transition-colors",
+        compact ? "h-12 px-3 text-[13px]" : "h-14 px-2.5 text-[14px]",
+        active ? "text-foreground" : "text-muted-foreground hover:text-foreground")}>
+      {item.label}
+      <span aria-hidden className={cn("absolute inset-x-2.5 h-[3px] origin-left transition-transform duration-300",
+        compact ? "top-0" : "bottom-0", rule(item.track), active ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100 group-hover:opacity-40")} />
+    </Link>
+  );
+}
+
+/** Claude plan use, as two plain figures. Turns ochre past 70% and red past 90%. */
 function PlanMeter() {
   const { data } = useApi<PlanUsage>("/api/plan_usage", () => 120_000);
   const L = data?.latest;
@@ -30,15 +47,13 @@ function PlanMeter() {
   const part = (label: string, u: number | null, resets: number | null) => {
     const pct = Math.round((u ?? 0) * 100);
     return (
-      <div key={label} className="flex flex-col items-center gap-1" title={`${label} plan window: ${pct}% used, resets ${fmtDate(resets)}`}>
-        <div className="h-9 w-1.5 overflow-hidden rounded-full bg-border">
-          <div className={cn("w-full rounded-full", pct >= 90 ? "bg-coral" : pct >= 70 ? "bg-signal" : "bg-mint")} style={{ height: `${Math.min(pct, 100)}%`, marginTop: `${100 - Math.min(pct, 100)}%` }} />
-        </div>
-        <span className="num text-[10px] text-muted-foreground">{label}</span>
-      </div>
+      <span key={label} title={`${label} plan window: ${pct}% used, resets ${fmtDate(resets)}`} className="whitespace-nowrap">
+        <span className="text-muted-foreground">{label} </span>
+        <span className={cn("num font-medium", pct >= 90 ? "text-coral" : pct >= 70 ? "text-signal" : "text-foreground")}>{pct}%</span>
+      </span>
     );
   };
-  return <div className="hidden gap-3 md:flex">{part("5h", L.five_hour_util, L.five_hour_resets)}{part("7d", L.seven_day_util, L.seven_day_resets)}</div>;
+  return <Link href="/usage" className="hidden items-center gap-3 text-[13px] lg:flex" aria-label="Claude plan use">{part("5h", L.five_hour_util, L.five_hour_resets)}{part("7d", L.seven_day_util, L.seven_day_resets)}</Link>;
 }
 
 function HealthBanner() {
@@ -53,9 +68,9 @@ function HealthBanner() {
   return (
     <div className="flex flex-col">
       {msgs.map((m) => (
-        <div key={m} className="flex items-center gap-2 border-b border-coral/30 bg-coral/10 px-4 py-2 text-sm text-coral"><TriangleAlert className="size-4 shrink-0" />{m}</div>
+        <div key={m} className="bg-coral px-5 py-2.5 text-[13px] font-medium text-white md:px-8 dark:text-ink">{m}</div>
       ))}
-      {info && <div className="border-b border-signal/30 bg-signal/10 px-4 py-2 text-sm text-signal">{info}</div>}
+      {info && <div className="bg-signal px-5 py-2.5 text-[13px] font-medium text-signal-foreground md:px-8">{info}</div>}
     </div>
   );
 }
@@ -98,39 +113,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   useDesktopLinks();
   useReloadShortcut();
-  const { resolvedTheme, setTheme } = useTheme();
-  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
   const active = (href: string) => (href === "/" ? path === "/" || path.startsWith("/session") || path.startsWith("/report") : path.startsWith(href));
+  const all = [...NAV.flatMap((g) => g.items), ...UTIL];
   return (
-    <div className="flex h-full flex-col pt-[env(safe-area-inset-top)] md:flex-row md:pt-0">
-      <nav aria-label="Primary" className="order-last flex shrink-0 items-center justify-around border-t border-sidebar-border bg-sidebar px-2 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 md:order-first md:w-[68px] md:flex-col md:justify-start md:gap-1 md:border-r md:border-t-0 md:py-4">
-        <Link href="/" className="mb-0 hidden md:mb-3 md:flex" title="Lemma" aria-label="Lemma home"><Logo /></Link>
-        {NAV.map(({ group, accent, items }, i) => (
-          <div key={group ?? i} className="contents">
-            {i > 0 && <div aria-hidden className="mx-3 my-1 hidden h-px w-8 bg-sidebar-border md:block" />}
-            {group && <div className={cn("hidden items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.14em] md:flex", accent)}><span className="size-1 rounded-full bg-current" />{group}</div>}
-            {items.map(({ href, label, icon: Icon }) => (
-              <Link key={href} href={href} aria-current={active(href) ? "page" : undefined} title={group ? `${group}: ${label}` : label}
-                className={cn("group flex w-14 flex-col items-center gap-0.5 rounded-lg px-1 py-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
-                  active(href) && "bg-sidebar-accent text-foreground")}>
-                <Icon className={cn("size-[18px]", active(href) && accent)} />
-                {label}
-              </Link>
-            ))}
-          </div>
-        ))}
-        <div className="mt-auto hidden flex-col items-center gap-4 md:flex">
+    <div className="flex h-full flex-col pt-[env(safe-area-inset-top)]">
+      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50 focus:bg-foreground focus:px-3 focus:py-2 focus:text-background">Skip to content</a>
+      <header className="hidden shrink-0 items-center gap-6 px-8 md:flex">
+        <Link href="/" aria-label="Lemma, today" className="mr-2 flex items-center gap-2">
+          <Logo className="size-6" />
+          <span className="font-serif text-[1.2rem] font-semibold tracking-tight">Lemma<span className="text-signal">.</span></span>
+        </Link>
+        <nav aria-label="Primary" className="flex items-center gap-5">
+          {NAV.map(({ group, track, items }) => (
+            <div key={group ?? "home"} className="flex items-center">
+              {group && <span className={cn("mr-1 text-[14px] font-semibold", track === "design" ? "text-signal" : "text-code")}>{group}</span>}
+              {items.map((it) => <NavLink key={it.href} item={it} active={active(it.href)} />)}
+            </div>
+          ))}
+        </nav>
+        <div className="ml-auto flex items-center gap-4">
           <PlanMeter />
-          <button onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")} aria-label="Toggle theme" title="Toggle theme"
-            className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-sidebar-accent hover:text-foreground">
-            {mounted && resolvedTheme === "light" ? <Moon className="size-4" /> : <Sun className="size-4" />}
-          </button>
+          <nav aria-label="Utility" className="flex items-center">{UTIL.map((it) => <NavLink key={it.href} item={it} active={active(it.href)} />)}</nav>
         </div>
-      </nav>
+      </header>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <HealthBanner />
-        <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+        <main id="main" className="min-h-0 flex-1 overflow-y-auto">{children}</main>
       </div>
+      <nav aria-label="Primary" className="no-scrollbar flex shrink-0 overflow-x-auto bg-card px-1 pb-[env(safe-area-inset-bottom)] md:hidden">
+        {all.map((it) => <NavLink key={it.href} item={it} active={active(it.href)} compact />)}
+      </nav>
     </div>
   );
 }
