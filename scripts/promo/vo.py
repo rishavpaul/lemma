@@ -22,7 +22,7 @@ for key, text in json.load(open('narration.json')):
         # trim silence at the ends
         idx = np.where(np.abs(a) > 0.01)[0]
         a = a[max(idx[0]-int(.02*r),0): idx[-1]+int(.06*r)] if len(idx) else a
-        out.append(a); out.append(np.zeros(int(r*(0.32 if i < len(parts)-1 else 0)), np.float32))
+        out.append(a); out.append(np.zeros(int(r*(0.5 if i < len(parts)-1 else 0)), np.float32))
     y = np.concatenate(out)
     with wave.open(f'vo/{key}.wav', 'wb') as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(sr); w.writeframes((np.clip(y,-1,1)*32767).astype(np.int16).tobytes())

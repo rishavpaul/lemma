@@ -29,7 +29,7 @@ cdp.on('Page.screencastFrame', f => {
 await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 95, maxWidth: 2880, maxHeight: 1620, everyNthFrame: 1 });
 const now = () => Date.now() / 1000;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const marks = []; const cuts = []; let cutStart = null;
+const marks = []; const segs = []; let seg = null;
 
 const ease = `const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2;`;
 async function cursorInit() {
@@ -84,7 +84,7 @@ async function caption(text) { return;
 }
 async function hideCaption() { await p.evaluate(() => { const d = document.getElementById('cap'); if (d) d.style.opacity = '0'; }); }
 async function fadeOut() { await p.evaluate(() => { const f = document.getElementById('fade'); if (f) f.style.opacity = '1'; }); await sleep(450); cutStart = now() + 0.12; }
-async function reveal() { if (cutStart) { cuts.push([cutStart, now() - 0.1]); cutStart = null; } await p.evaluate(() => { window.__go?.(); const f = document.getElementById('fade'); if (f) f.style.opacity = '0'; }); }
+async function reveal_old() { if (cutStart) { cuts.push([cutStart, now() - 0.1]); cutStart = null; } await p.evaluate(() => { window.__go?.(); const f = document.getElementById('fade'); if (f) f.style.opacity = '0'; }); }
 async function open(url, settle = 1500) {
   await p.goto(B + url, { waitUntil: 'networkidle' });
   await sleep(settle); await cursorInit();
@@ -104,101 +104,110 @@ async function card(kind, title, sub) {
   }, [title, sub, kind]);
 }
 
-// A scene: fade in, narration begins 0.5s later, everything is held to the narration length + tail.
-async function scene(key, fn, { tail = 0.8, min = 0 } = {}) {
-  await reveal(); await sleep(450);
-  const t0 = now(); const D = Math.max(dur[key] + 0.5 + tail, min);
-  marks.push({ key, at: t0 + 0.5, dur: dur[key] });
+
+const LEAD = 0.9, TAIL = 0.9;
+async function beginSeg(name) {
+  await p.evaluate(() => { const f = document.getElementById('fade'); if (f) { f.style.transition = 'none'; f.style.opacity = '0'; } window.__go?.(); });
+  await sleep(150);
+  seg = { name, start: now(), marks: [] };
+}
+async function endSeg() { seg.end = now(); segs.push(seg); seg = null; }
+async function scene(key, fn, { tail = TAIL } = {}) {
+  const t0 = now(); const D = dur[key] + LEAD + tail;
+  seg.marks.push({ key, at: t0 + LEAD });
   await fn(() => (now() - t0));
   const rest = D - (now() - t0); if (rest > 0) await sleep(rest * 1000);
 }
 const until = async (el, t) => { const w = t - el(); if (w > 0) await sleep(w * 1000); };
+async function loadFresh(url, settle = 1500) {
+  await p.evaluate(() => { const f = document.getElementById('fade'); if (f) { f.style.transition = 'none'; f.style.opacity = '1'; } }).catch(() => {});
+  await open(url, settle);
+}
 
 // ---------- timeline ----------
 await card('design', 'Lemma.', 'Practice staff-level interviews, out loud.');
-await scene('intro', async () => {}, { tail: 1.4 });
+// the title waits for "This is Lemma."
+await p.evaluate(() => { document.querySelectorAll('.t,.r').forEach(e => { e.style.transition = 'none'; e.style.opacity = '0'; }); window.__go = () => { document.querySelectorAll('.s').forEach(e => { e.style.opacity = '1'; e.style.transform = 'none'; }); }; });
+await beginSeg('intro');
+await scene('intro', async el => {
+  await until(el, LEAD + dur.intro - 1.3);
+  await p.evaluate(() => document.querySelectorAll('.t,.r').forEach(e => { e.style.transition = 'all 1s cubic-bezier(.2,.7,.2,1)'; e.style.opacity = '1'; e.style.transform = 'none'; }));
+}, { tail: 1.6 });
+await endSeg();
 
-await fadeOut(); await open('/', 1800);
+await loadFresh('/', 1800); await beginSeg('home');
 await scene('home', async el => {
-  await caption('One streak across two tracks: system design and coding');
-  await moveTo(760, 300, 1400); await until(el, 3.4);
-  await hideCaption(); const s = scrollBy(560, 4200); await moveTo(1000, 520, 3600); await s;
+  await moveTo(760, 300, 1600); await until(el, 3.6);
+  const s = scrollBy(560, 4200); await moveTo(1000, 520, 3600); await s;
 });
+await endSeg();
 
-await fadeOut(); await open('/session/?id=10', 2200);
+await loadFresh('/session/?id=10', 2200); await beginSeg('session');
 await scene('session', async el => {
-  await caption('Answer out loud, one section at a time. The clock runs only while you talk.');
-  await moveTo(520, 420, 1600); await until(el, 5.5);
-  await scrollBy(260, 3600); await moveTo(760, 560, 2600);
+  await moveTo(520, 420, 1800); await until(el, 6.5);
+  await scrollBy(260, 4000); await moveTo(760, 560, 2800);
 });
 await scene('canvas', async el => {
-  await caption('Draw while you talk. The grader reads your diagram too.');
-  await moveTo(1000, 440, 1200); await moveTo(1290, 440, 1000); await moveTo(1500, 330, 900); await moveTo(1500, 500, 800);
-}, { tail: 0.6 });
-
-await fadeOut(); await open('/report/?id=9', 2000);
-await scene('report', async el => {
-  await caption('Graded against a researched answer key: level, hire signal, ten dimensions');
-  await moveTo(1000, 320, 1400); await until(el, 3.2); await scrollBy(700, 5000);
+  await moveTo(1000, 440, 1200); await moveTo(1290, 440, 1100); await moveTo(1500, 330, 1000); await moveTo(1500, 500, 900);
 });
-await scene('report2', async el => {
-  await caption('Evidence, gaps and a drill for next time, for every section');
-  await scrollBy(900, 4200);
-}, { tail: 0.6 });
+await endSeg();
 
-await fadeOut(); await open('/articles/', 1500);
+await loadFresh('/report/?id=9', 2000); await beginSeg('report');
+await scene('report', async el => {
+  await moveTo(1000, 320, 1400); await until(el, 3.6); await scrollBy(700, 5200);
+});
+await scene('report2', async el => { await scrollBy(900, 4200); });
+await endSeg();
+
+await loadFresh('/articles/', 1500); await beginSeg('articles');
 await scene('articles', async el => {
-  await caption('Explainer articles, grouped by design problem');
   const loc = p.getByText('Token bucket vs sliding window').first();
   const bb = await loc.boundingBox();
-  if (bb) { await moveTo(bb.x + 80, bb.y + bb.height / 2, 1400); await until(el, 3.3); await ripple(); await loc.click(); }
+  if (bb) { await moveTo(bb.x + 80, bb.y + bb.height / 2, 1500); await until(el, 3.6); await ripple(); await loc.click(); }
 });
+await endSeg();
 
-await fadeOut(); await open('/progress/', 2000);
-await scene('progress', async el => {
-  await caption('Progress tracks recurring gaps across sessions');
-  await moveTo(900, 380, 1400); await scrollBy(520, 3200);
-});
+await loadFresh('/progress/', 2000); await beginSeg('progress');
+await scene('progress', async el => { await moveTo(900, 380, 1400); await scrollBy(520, 3600); });
+await endSeg();
 
-await fadeOut(); await card('code', 'Now, code.', 'Java, judged on your Mac.');
-await scene('codecard', async () => {}, { tail: 1.4 });
+await card('code', 'Now, code.', 'Java, judged on your Mac.'); await beginSeg('codecard');
+await scene('codecard', async () => {}, { tail: 1.3 });
+await endSeg();
 
-await fadeOut(); await open('/code/', 1800);
-await scene('roadmap', async el => {
-  await caption('A roadmap of 160 problems, built and verified once, judged locally');
-  await moveTo(820, 340, 1400); await until(el, 3.4); await scrollBy(900, 5600);
-});
+await loadFresh('/code/', 1800); await beginSeg('roadmap');
+await scene('roadmap', async el => { await moveTo(820, 340, 1400); await until(el, 3.8); await scrollBy(900, 7000); });
+await endSeg();
 
-await fadeOut(); await open('/code/problem/?slug=group-anagrams&attempt=22', 2400);
-await scene('problem', async el => {
-  await caption('Real Java, with completion and live errors from the language server');
-  await moveTo(560, 460, 1800); await until(el, 3.4); await moveTo(700, 560, 1600);
-});
+await loadFresh('/code/problem/?slug=group-anagrams&attempt=22', 2400); await beginSeg('problem');
+await scene('problem', async el => { await moveTo(560, 460, 1800); await until(el, 3.2); await moveTo(700, 560, 1600); });
 await scene('review', async el => {
   const tab = p.getByRole('tab', { name: 'Staff review' });
   const bb = await tab.boundingBox().catch(() => null);
   if (bb) { await moveTo(bb.x + bb.width / 2, bb.y + bb.height / 2, 1100); await ripple(); await tab.click(); }
-  await caption('A staff-level review reads your code, not just your test results');
-  await sleep(700); await scrollBy(700, 3200);
-}, { tail: 0.6 });
+  await sleep(700); await scrollBy(700, 3400);
+});
+await endSeg();
 
-await fadeOut(); await card('design', 'Lemma.', 'Local, private, and free.');
-await scene('outro', async () => {}, { tail: 2.2 });
-await fadeOut(); await sleep(600);
+await card('design', 'Lemma.', 'Local, private, and free.'); await beginSeg('outro');
+await scene('outro', async () => {}, { tail: 2.4 });
+await endSeg();
 
 await cdp.send('Page.stopScreencast'); await sleep(300);
-const t0 = frames[0][1];
-const inCut = t => cuts.some(([a, b]) => t >= a && t < b);
-const shift = t => t - cuts.reduce((m, [a, b]) => m + Math.max(0, Math.min(t, b) - a), 0);
-const kept = frames.filter(f => !inCut(f[1])).map(f => [f[0], shift(f[1])]);
-for (const m of marks) m.at = shift(m.at);
-let list = '';
-for (let i = 0; i < kept.length; i++) {
-  const d = i + 1 < kept.length ? kept[i + 1][1] - kept[i][1] : 0.5;
-  list += `file 'frames/${kept[i][0]}'\nduration ${Math.max(d, 0.001).toFixed(4)}\n`;
-}
-list += `file 'frames/${kept.at(-1)[0]}'\n`;
-fs.writeFileSync(out + '/list.txt', list);
-fs.writeFileSync(out + '/marks.json', JSON.stringify(marks.map(m => ({ ...m, at: +(m.at - shift(t0)).toFixed(3) })), null, 1));
-console.log('frames', frames.length, 'span', (frames.at(-1)[1] - t0).toFixed(1));
+const out_segs = [];
+segs.forEach((sg, k) => {
+  let startIdx = 0;
+  frames.forEach((f, i) => { if (f[1] <= sg.start) startIdx = i; });
+  const fr = frames.filter((f, i) => i >= startIdx && f[1] < sg.end);
+  let list = '';
+  fr.forEach((f, i) => {
+    const t = Math.max(f[1], sg.start), nx = i + 1 < fr.length ? fr[i + 1][1] : sg.end;
+    list += `file 'frames/${f[0]}'\nduration ${Math.max(nx - t, 0.001).toFixed(4)}\n`;
+  });
+  list += `file 'frames/${fr.at(-1)[0]}'\n`;
+  fs.writeFileSync(`${out}/seg${k}.txt`, list);
+  out_segs.push({ k, name: sg.name, len: +(sg.end - sg.start).toFixed(3), marks: sg.marks.map(m => ({ key: m.key, rel: +(m.at - sg.start).toFixed(3) })) });
+});
+fs.writeFileSync(out + '/segs.json', JSON.stringify(out_segs, null, 1));
+console.log('frames', frames.length, 'segments', out_segs.length, 'total', out_segs.reduce((a, s) => a + s.len, 0).toFixed(1));
 await b.close();

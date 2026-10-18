@@ -1,15 +1,15 @@
 [
- ["intro", "Lemma. Practice staff-level interviews, out loud."],
- ["home", "Lemma is a practice room for system design and coding interviews. One streak across both tracks, and everything stays on your Mac."],
- ["session", "Pick a question and answer it out loud, one section at a time, through a five-part framework. Your speech is transcribed locally, and you can edit the transcript before it is graded."],
- ["canvas", "Sketch the architecture as you talk. The grader reads your diagram too."],
- ["report", "Then comes the report. Your answer is graded against a researched answer key, with a level, a hiring signal, and ten dimensions."],
- ["report2", "Every section shows the evidence, the gaps, and a drill for next time."],
- ["articles", "Gaps become explainer articles, grouped by design problem."],
- ["progress", "And progress tracks the gaps that keep coming back, across every session."],
- ["codecard", "Now, code."],
- ["roadmap", "A roadmap of one hundred and sixty problems in Java. Every test suite is checked against an independent brute force before you ever see it."],
- ["problem", "Write real Java, with completion and live errors from the language server."],
- ["review", "Then a staff-level review reads your code, not just your test results."],
- ["outro", "Lemma. Local, private, and free."]
+ ["intro", "Every great engineer has stood in that room. A whiteboard. A clock. And someone, waiting to hear how you think. Now, you can practice it. This is Lemma."],
+ ["home", "Two tracks. System design, and code. One streak. And it all lives on your Mac. Nothing leaves it."],
+ ["session", "You don't type your answers. You speak them. One section at a time, through a framework of five parts. Lemma listens, transcribes right here, and lets you refine every word before it's graded."],
+ ["canvas", "And while you talk, you draw. The grader doesn't just hear your design. It sees it."],
+ ["report", "Then, the truth. Graded against an answer key, researched for that exact question. Your level. A hiring signal. Ten dimensions."],
+ ["report2", "Every section. The evidence. The gaps. And a drill, for next time."],
+ ["articles", "Every gap becomes an article. Written for you. Organized by the problem."],
+ ["progress", "And over time, you see it. The weaknesses that keep coming back. Until they don't."],
+ ["codecard", "Now. Code."],
+ ["roadmap", "One hundred and sixty problems. In Java. And every test is proven against an independent brute force, before you ever see it. Because a test you can't trust is worse than no test at all."],
+ ["problem", "Real Java. Real completion. Real errors, as you type."],
+ ["review", "And when you're done, a staff engineer's review. Not just whether it passes. Whether it's good."],
+ ["outro", "Lemma. It's local. It's private. And it's free. Now go, be great."]
 ]
