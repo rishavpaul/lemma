@@ -18,9 +18,13 @@ streak, one set of settings and one look:
 - UI: Next.js (App Router) + Tailwind + shadcn/ui in `web/`, with Excalidraw for the diagram canvas. The Python API in `app/` is
   unchanged in role; the browser reaches it through Next's `/api` proxy (`web/next.config.ts`).
 
+[![Watch the 85-second tour](docs/screenshots/promo-poster.png)](docs/promo.mp4)
+
+*An 85-second tour (`docs/promo.mp4`). All data shown here is made up; see `scripts/demo_data.py`.*
+
 ## Features
 
-![Today screen: question of the day, streak and recent sessions](docs/screenshots/today.png)
+![Today: the question of the day, your streak and a heat map of practice](docs/screenshots/today.png)
 
 - **Speak your answer, section by section.** A timed, five-part staff-level framework (requirements and scale, APIs, data and
   high-level design, deep dives, reliability and ops, tradeoffs). The clock only runs while you record.
@@ -35,19 +39,31 @@ streak, one set of settings and one look:
 - **Progress over time.** Streaks, recurring gaps and a study list that grows from your sessions.
 - **Usage tracking.** Calls, tokens, cost and plan-limit use for every model call.
 
-![Library of questions with answer keys](docs/screenshots/library.png)
+![Questions: the built-in set and your own, each with an answer key](docs/screenshots/library.png)
 
 The interview: one section at a time, a timer that runs only while you talk, and a canvas to draw on.
 
-![A session: prompt, section timer, record button and diagram canvas](docs/screenshots/session.png)
+![A session: prompt, section timer, transcript and diagram canvas](docs/screenshots/session.png)
 
 The final report: overall level, ten-dimension scores, time against budget, strengths, a drill for next time and per-section grades.
 
-![Final report with grade, dimensions, time used and section grades](docs/screenshots/report.png)
+![Final report with grade, hire signal, dimensions, time used and section grades](docs/screenshots/report.png)
 
 Articles: explainer articles grouped by design problem, with a reader, an editor and an ask-a-model box.
 
 ![Articles page: grouped by design problem, with a reader and an ask box](docs/screenshots/articles.png)
+
+Progress: score trend, the ten dimensions and recurring gaps across sessions.
+
+![Progress page: trend, dimensions and recurring gaps](docs/screenshots/progress.png)
+
+Code: the 160-problem roadmap, with where you left off and what is next.
+
+![Code roadmap: solved count, clean-solve rate, next problems](docs/screenshots/code.png)
+
+A problem: statement, Java editor with language-server completion, test results and a staff-level review.
+
+![Coding workspace: problem, Java editor and test results](docs/screenshots/code-workspace.png)
 
 ## Start
 
