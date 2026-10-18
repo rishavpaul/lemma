@@ -8,6 +8,7 @@ export async function api<T = unknown>(path: string, opts: { method?: string; bo
     init.body = JSON.stringify(opts.body);
   }
   const r = await fetch(path, init);
+  if (r.status === 401 && !path.startsWith("/api/auth/")) { window.location.reload(); throw new ApiError("Sign in required."); } // the auth gate takes over
   if (!r.ok) {
     let msg = r.statusText;
     try {

@@ -1,11 +1,11 @@
-# Developing Design Coach
+# Developing Lemma
 
 For using the app, see [README.md](README.md). This file is for changing it and shipping it.
 
 ## 1. Architecture
 
 ```
- ┌─────────────── Design Coach.app (one process, one window) ───────────────┐
+ ┌─────────────── Lemma.app (one process, one window) ───────────────┐
  │  app/desktop.py   pywebview window (WKWebView) + uvicorn thread          │
  │        │                                                                 │
  │        ▼  http://127.0.0.1:<port>                                        │
@@ -17,7 +17,7 @@ For using the app, see [README.md](README.md). This file is for changing it and 
  │                                                     ├─ claude CLI  (claude -p, subscription login)
  │                                                     └─ providers.py (OpenRouter / Groq, HTTPS)
  │  transcribe.py ──► ffmpeg + mlx-whisper (local)                          │
- │  db.py ──► ~/SystemDesignCoach/coach.db (SQLite)                         │
+ │  db.py ──► ~/Lemma/coach.db (SQLite)                         │
  └──────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -36,8 +36,9 @@ them itself, so the browser and the API share one origin.
 | `grader.py` | **The only place a model is called.** `run_claude()` picks the backend from the model string, retries once with the validation error appended, and records every call in `llm_calls`. |
 | `providers.py` | OpenRouter and Groq through the OpenAI-compatible chat API, the API-key store, model lists, and `recommend()` (the one-click "use a free model" choice). |
 | `transcribe.py` | Converts audio with ffmpeg and transcribes with `mlx-whisper`; drops hallucinated segments over silence. |
-| `config.py` | Paths, settings, and seeding of `~/SystemDesignCoach/config/` from `app/seed/` (never overwrites user edits). |
+| `config.py` | Paths, settings, and seeding of `~/Lemma/config/` from `app/seed/` (never overwrites user edits). |
 | `db.py` | SQLite schema with `user_version` migrations, plus the usage ledger. |
+| `code/` | The coding vertical: `routes.py` (API), `handlers.py` (jobs), `generate.py` (build and validate a problem), `judge.py`, `runner.py` (javac/java), `compare.py`, `sandbox.py` (model-written Python), `java/Harness.java`. See AGENTS.md. |
 | `desktop.py` | Desktop entry point: single-instance lock, free port, native window, microphone permission handler, save/open bridge. |
 
 ### Model strings
@@ -53,7 +54,7 @@ Every backend returns the same result dict (`ok`, `structured`, `raw`, `error_ki
 
 ### API keys
 
-Stored in the macOS Keychain (service `DesignCoach`, account = provider) through `/usr/bin/security`, with a `0600` file
+Stored in the macOS Keychain (service `Lemma`, account = provider) through `/usr/bin/security`, with a `0600` file
 (`config/.secrets.json`) as fallback. Environment variables `OPENROUTER_API_KEY` / `GROQ_API_KEY` override both. The API
 never returns a key, only `configured` and the last four characters. A key is verified with the provider before it is saved.
 
@@ -71,11 +72,11 @@ breaking changes, so check `web/node_modules/next/dist/docs/` before using an AP
 
 ### Packaging (`packaging/`)
 
-`build_app.sh` assembles `dist/Design Coach.app`:
+`build_app.sh` assembles `dist/Lemma.app`:
 
 ```
-Design Coach.app/Contents/
-  MacOS/DesignCoach        shell launcher: sets PATH, PYTHONHOME, USER, SD_COACH_WEB, then execs python3.12
+Lemma.app/Contents/
+  MacOS/Lemma        shell launcher: sets PATH, PYTHONHOME, USER, LEMMA_WEB, then execs python3.12
   MacOS/python3.12         the interpreter, placed here so macOS treats the bundle as the running app
                            (this is what lets the Info.plist microphone text apply)
   Resources/python/        standard library (trimmed)
@@ -83,7 +84,7 @@ Design Coach.app/Contents/
   Resources/src/app/       this repo's app/ package
   Resources/web/           the exported UI
   Resources/bin/ffmpeg     symlink to imageio-ffmpeg's static binary (ffprobe is a stub)
-  Info.plist, Resources/DesignCoach.icns
+  Info.plist, Resources/Lemma.icns
 ```
 
 Things that are easy to break:
@@ -107,10 +108,10 @@ Things that are easy to break:
 ### Day-to-day development
 
 ```bash
-cd sd-coach
+cd lemma
 ./run.sh                      # API on :8765, UI on :3000, opens the browser (production UI build)
 DEV=1 ./run.sh                # UI with hot reload
-SD_COACH_HOME=/tmp/coach-scratch ./run.sh   # throwaway data directory; use this when testing destructive changes
+LEMMA_HOME=/tmp/coach-scratch ./run.sh   # throwaway data directory; use this when testing destructive changes
 ```
 
 `run.sh` creates `.venv` and installs the Python dependencies itself. Python changes need a restart of `run.sh`; UI changes
@@ -135,15 +136,16 @@ There is no other automated test suite. The rest is verified by hand, so for a c
 | `jobs.py`, `pipeline.py` | Kill the server while a job is `running`, restart, confirm it resumes. Force a failure (wrong key) and confirm the Retry button appears. |
 | `transcribe.py`, recording UI | Record a short answer; confirm transcript, then check the log has no transcript text. |
 | Anything in `web/` | Click through Home, a session, the report, Settings, Usage. Use the browser at `:3000`, then confirm again in the built app (step below), because static export is stricter. |
-| Schema or migrations in `db.py` | Run against a copy of a real `coach.db` via `SD_COACH_HOME`. |
+| `app/code/`, `app/seed/code/` | `unittest` (needs a JDK). Then build one real problem from the Code page and check that the report on the About tab says the two solutions agreed; submit a wrong and a slow solution and confirm both fail; ask for a staff review. |
+| Schema or migrations in `db.py` | Run against a copy of a real `coach.db` via `LEMMA_HOME`. |
 
 Keep real keys out of tests; the fake server in `tests/test_providers.py` is the pattern to extend.
 
 ### Test the real app
 
 ```bash
-./packaging/build_app.sh          # about 2 minutes; output: dist/Design Coach.app
-open "dist/Design Coach.app"
+./packaging/build_app.sh          # about 2 minutes; output: dist/Lemma.app
+open "dist/Lemma.app"
 ```
 
 The build ends with a smoke test: it starts the app with a bare environment (like a Finder launch), waits for the API and
@@ -156,9 +158,9 @@ Still check by hand in the built app, because nothing automated covers it:
 3. Export markdown opens a save dialog.
 4. Links to external pages open in your browser.
 5. A second launch shows "already running" instead of a second window.
-6. Settings > API keys: save, replace and remove a key; open Keychain Access and confirm item `DesignCoach` appears and disappears.
+6. Settings > API keys: save, replace and remove a key; open Keychain Access and confirm item `Lemma` appears and disappears.
 
-To test the first-run experience, use a fresh data directory: `SD_COACH_HOME=/tmp/fresh "dist/Design Coach.app/Contents/MacOS/DesignCoach"`
+To test the first-run experience, use a fresh data directory: `LEMMA_HOME=/tmp/fresh "dist/Lemma.app/Contents/MacOS/Lemma"`
 (the Whisper model is cached by Hugging Face, so delete `~/.cache/huggingface/hub/models--mlx-community--whisper-large-v3-turbo`
 to test the download as well). Quit any running copy first, or the single-instance lock will stop it.
 
@@ -178,7 +180,7 @@ changed to `docs/BUILD_LOG.md`.
 VERSION=1.1.0 DMG=1 ./packaging/build_app.sh
 ```
 
-Produces `dist/Design Coach.dmg` (drag-to-Applications installer with a "Read me first" file). The app is ad-hoc signed, so
+Produces `dist/Lemma.dmg` (drag-to-Applications installer with a "Read me first" file). The app is ad-hoc signed, so
 on another Mac macOS shows a one-time "cannot verify" warning; the Read-me explains right-click > Open (macOS 14 and
 earlier) and System Settings > Privacy & Security > Open Anyway (macOS 15 and later). Send people the `.dmg`, not a zip of
 the `.app` (zipping through some tools strips the signature).
@@ -212,15 +214,15 @@ wrongly signed `.so` files inside `site-packages` are the usual cause.
 Verify the result on a Mac that has never seen the app, or at least clear the quarantine state:
 
 ```bash
-spctl -a -vv "dist/Design Coach.app"            # should say: accepted, source=Notarized Developer ID
-xcrun stapler validate "dist/Design Coach.dmg"
+spctl -a -vv "dist/Lemma.app"            # should say: accepted, source=Notarized Developer ID
+xcrun stapler validate "dist/Lemma.dmg"
 ```
 
 ### Distributing
 
 Upload the `.dmg` to a GitHub Release (or any file host) and note the version, the minimum macOS (printed by the build,
 currently 13.5), and that it is Apple Silicon only. There is no auto-update; users download the new DMG and replace the app.
-Their data (`~/SystemDesignCoach`) and Keychain entries are untouched by a replacement, and database migrations run on next launch.
+Their data (`~/Lemma`) and Keychain entries are untouched by a replacement, and database migrations run on next launch.
 
 ### Release checklist
 

@@ -3,7 +3,8 @@ import os
 import tempfile
 import unittest
 
-os.environ["SD_COACH_HOME"] = tempfile.mkdtemp()
+os.environ["LEMMA_HOME"] = tempfile.mkdtemp()
+os.environ["LEMMA_TTS"] = "0"  # never download or load the speech model in tests
 
 from fastapi.testclient import TestClient  # noqa: E402
 

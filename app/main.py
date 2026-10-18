@@ -12,12 +12,14 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import PlainTextResponse, RedirectResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import articles, config, db, export, grader, jobs, pipeline, progress, providers, transcribe
+from . import articles, auth, config, db, export, grader, jobs, pipeline, progress, providers, transcribe, tts
 from . import diagram as diagram_mod
+from .code import handlers as code_handlers  # noqa: F401  (registers the code_* job handlers)
+from .code import routes as code_routes
 
 log = logging.getLogger("coach")
 
@@ -38,13 +40,16 @@ async def lifespan(app: FastAPI):
     copied = config.seed_config()
     if copied:
         log.info("seeded config files: %s", copied)
+    auth.get_token()
     version = db.migrate()
     db.sync_questions()
+    db.sync_problems()
     log.info("db ready, schema version %s", version)
     swept = transcribe.sweep_audio()
     if swept:
         log.info("removed %d stale audio file(s)/folder(s)", swept)
     model = config.get_setting(db.connect(), "whisper_model")
+    threading.Thread(target=tts.warm, daemon=True).start()
     threading.Thread(target=transcribe.warm, args=(model,), daemon=True).start()
     health_task = asyncio.create_task(grader.check_health())
     stop = asyncio.Event()
@@ -56,7 +61,9 @@ async def lifespan(app: FastAPI):
     grader.kill_children()
 
 
-app = FastAPI(title="Staff System Design Coach", lifespan=lifespan)
+app = FastAPI(title="Lemma", lifespan=lifespan)
+app.middleware("http")(auth.middleware)
+app.include_router(auth.router)
 
 
 @app.get("/api/health")
@@ -71,6 +78,33 @@ async def health():
         "whisper_error": w["whisper_error"],
         "data_dir": str(config.DATA_DIR),
     }
+
+
+@app.get("/api/tts/status")
+async def tts_status():
+    s = tts.state()
+    return {"ready": s["ready"], "loading": s["loading"], "error": s["error"], "voices": s["voices"], "default_voice": tts.DEFAULT_VOICE}
+
+
+class TtsBody(BaseModel):
+    text: str
+    voice: str | None = None
+
+
+@app.post("/api/tts")
+async def tts_speak(body: TtsBody):
+    """One chunk of speech as WAV. The UI splits long text and plays the chunks in order."""
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(400, "no text")
+    if not tts.state()["ready"]:
+        raise HTTPException(503, tts.state()["error"] or "The speech model is still loading.")
+    try:
+        wav = await asyncio.to_thread(tts.synth, text[:1200], body.voice)
+    except Exception as e:  # noqa: BLE001
+        log.warning("tts failed: %s", e)
+        raise HTTPException(500, "Could not generate speech.")
+    return Response(wav, media_type="audio/wav", headers={"Cache-Control": "private, max-age=86400"})
 
 
 @app.post("/api/health/recheck")
@@ -198,6 +232,7 @@ async def add_question(body: NewQuestion):
 class NewSession(BaseModel):
     question_id: int | None = None
     mode: str | None = None
+    interactive: bool | None = None  # grade and read feedback aloud after each section; None uses the saved default
 
 
 @app.post("/api/sessions")
@@ -213,7 +248,7 @@ async def create_session(body: NewSession):
     else:
         raise HTTPException(400, "question_id or mode required")
     conn = db.connect()
-    live = int(config.get_setting(conn, "show_feedback_live") == "1")
+    live = int(body.interactive) if body.interactive is not None else int(config.get_setting(conn, "show_feedback_live") == "1")
     sid = db.execute("INSERT INTO sessions(question_id,status,model,started_at,show_feedback_live) "
                      "VALUES(?,'in_progress',NULL,?,?)", (qid, time.time(), live))
     for i, sec in enumerate(config.load_framework()):
@@ -234,8 +269,21 @@ async def list_sessions():
         s["overall_score"], s["overall_level"] = r.get("overall_score"), r.get("overall_level")
         s["sections_saved"] = db.one("SELECT COUNT(*) n FROM sections WHERE session_id=? AND status='saved'",
                                      (s["id"],))["n"]
+        s["sections_total"] = db.one("SELECT COUNT(*) n FROM sections WHERE session_id=?", (s["id"],))["n"]
         out.append(s)
     return out
+
+
+class InteractiveBody(BaseModel):
+    on: bool
+
+
+@app.put("/api/sessions/{sid}/interactive")
+async def set_interactive(sid: int, body: InteractiveBody):
+    """Interactive mode: feedback is shown (and read aloud by the UI) after each section instead of only in the final report."""
+    session_payload(sid)  # 404s for an unknown session
+    db.execute("UPDATE sessions SET show_feedback_live=? WHERE id=?", (int(body.on), sid))
+    return {"interactive": body.on}
 
 
 @app.get("/api/sessions/{sid}")
@@ -516,6 +564,7 @@ async def delete_session(sid: int):
 
 
 app.include_router(articles.router)
+app.include_router(code_routes.router)
 
 
 @app.get("/api/questions/suggest")
@@ -662,7 +711,7 @@ async def use_provider_for_grading(name: str):
 # ---- UI --------------------------------------------------------------------------------
 
 # The bundled app (and `STATIC_EXPORT=1 npm run build`) serves the exported UI from this same process.
-WEB_DIR = Path(os.environ.get("SD_COACH_WEB") or Path(__file__).resolve().parent.parent / "web" / "out")
+WEB_DIR = Path(os.environ.get("LEMMA_WEB") or Path(__file__).resolve().parent.parent / "web" / "out")
 
 if (WEB_DIR / "index.html").exists():
     app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")

@@ -10,4 +10,4 @@ labels: bug
 
 **Environment**: macOS version, chip, install method (.app / `run.sh`), `claude --version`
 
-**Logs**: from `~/SystemDesignCoach/` (remove anything private)
+**Logs**: from `~/Lemma/` (remove anything private)

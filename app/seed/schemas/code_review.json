@@ -1,0 +1,115 @@
+{
+  "type": "object",
+  "properties": {
+    "verdict_kind": {"type": "string", "enum": ["wrong", "correct_slow", "correct_optimal"], "description": "What the judge results and the reference approach say about this solution"},
+    "overall_score": {"type": "number", "description": "1-4 in half steps, staff = 3"},
+    "overall_level": {"type": "string", "enum": ["below_senior", "senior", "staff", "senior_staff_plus"]},
+    "hire_signal": {"type": "string", "enum": ["strong_no", "lean_no", "lean_hire", "strong_hire"]},
+    "summary": {"type": "string", "description": "3-5 sentences: is it correct, is it the expected approach, and the biggest thing between this and a staff answer"},
+    "dimension_scores": {
+      "type": "object",
+      "properties": {
+        "correctness": {"$ref": "#/$defs/dim"},
+        "algorithm_and_complexity": {"$ref": "#/$defs/dim"},
+        "code_quality": {"$ref": "#/$defs/dim"},
+        "design_and_extensibility": {"$ref": "#/$defs/dim"},
+        "production_awareness": {"$ref": "#/$defs/dim"},
+        "verification": {"$ref": "#/$defs/dim"},
+        "communication": {"$ref": "#/$defs/dim"}
+      },
+      "required": ["correctness", "algorithm_and_complexity", "code_quality", "design_and_extensibility", "production_awareness", "verification", "communication"]
+    },
+    "complexity": {
+      "type": "object",
+      "properties": {
+        "your_time": {"type": "string"},
+        "your_space": {"type": "string"},
+        "optimal_time": {"type": "string"},
+        "optimal_space": {"type": "string"},
+        "note": {"type": "string", "description": "One or two sentences on where the cost comes from in the candidate's code"}
+      },
+      "required": ["your_time", "your_space", "optimal_time", "optimal_space", "note"]
+    },
+    "strengths": {"type": "array", "items": {"type": "string"}},
+    "issues": {
+      "type": "array",
+      "description": "Concrete problems in the code, most serious first",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": {"type": "string", "enum": ["high", "medium", "low"]},
+          "title": {"type": "string"},
+          "detail": {"type": "string", "description": "What is wrong and why it matters in an interview"},
+          "quote": {"type": "string", "description": "Short verbatim excerpt of the candidate's code, or empty"},
+          "fix": {"type": "string", "description": "How to fix it, in words"}
+        },
+        "required": ["severity", "title", "detail", "quote", "fix"]
+      }
+    },
+    "staff_gaps": {
+      "type": "array",
+      "description": "What a staff candidate would show that this answer does not",
+      "items": {
+        "type": "object",
+        "properties": {
+          "area": {"type": "string"},
+          "gap": {"type": "string"},
+          "what_staff_does": {"type": "string"}
+        },
+        "required": ["area", "gap", "what_staff_does"]
+      }
+    },
+    "improvements": {
+      "type": "array",
+      "description": "Short Java snippets showing the better way for one idea each (max 4)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {"type": "string"},
+          "why": {"type": "string"},
+          "code": {"type": "string"}
+        },
+        "required": ["title", "why", "code"]
+      }
+    },
+    "say_out_loud": {"type": "string", "description": "4-7 sentences a staff candidate would say aloud for this problem: clarifications, approach, complexity, tradeoffs, what is left out"},
+    "interviewer_follow_ups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "question": {"type": "string"},
+          "strong_answer": {"type": "string", "description": "What a strong answer covers, in 1-3 sentences"}
+        },
+        "required": ["question", "strong_answer"]
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tag": {"type": "string"},
+          "description": {"type": "string"},
+          "severity": {"type": "string", "enum": ["high", "medium", "low"]}
+        },
+        "required": ["tag", "description", "severity"]
+      }
+    },
+    "drill": {"type": "string", "description": "One concrete thing to practise next, tied to the biggest gap"},
+    "redo_advice": {"type": "string", "description": "Whether and how to redo this problem (for example from scratch in 25 minutes without the judge)"}
+  },
+  "required": ["verdict_kind", "overall_score", "overall_level", "hire_signal", "summary", "dimension_scores", "complexity", "strengths", "issues",
+               "staff_gaps", "improvements", "say_out_loud", "interviewer_follow_ups", "gaps", "drill", "redo_advice"],
+  "$defs": {
+    "dim": {
+      "type": "object",
+      "properties": {
+        "score": {"type": "number"},
+        "assessed": {"type": "boolean"},
+        "rationale": {"type": "string"}
+      },
+      "required": ["score", "assessed", "rationale"]
+    }
+  }
+}

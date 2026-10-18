@@ -19,5 +19,5 @@ CI runs the same checks. Tests must not need network, Claude, or Whisper; use a 
 ## Guidelines
 - Keep PRs small and focused; explain the why.
 - Match the surrounding style. Add a test for behavior changes.
-- Don't commit personal data, API keys, or anything from `~/SystemDesignCoach/`.
+- Don't commit personal data, API keys, or anything from `~/Lemma/`.
 - Questions and ideas: open an issue first for anything large.

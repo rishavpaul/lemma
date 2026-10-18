@@ -22,6 +22,10 @@
       "type": "string",
       "description": "ONE cohesive paragraph of plain prose (no bullets, no lists) explaining the gaps in this section, most important first, and what a staff answer would have said instead. If there are no real gaps, say so in one sentence."
     },
+    "spoken_feedback": {
+      "type": "string",
+      "description": "Only when the task asks for spoken feedback: what you would say aloud to the candidate right after this answer. Under 80 words, 3 to 5 short sentences, plain spoken English for the ear. No lists, markdown, or symbols; say numbers and abbreviations the way they are spoken. Open with the verdict in one sentence, then the single most important gap and how to fix it, then one thing they did well. Address the candidate as you."
+    },
     "concepts_writeup": {
       "type": "string",
       "description": "ONE short markdown write-up (150-300 words, short paragraphs, no nested bullets) that teaches the concepts the candidate needs to learn to close these gaps, in plain language, with a concrete example. Empty string if nothing needs studying."

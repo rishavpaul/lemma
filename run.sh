@@ -20,9 +20,10 @@ fi
 command -v uv >/dev/null || { echo "uv missing: brew install uv"; exit 1; }
 command -v ffmpeg >/dev/null || { echo "ffmpeg missing: brew install ffmpeg"; exit 1; }
 command -v node >/dev/null || { echo "node missing: brew install node"; exit 1; }
+command -v javac >/dev/null 2>&1 && javac -version >/dev/null 2>&1 || echo "note: no JDK found, so the Code section cannot run Java (brew install openjdk)"
 
 [ -d .venv ] || uv venv --python 3.12
-uv pip install -q fastapi "uvicorn[standard]" python-multipart pyyaml mlx-whisper
+uv pip install -q fastapi "uvicorn[standard]" python-multipart pyyaml mlx-whisper kokoro-onnx
 
 cd web
 [ -d node_modules ] || npm install --no-audit --no-fund

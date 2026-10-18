@@ -1,0 +1,37 @@
+You build one practice problem for a Java coding-interview trainer. A local judge will compile the candidate's Java, run it on the test cases you define, and compare the output with what your reference solution produced. Everything you write is executed, so correctness matters more than polish.
+
+## What to produce
+
+1. **A problem statement in your own words.** Write an original statement (title context, task, 2-3 examples with explanations, constraints). Do not copy a published statement verbatim. Keep every detail that affects the answer: ties, ordering rules, limits, what to return for impossible input.
+2. **A starter file** the candidate edits. Java, one public-or-package-private top-level class, method signature(s) filled in, a one-line `// TODO` body that returns a default value so it compiles. No solution hints in comments.
+3. **A reference solution** in Java: the optimal approach an interviewer expects, clean and correct. Same class name and signatures as the starter.
+4. **A brute-force solution** in Java: the simplest approach that is obviously correct (enumerate everything, simulate step by step, use a naive list). It must NOT share logic with the reference; it exists to catch bugs in the reference and in your own expected values. It only has to be fast enough for tiny inputs.
+5. **Examples** with the exact expected output. **Edge cases** as inputs only (the judge computes the expected output by running the reference and the brute force and requires them to agree).
+6. **A Python input generator** `def gen(rng, size, level=1)` returning ONE valid input as JSON-able data. `rng` is a `random.Random`. `size` is a scale knob: tiny cases use 1-8, medium 9-40, and one stress case uses `perf_size`, so scale lengths, counts and values with `size` while keeping every constraint in the statement satisfied. It must be deterministic given `rng` and cover the interesting regions (duplicates, empties within the constraints, negatives, repeated values, already-sorted, all-equal, max values).
+7. **A checker** `def check(case_input, actual)` ONLY when many outputs are valid (any valid ordering, any valid path, a random pick). Return `None` (or `True`) when `actual` is a valid answer, otherwise a short reason. Leave `checker_py` empty when the output is unique.
+8. **Three graded hints** that never give the answer away: (1) a nudge about what to notice, (2) the technique/data structure to use and why, (3) an outline of the algorithm without code.
+9. **A teaching write-up** (`approach_md`): the key insight, the algorithm, complexity, common wrong approaches, and what to say out loud in a staff-level interview. Also `pitfalls` (bugs interviewers watch for) and `follow_ups` (the extensions an interviewer asks next, taken from the roadmap note).
+
+## The judge's contract (follow exactly)
+
+- Java 17+ syntax is fine (records, `var`, switch expressions). No external libraries. Default package, no `package` line.
+- `kind: "function"`: the class is `Solution` (unless the statement names another), the entry point is the single method named in `method`. The input is the argument list as JSON, e.g. `[[2,7,11,15], 9]`. The output is the return value as JSON. If the method returns `void` and mutates an argument, set `inplace_param` to that argument's index (the judge compares the mutated argument), otherwise use `-1`.
+- `kind: "design"`: a class with a constructor and methods (LRU cache, rate limiter, a bank). The input is the operation list: `[["LRUCache",[2]],["put",[1,1]],["get",[1]]]` where the FIRST item is the constructor call (its name is the class name) and the rest are method calls with an argument list. The output is the list of return values, one per operation, with `null` for the constructor and for `void` methods. `class_name` is the class; `method` is `""`.
+- Allowed parameter and return types: `int long double boolean char String`, arrays of those (1-D and 2-D, `char[][]` too), `List/Set/Map` of those (Map keys are strings in JSON, `Integer`/`Long` keys also work), `Object`/`List<Object>` for mixed or nested data (integers arrive as `Integer`), `ListNode` and `TreeNode` (provided by the judge; JSON uses the usual arrays: `[1,2,3]` and level-order `[1,null,2,3]`). The judge supplies exactly this: `class ListNode { int val; ListNode next; ListNode(){} ListNode(int val){} ListNode(int val, ListNode next){} }` and `class TreeNode { int val; TreeNode left, right; ...same three constructors with left,right }`. Do NOT declare them in your solutions or starter; the starter may show them in a comment.
+- When a published problem uses a custom node class, an iterator, a callback or an interface (clone graph, random-pointer lists, nested-list iterators, peeking iterators), adapt the API to these JSON-friendly types and say so in the statement (e.g. take an adjacency list `int[][]` and return the cloned adjacency list, or build the iterator from a `List<Object>` and expose `next()/hasNext()` as operations). Keep the learning goal of the problem.
+- Never rely on exceptions for expected behaviour; return `-1`, `false` or `null` as the statement says. Never print.
+- Anything non-deterministic (random pick, hash-map iteration order) needs `compare: "unordered"`/`"unordered_nested"` or a checker.
+- `compare`: `exact` (default), `unordered` (top-level list order does not matter), `unordered_nested` (order does not matter at any depth, e.g. groups of anagrams), `float` (numbers within 1e-6).
+- `support_code`: optional extra non-public top-level Java classes or interfaces the solution needs (compiled with every solution). Usually empty.
+- Examples: `input` and `expected` are JSON exactly as the judge sends and receives them. Think carefully about the expected values; they are checked against your reference and a mismatch will be reported back to you.
+
+## Roadmap problems that are multi-level builds
+
+For a "build" (bank system, in-memory database, cache service, file system, delivery dispatch) the candidate builds ONE class across several levels, each adding requirements. Set `kind: "design"`, write `statement_md` as the overview plus the method list of level 1, and fill `levels` with one entry per level: `n`, a `title`, `statement_md` (only what that level adds, with exact method signatures and the behaviour on invalid input), and `methods_added`. The reference and brute force implement ALL levels. Every example and edge case carries `level` (the level at which its operations first become valid; a case at level k runs again when the candidate is at levels above k). The generator receives `level`: generate operation lists that use only methods available up to that level. Levels marked staff add depth such as idempotency, thread safety or merges; specify the observable behaviour precisely so it can be tested (the judge is single-threaded, so for concurrency requirements specify the contract and test the sequential behaviour).
+
+## Quality bar
+
+- Fewer, sharper tests beat many redundant ones. The examples teach, the edge cases bite, the random cases hunt bugs, the stress case separates O(n) from O(n^2).
+- Examples must be small enough to read. Edge cases must be inside the stated constraints.
+- Treat the roadmap note as the interviewer's intent: include its follow-up as a `follow_ups` entry, and write tests for the base problem unless the note is clearly part of the task.
+- Your final answer must be the structured output required by the schema, and nothing else.

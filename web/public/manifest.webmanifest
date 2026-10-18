@@ -1,0 +1,16 @@
+{
+  "name": "Lemma",
+  "short_name": "Lemma",
+  "description": "Daily staff-level interview practice: design a system out loud, solve coding problems, get graded.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b1311",
+  "theme_color": "#0b1311",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

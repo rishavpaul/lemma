@@ -1,0 +1,67 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {"type": "string", "enum": ["function", "design"]},
+    "class_name": {"type": "string", "description": "Solution for kind function, otherwise the class being designed"},
+    "method": {"type": "string", "description": "Entry point method for kind function; empty string for design"},
+    "inplace_param": {"type": "number", "description": "Index of the argument the method mutates and the judge compares; -1 when the return value is the answer"},
+    "compare": {"type": "string", "enum": ["exact", "unordered", "unordered_nested", "float"]},
+    "statement_md": {"type": "string", "description": "Original problem statement in markdown, with examples and constraints"},
+    "constraints": {"type": "array", "items": {"type": "string"}},
+    "starter_code": {"type": "string", "description": "Compilable Java skeleton for the candidate"},
+    "support_code": {"type": "string", "description": "Extra non-public top-level Java classes the solutions need; usually empty"},
+    "reference_solution": {"type": "string", "description": "Optimal Java solution, full source"},
+    "brute_solution": {"type": "string", "description": "Simple, obviously correct Java solution for tiny inputs, full source"},
+    "examples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "input": {"description": "Argument list (function) or operation list (design), as JSON"},
+          "expected": {"description": "Expected output as JSON"},
+          "explanation": {"type": "string"},
+          "level": {"type": "number"}
+        },
+        "required": ["input", "expected", "explanation", "level"]
+      }
+    },
+    "edge_cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "input": {"description": "Argument list (function) or operation list (design), as JSON"},
+          "level": {"type": "number"}
+        },
+        "required": ["name", "input", "level"]
+      }
+    },
+    "generator_py": {"type": "string", "description": "Python source defining gen(rng, size, level=1)"},
+    "checker_py": {"type": "string", "description": "Python source defining check(case_input, actual), or an empty string"},
+    "perf_size": {"type": "number", "description": "size passed to gen for the stress case"},
+    "hints": {"type": "array", "items": {"type": "string"}, "description": "Exactly three graded hints"},
+    "approach_md": {"type": "string"},
+    "time_complexity": {"type": "string"},
+    "space_complexity": {"type": "string"},
+    "pitfalls": {"type": "array", "items": {"type": "string"}},
+    "follow_ups": {"type": "array", "items": {"type": "string"}},
+    "levels": {
+      "type": "array",
+      "description": "Only for multi-level builds; otherwise empty",
+      "items": {
+        "type": "object",
+        "properties": {
+          "n": {"type": "number"},
+          "title": {"type": "string"},
+          "statement_md": {"type": "string"},
+          "methods_added": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["n", "title", "statement_md", "methods_added"]
+      }
+    }
+  },
+  "required": ["kind", "class_name", "method", "inplace_param", "compare", "statement_md", "constraints", "starter_code", "support_code",
+               "reference_solution", "brute_solution", "examples", "edge_cases", "generator_py", "checker_py", "perf_size", "hints",
+               "approach_md", "time_complexity", "space_complexity", "pitfalls", "follow_ups", "levels"]
+}

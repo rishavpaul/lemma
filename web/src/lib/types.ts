@@ -47,6 +47,7 @@ export interface SessionRow {
   overall_score: number | null;
   overall_level: Level | null;
   sections_saved: number;
+  sections_total: number;
 }
 
 export interface Gap {
@@ -65,6 +66,8 @@ export interface SectionGrade {
   evidence: { quote: string; observation: string }[];
   /** One paragraph on the gaps. Absent on grades written before it existed; those have `gaps` with full text. */
   gap_summary?: string;
+  /** Short plain-speech version for reading aloud. Only written for interactive sessions. */
+  spoken_feedback?: string;
   /** Markdown teaching write-up of the concepts to learn. Absent on older grades. */
   concepts_writeup?: string;
   gaps: Gap[];
@@ -235,3 +238,70 @@ export interface DiagramReview {
 export interface ArticleSummary { id: number; title: string; summary: string; updated_at: number; status: "pending" | "read"; rating: number | null; questions: { id: number; title: string }[] }
 export interface ArticleComment { id: number; question: string | null; body: string; model: string | null; created_at: number }
 export interface Article extends ArticleSummary { body: string; model: string | null; comments: ArticleComment[] }
+
+// ---- coding vertical ----
+export type SpecState = "none" | "generating" | "ready" | "partial" | "failed";
+export type Rating = "clean" | "hints" | "solution";
+export interface CodeProblem {
+  id: number; slug: string; num: number | null; title: string; phase: number; track: "core" | "practical"; difficulty: string; premium: boolean;
+  tags: string[]; note: string; is_build: boolean; levels: number | null; spec: SpecState; spec_error: string | null;
+  status: "todo" | "attempted" | "done"; rating: Rating | null; attempts: number; solved_at: number | null; level_cleared: number | null;
+  needs_review: boolean; last_attempt_id: number | null; last_attempt_status: "in_progress" | "solved" | null; last_worked: number | null;
+  last_run: { passed: number; total: number; status: string; kind: string } | null;
+}
+export interface CodeStats {
+  total: number; done: number; clean: number; by_difficulty: Record<string, { done: number; total: number }>;
+  builds_total_levels: number; builds_levels_cleared: number; ready: number; generating: number; failed: number;
+}
+export interface CodePhase { num: number; track: "core" | "practical"; name: string; why: string; problems: CodeProblem[] }
+export interface CodeRoadmap { phases: CodePhase[]; topics: Record<string, string>; stats: CodeStats }
+export interface CodeProgress {
+  stats: CodeStats; recent: CodeProblem[]; activity: number[]; phases: { num: number; name: string; track: string; done: number; total: number }[];
+  topics: { key: string; label: string; done: number; total: number }[]; weekly: number[];
+  next: Record<"core" | "practical", CodeProblem[]>; needs_review: CodeProblem[];
+  gaps: { tag: string; n: number; sev: string; example: string }[];
+  timeline: { id: number; title: string; slug: string; created_at: number; score: number; level: Level }[];
+  dimensions: Record<string, number>;
+}
+export interface CodeCaseInfo { id: string; kind: string; name: string; level: number; input: string; expected: string }
+export interface CodeSpec {
+  id: number; status: "validated" | "partial"; kind: "function" | "design"; class_name: string; method: string; statement_md: string; constraints: string[];
+  starter_code: string; support_code: string; levels: { n: number; title: string; statement_md: string; methods_added: string[] }[];
+  cases: CodeCaseInfo[]; hidden_cases: number; hint_count: number; model: string; created_at: number;
+  report: { rounds?: { round: number; kept: number; issues: number }[]; kept?: number; dropped?: number; unverified?: number; clean?: boolean; issues?: string[] };
+}
+/** The statement and starter file: available about 20 seconds after opening a problem, before the tests are built. */
+export interface CodeBrief {
+  kind: "function" | "design"; class_name: string; method: string; inplace_param: number; statement_md: string; constraints: string[];
+  starter_code: string; levels: { n: number; title: string; statement_md: string; methods_added: string[] }[];
+}
+export interface CodeProblemDetail {
+  problem: CodeProblem; job: Job | null; spec: CodeSpec | null; brief: CodeBrief | null; levels_text: { text: string; staff: boolean }[] | null;
+  attempts: { id: number; status: string; level: number; hints_used: number; solution_viewed: number; started_at: number; finished_at: number | null; active_sec: number; rating: Rating }[];
+}
+export interface CaseVerdict {
+  id: string; kind: string; name: string; level: number; ms: number; status: string; stdout: string; passed: boolean; message: string;
+  trace?: string; input?: string; expected?: string; actual?: string;
+}
+export interface CompileInfo { ok: boolean; output: string; errors: { file: string; line: number; message: string; detail: string }[] }
+export interface Verdict { status: "passed" | "failed" | "compile_error" | "unavailable"; compile: CompileInfo; passed: number; total: number; cases: CaseVerdict[] }
+export interface CodeRun { id: number; kind: string; status: string; passed: number; total: number; level: number; created_at: number; duration_ms: number; verdict: Verdict | null }
+export interface CodeReviewDim { score: number; assessed: boolean; rationale: string }
+export interface CodeReviewResult {
+  verdict_kind: "wrong" | "correct_slow" | "correct_optimal"; overall_score: number; overall_level: Level;
+  hire_signal: Signal; summary: string; dimension_scores: Record<string, CodeReviewDim>;
+  complexity: { your_time: string; your_space: string; optimal_time: string; optimal_space: string; note: string };
+  strengths: string[]; issues: { severity: string; title: string; detail: string; quote: string; fix: string }[];
+  staff_gaps: { area: string; gap: string; what_staff_does: string }[]; improvements: { title: string; why: string; code: string }[];
+  say_out_loud: string; interviewer_follow_ups: { question: string; strong_answer: string }[];
+  gaps: { tag: string; description: string; severity: string }[]; drill: string; redo_advice: string; caps_applied?: { reason: string; cap: number }[];
+}
+export interface CodeReview { id: number; attempt_id: number; status: string; model: string | null; created_at: number; explanation: string; result: CodeReviewResult | null; job: Job | null }
+export interface CoachHint { id: number; question: string | null; status: string; text: string | null; job: Job | null }
+export interface CodeAttempt {
+  id: number; problem_id: number; spec_id: number; code: string; level: number; status: "in_progress" | "solved"; hints_used: number; solution_viewed: number;
+  explanation: string; started_at: number; finished_at: number | null; active_sec: number; problem: { slug: string; title: string }; rating: Rating;
+  canned_hints: string[]; coach_hints: CoachHint[]; reviews: CodeReview[]; last_run: CodeRun | null; last_submit: CodeRun | null;
+}
+export interface CodeSolution { reference_solution: string; approach_md: string; time_complexity: string; space_complexity: string; pitfalls: string[]; follow_ups: string[] }
+export interface CodeStatus { java_ok: boolean; java_version: string | null; java_error: string | null }

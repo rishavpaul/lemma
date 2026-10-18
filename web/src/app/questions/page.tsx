@@ -11,6 +11,9 @@ import { Page, PageHeader } from "@/components/shell/page-header";
 import { Pill, ScoreChip } from "@/components/score-chip";
 import { Markdown } from "@/components/markdown";
 import { api } from "@/lib/api";
+import { ModePicker } from "@/components/mode-picker";
+import { modeBody, useStartMode } from "@/lib/start-mode";
+import { speech } from "@/lib/speech";
 import { useApi } from "@/lib/use-api";
 import { dimLabel } from "@/lib/format";
 import type { Question } from "@/lib/types";
@@ -18,13 +21,15 @@ import type { Question } from "@/lib/types";
 export default function Library() {
   const router = useRouter();
   const [hints, setHints] = useState(false);
+  const startMode = useStartMode();
   const [q, setQ] = useState("");
   const { data, reload } = useApi<Question[]>(`/api/questions?include_hints=${hints}`);
   const [brief, setBrief] = useState<{ title: string; md: string | null; state: string } | null>(null);
   const [title, setTitle] = useState(""), [prompt, setPrompt] = useState(""), [open, setOpen] = useState(false);
 
   async function start(id: number) {
-    try { const s = await api<{ id: number }>("/api/sessions", { method: "POST", body: { question_id: id } }); router.push(`/session/?id=${s.id}`); }
+    speech.unlock();
+    try { const s = await api<{ id: number }>("/api/sessions", { method: "POST", body: { question_id: id, ...modeBody(startMode) } }); router.push(`/session/?id=${s.id}`); }
     catch (e) { toast.error((e as Error).message); }
   }
   async function add() {
@@ -47,6 +52,7 @@ export default function Library() {
             </DialogContent>
           </Dialog>
         } />
+      <ModePicker className="mb-4 max-w-xl" />
       <div className="mb-5 flex flex-wrap items-center gap-4">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter questions" aria-label="Filter questions" className="h-9 w-full max-w-xs rounded-lg border bg-card px-3 text-sm outline-none focus-visible:border-ring" />
         <label className="flex items-center gap-2 text-sm text-muted-foreground"><Switch checked={hints} onCheckedChange={setHints} />Show grader hints (spoilers)</label>
@@ -56,7 +62,7 @@ export default function Library() {
           {list.map((x) => (
             <article key={x.id} className="rounded-xl border bg-card p-4">
               <div className="flex flex-wrap items-start gap-3">
-                <div className="min-w-0 flex-1">
+                <div className="w-full min-w-0 sm:w-auto sm:flex-1">
                   <h2 className="font-semibold">{x.title}</h2>
                   <p className="mt-1 max-w-[70ch] text-sm leading-relaxed text-muted-foreground">{x.prompt}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -68,7 +74,7 @@ export default function Library() {
                   </div>
                   {hints && x.crux_hints && <p className="mt-3 rounded-md bg-accent/60 p-2 text-sm"><b>Grader hints: </b>{x.crux_hints}</p>}
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div className="flex flex-wrap gap-2 sm:shrink-0">
                   <Button variant="outline" size="sm" onClick={async () => { const r = await api<{ brief_md: string | null; state: string }>(`/api/questions/${x.id}/research`); setBrief({ title: x.title, md: r.brief_md, state: r.state }); }}>Answer key</Button>
                   <Button variant="outline" size="sm" title="Re-run the web research for this question (about 5 minutes)" onClick={async () => { await api(`/api/questions/${x.id}/research/refresh`, { method: "POST" }); toast.success("Research queued"); }}><RefreshCw />Refresh</Button>
                   <Button size="sm" onClick={() => start(x.id)}><Play />Practice</Button>

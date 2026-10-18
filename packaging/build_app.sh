@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds dist/Design Coach.app (Apple Silicon): the exported UI, the Python API, its own Python and ffmpeg.
+# Builds dist/Lemma.app (Apple Silicon): the exported UI, the Python API, its own Python and ffmpeg.
 # Needs: uv, node. Whisper weights (~1.5 GB) download on first launch, like in the dev setup.
 #   OUT=/some/dir ./packaging/build_app.sh     change the output directory
 #   VERSION=1.2.0 sets the app version (default 1.0.0)
@@ -10,7 +10,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
 OUT="${OUT:-$ROOT/dist}"
-APP="$OUT/Design Coach.app"
+APP="$OUT/Lemma.app"
 RES="$APP/Contents/Resources"
 command -v uv >/dev/null || { echo "uv missing: brew install uv"; exit 1; }
 command -v node >/dev/null || { echo "node missing: brew install node"; exit 1; }
@@ -39,7 +39,7 @@ rm -rf "$RES/python/bin" "$RES/python/include" "$RES/python/share" \
   "$RES/python/lib/python3.12"/{test,idlelib,tkinter,turtledemo,ensurepip,lib2to3} "$RES/python/lib/python3.12/site-packages"
 # --python-platform pins wheels to the oldest macOS uv targets, not whatever this build machine runs.
 uv pip install -q --python-platform aarch64-apple-darwin --python-version 3.12 --target "$RES/site-packages" \
-  fastapi "uvicorn[standard]" python-multipart pyyaml mlx-whisper pywebview imageio-ffmpeg 2>&1 | tail -3 || true
+  fastapi "uvicorn[standard]" python-multipart pyyaml mlx-whisper kokoro-onnx pywebview imageio-ffmpeg 2>&1 | tail -3 || true
 ls "$RES/site-packages" | grep -q '^fastapi$' || { echo "dependency install failed"; exit 1; }
 # mlx-whisper only needs torch for model conversion, which the app never does; it is the largest dependency.
 rm -rf "$RES/site-packages"/{torch,torchgen,functorch,sympy,mpmath,networkx,PyObjCTest} "$RES/site-packages"/*/tests 2>/dev/null || true
@@ -60,47 +60,46 @@ rsync -a --exclude __pycache__ --exclude '*.pyc' app "$RES/src/"
 rsync -a web/out/ "$RES/web/"
 
 echo "==> Launcher, icon, Info.plist"
-cat > "$APP/Contents/MacOS/DesignCoach" <<'LAUNCH'
+cat > "$APP/Contents/MacOS/Lemma" <<'LAUNCH'
 #!/bin/bash
 RES="$(cd "$(dirname "$0")/../Resources" && pwd)"
 export PYTHONPATH="$RES/src:$RES/site-packages"
 export PYTHONDONTWRITEBYTECODE=1
 # Finder-launched apps can lack these, and the claude CLI needs USER to find its login in the Keychain.
 export USER="${USER:-$(id -un)}" LOGNAME="${LOGNAME:-$(id -un)}"
-export SD_COACH_WEB="$RES/web"
+export LEMMA_WEB="$RES/web"
 # A Finder-launched app has a bare PATH; the claude CLI may live in any of these.
 export PATH="$RES/bin:$HOME/.local/bin:$HOME/.claude/local:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 export PYTHONHOME="$RES/python"
 exec "$RES/../MacOS/python3.12" -m app.desktop
 LAUNCH
-chmod +x "$APP/Contents/MacOS/DesignCoach"
+chmod +x "$APP/Contents/MacOS/Lemma"
 
 ICONSET="$(mktemp -d)/icon.iconset"; mkdir -p "$ICONSET"
-swiftc -O packaging/make_icon.swift -o "$ICONSET/../make_icon"
-"$ICONSET/../make_icon" "$ICONSET/base.png"
+cp packaging/icon-1024.png "$ICONSET/base.png"  # rendered from packaging/icon.svg by packaging/render_icons.sh
 for s in 16 32 128 256 512; do
   sips -z $s $s "$ICONSET/base.png" --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
   sips -z $((s*2)) $((s*2)) "$ICONSET/base.png" --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
 done
 rm "$ICONSET/base.png"
-iconutil -c icns "$ICONSET" -o "$RES/DesignCoach.icns"
+iconutil -c icns "$ICONSET" -o "$RES/Lemma.icns"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>CFBundleName</key><string>Design Coach</string>
-  <key>CFBundleDisplayName</key><string>Design Coach</string>
-  <key>CFBundleIdentifier</key><string>com.mercadore.designcoach</string>
+  <key>CFBundleName</key><string>Lemma</string>
+  <key>CFBundleDisplayName</key><string>Lemma</string>
+  <key>CFBundleIdentifier</key><string>com.mercadore.lemma</string>
   <key>CFBundleVersion</key><string>__VERSION__</string>
   <key>CFBundleShortVersionString</key><string>__VERSION__</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleExecutable</key><string>DesignCoach</string>
-  <key>CFBundleIconFile</key><string>DesignCoach</string>
+  <key>CFBundleExecutable</key><string>Lemma</string>
+  <key>CFBundleIconFile</key><string>Lemma</string>
   <key>LSMinimumSystemVersion</key><string>__MINOS__</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.education</string>
   <key>NSHighResolutionCapable</key><true/>
-  <key>NSMicrophoneUsageDescription</key><string>Design Coach records your spoken answers so they can be transcribed on this Mac.</string>
+  <key>NSMicrophoneUsageDescription</key><string>Lemma records your spoken answers so they can be transcribed on this Mac.</string>
   <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
 </dict></plist>
 PLIST
@@ -120,7 +119,7 @@ if find "$APP" -type l -exec readlink {} \; | grep -q '^/'; then echo "bundle co
 # The app must start with a bare environment, like a double-click from Finder.
 echo "==> Smoke test"
 SMOKE_HOME="$(mktemp -d)"
-env -i HOME="$HOME" SD_COACH_HOME="$SMOKE_HOME" PATH=/usr/bin:/bin "$APP/Contents/MacOS/DesignCoach" >"$SMOKE_HOME/out.log" 2>&1 &
+env -i HOME="$HOME" LEMMA_HOME="$SMOKE_HOME" PATH=/usr/bin:/bin "$APP/Contents/MacOS/Lemma" >"$SMOKE_HOME/out.log" 2>&1 &
 SPID=$!
 OK=""
 for _ in $(seq 1 60); do
@@ -143,14 +142,14 @@ if [ -n "${DMG:-}" ]; then
   cp -R "$APP" "$STAGE/"
   ln -s /Applications "$STAGE/Applications"
   cp packaging/READ_ME_FIRST.txt "$STAGE/Read me first.txt"
-  rm -f "$OUT/Design Coach.dmg"
-  hdiutil create -quiet -volname "Design Coach" -srcfolder "$STAGE" -ov -format UDZO "$OUT/Design Coach.dmg"
+  rm -f "$OUT/Lemma.dmg"
+  hdiutil create -quiet -volname "Lemma" -srcfolder "$STAGE" -ov -format UDZO "$OUT/Lemma.dmg"
   if [ -n "${SIGN_ID:-}" ]; then
-    codesign --force --timestamp --sign "$SIGN_ID" "$OUT/Design Coach.dmg"
+    codesign --force --timestamp --sign "$SIGN_ID" "$OUT/Lemma.dmg"
     if [ -n "${NOTARY_PROFILE:-}" ]; then
       echo "==> Notarizing (a few minutes)"
-      xcrun notarytool submit "$OUT/Design Coach.dmg" --keychain-profile "$NOTARY_PROFILE" --wait
-      xcrun stapler staple "$OUT/Design Coach.dmg"
+      xcrun notarytool submit "$OUT/Lemma.dmg" --keychain-profile "$NOTARY_PROFILE" --wait
+      xcrun stapler staple "$OUT/Lemma.dmg"
     fi
   fi
 fi

@@ -1,0 +1,7 @@
+{
+  "type": "object",
+  "properties": {
+    "hint": {"type": "string", "description": "The nudge, 2-5 sentences, no solution code"}
+  },
+  "required": ["hint"]
+}

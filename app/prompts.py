@@ -75,7 +75,12 @@ def probe_text(p: dict | None) -> str:
             f"Candidate's answer: {ans}")
 
 
-def section(fw_section: dict, anchors: str, earlier: list[dict] | None, this: dict, diagram: dict | None = None, this_probe: dict | None = None) -> str:
+SPOKEN_TASK = (" This session is interactive: the candidate will hear the feedback read aloud, so also fill in spoken_feedback. Keep it brief, "
+               "conversational and easy to follow by ear.")
+
+
+def section(fw_section: dict, anchors: str, earlier: list[dict] | None, this: dict, diagram: dict | None = None, this_probe: dict | None = None,
+            spoken: bool = False) -> str:
     if earlier is None:  # a probed section is judged on its own
         earlier = []
         earlier_txt = "(not provided: judge this section on its own)"
@@ -92,6 +97,7 @@ def section(fw_section: dict, anchors: str, earlier: list[dict] | None, this: di
         f"<this_section>\ntitle: {this['title']}\ntime: {time_txt}\ntranscript:\n{this['text'] or '(empty)'}{probe_text(this_probe)}\n</this_section>\n\n"
         + dblock +
         "<task>\nGrade this section against the rubric anchors and the reference brief. Fact-check as instructed. Also fill in language_review: judge the wording and terminology of this section as a staff engineer would hear it."
+        + (SPOKEN_TASK if spoken else "")
         + (" " + THIS_PROBE_RULES if this_probe else "")
         + (" " + PROBE_RULES if any(e.get("probe") for e in earlier) else "")
         + dtask + " Return the structured output only.\n</task>"

@@ -1,17 +1,29 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Check, Loader2, MessageCircleQuestion, Mic, RotateCcw, SkipForward, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { useWakeLock } from "@/lib/use-wake-lock";
+import { speech, useSpeech } from "@/lib/speech";
+import { ListenButton } from "@/components/listen-button";
 import type { Section } from "@/lib/types";
 
 /** The single probe exchange after a section: wait for the question, answer once, then move on. */
-export function ProbePanel({ sec, sessionId, onChange }: { sec: Section; sessionId: string; onChange: () => Promise<unknown> }) {
+export function ProbePanel({ sec, sessionId, onChange, interactive }: { sec: Section; sessionId: string; onChange: () => Promise<unknown>; interactive?: boolean }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [rec, setRec] = useState<"idle" | "recording" | "transcribing">("idle");
   const media = useRef<{ recorder: MediaRecorder | null; stream: MediaStream | null; chunks: Blob[] }>({ recorder: null, stream: null, chunks: [] });
+  useWakeLock(rec === "recording");
+  const tts = useSpeech();
+  const question = sec.probe?.question;
+  const spoken = question ? `${question}${sec.probe?.hint ? ` A nudge: ${sec.probe.hint}` : ""}` : "";
+  const spokenRef = useRef(spoken);
+  useEffect(() => { spokenRef.current = spoken; });
+  useEffect(() => {
+    if ((tts.autoRead || interactive) && question) speech.enqueue(`probe:${sec.key}`, spokenRef.current);
+  }, [question, sec.key, tts.autoRead, interactive]);
   const probe = sec.probe;
   const job = sec.probe_job;
   const failed = !probe?.question && !!job && (job.status === "failed" || job.status === "pending_retry");
@@ -24,6 +36,7 @@ export function ProbePanel({ sec, sessionId, onChange }: { sec: Section; session
   }
 
   async function startRec() {
+    speech.stop();
     let stream: MediaStream;
     try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
     catch (e) { toast.error("Microphone unavailable", { description: `${(e as Error).message}. Allow microphone access, then try again.` }); return; }
@@ -75,6 +88,7 @@ export function ProbePanel({ sec, sessionId, onChange }: { sec: Section; session
         <>
           <div className="space-y-2 rounded-2xl border bg-card p-4 text-sm leading-relaxed">
             <p className="font-medium">{probe.question}</p>
+            <ListenButton id={`probe:${sec.key}`} label="Read it to me" text={spoken} />
             {probe.hint && <p className="text-muted-foreground"><span className="font-medium text-foreground">Nudge:</span> {probe.hint}</p>}
           </div>
           <div>

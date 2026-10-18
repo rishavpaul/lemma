@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<!-- Full-bleed version for the web manifest and the iPhone home screen (the OS rounds the corners; the mark stays inside the maskable safe zone). -->
+<defs><linearGradient id="bg" x1="0.2" y1="0" x2="0.8" y2="1"><stop offset="0" stop-color="#1d3a2f"/><stop offset="1" stop-color="#08100d"/></linearGradient></defs>
+<rect width="1024" height="1024" fill="url(#bg)"/>
+<g transform="translate(192 192) scale(10)"><path d="M19 10H17Q11 10 11 16V26Q11 32 5 32Q11 32 11 38V48Q11 54 17 54H19M45 10H47Q53 10 53 16V26Q53 32 59 32Q53 32 53 38V48Q53 54 47 54H45" fill="none" stroke="#6EA2FF" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M32 20L25 42M32 20L39 42" stroke="#FFB020" stroke-opacity=".55" stroke-width="2.6" stroke-linecap="round"/><g fill="#FFB020"><circle cx="32" cy="20" r="4.6"/><circle cx="25" cy="42" r="4.6"/><circle cx="39" cy="42" r="4.6"/></g></g>
+</svg>

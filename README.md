@@ -1,15 +1,20 @@
-# Staff System Design Coach
+# Lemma
 
-[![CI](https://github.com/rishavpaul/sd-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/rishavpaul/sd-coach/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/rishavpaul/lemma/actions/workflows/ci.yml/badge.svg)](https://github.com/rishavpaul/lemma/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A local-only practice app for system design interviews. You answer out loud, section by section, using one fixed
-five-part staff-level framework. Each clip is transcribed locally with Whisper, you fix the transcript, and Claude grades it
-against a web-researched reference brief. A Progress page tracks you over many sessions.
+*Design out loud. Code under pressure.* A local-only practice app for staff-level interviews, in two tracks that share one
+streak, one set of settings and one look:
+
+- **System design.** You answer out loud, section by section, using one fixed five-part framework. Each clip is transcribed locally
+  with Whisper, you fix the transcript, and Claude grades it against a web-researched reference brief. A Progress page tracks you
+  over many sessions.
+- **Coding.** A 160-problem roadmap in Java. Claude builds each problem and its tests once, a local judge runs your code, and a
+  staff-level review grades it. The editor has completion, auto-import and live errors through the Java language server.
 
 - Speech-to-text: `mlx-whisper` (`large-v3-turbo`), fully local and free.
 - Grading and research: the `claude` CLI in print mode (`claude -p`) through your **Claude Pro subscription**. No API key is
   used; `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` are stripped from the subprocess environment.
-- Everything is stored under `~/SystemDesignCoach/`. Both servers bind to `127.0.0.1` only.
+- Everything is stored under `~/Lemma/`. Both servers bind to `127.0.0.1` only.
 - UI: Next.js (App Router) + Tailwind + shadcn/ui in `web/`, with Excalidraw for the diagram canvas. The Python API in `app/` is
   unchanged in role; the browser reaches it through Next's `/api` proxy (`web/next.config.ts`).
 
@@ -47,7 +52,7 @@ Articles: explainer articles grouped by design problem, with a reader, an editor
 ## Start
 
 ```bash
-cd sd-coach
+cd lemma
 ./run.sh            # creates .venv, installs deps, starts the server, opens http://127.0.0.1:8765
 ```
 
@@ -72,7 +77,7 @@ grading job can end in "rate limit"; use Retry on the report.
 
 (Architecture, testing and publishing: see [DEVELOPMENT.md](DEVELOPMENT.md).)
 
-`./packaging/build_app.sh` builds `dist/Design Coach.app` (Apple Silicon): its own Python, ffmpeg and the exported UI, served by
+`./packaging/build_app.sh` builds `dist/Lemma.app` (Apple Silicon): its own Python, ffmpeg and the exported UI, served by
 the API in one process inside a native window (pywebview). No node, uv or ffmpeg needed to run it. `DMG=1` also writes a
 .dmg. The app is ad-hoc signed, so on another Mac use right-click > Open the first time. The `claude` CLI is only needed
 if you use Claude models. Whisper weights download on first launch.
@@ -109,18 +114,18 @@ The report has a Diagram tab with read-only snapshots, and the markdown export i
 
 | Path | What |
 |---|---|
-| `~/SystemDesignCoach/coach.db` | SQLite: sessions, transcripts, grades, gaps, jobs, study items |
-| `~/SystemDesignCoach/config/` | Editable framework, rubric, questions, prompts, schemas, vocabulary |
-| `~/SystemDesignCoach/audio/<session>/` | Recordings (`.webm`/`.mp4`) and converted `.wav` |
-| `~/SystemDesignCoach/research/<question>.md` | Reference briefs |
-| `~/SystemDesignCoach/exports/<session>.md` | Markdown exports |
-| `~/SystemDesignCoach/logs/app.log` | Server log (never contains transcripts or prompts) |
+| `~/Lemma/coach.db` | SQLite: sessions, transcripts, grades, gaps, jobs, study items |
+| `~/Lemma/config/` | Editable framework, rubric, questions, prompts, schemas, vocabulary |
+| `~/Lemma/audio/<session>/` | Recordings (`.webm`/`.mp4`) and converted `.wav` |
+| `~/Lemma/research/<question>.md` | Reference briefs |
+| `~/Lemma/exports/<session>.md` | Markdown exports |
+| `~/Lemma/logs/app.log` | Server log (never contains transcripts or prompts) |
 
-**Back up:** copy the `~/SystemDesignCoach` folder (stop the app first, or copy `coach.db*` together).
+**Back up:** copy the `~/Lemma` folder (stop the app first, or copy `coach.db*` together).
 
 ## Editing the framework, rubric and questions
 
-Edit the files in `~/SystemDesignCoach/config/`; the app never overwrites them. Restart the server to apply.
+Edit the files in `~/Lemma/config/`; the app never overwrites them. Restart the server to apply.
 `framework.yaml` (sections, budgets, cover lists, staff bars), `rubric.md` (anchors per section; keep the `### <section key>`
 headings), `questions.yaml` (add or change questions by `slug`; quote any hint containing a colon), `gap_tags.yaml`,
 `grader_system_prompt.md`, `research_system_prompt.md`, `schemas/*.json`, `vocabulary.txt` (Whisper hint, also editable in
@@ -151,7 +156,7 @@ Re-grading a session repeats the 8 calls.
   the "Whisper model: loaded" chip in Settings. If it fails, check your connection and restart.
 - **"p99" transcribed oddly.** Add the term to the vocabulary in Settings; edit the transcript before saving anyway.
 - **Grading seems stuck.** Research runs first and can take several minutes; the report shows what is pending. Failed jobs
-  show their error with a Retry button. Logs: `~/SystemDesignCoach/logs/app.log`.
+  show their error with a Retry button. Logs: `~/Lemma/logs/app.log`.
 
 ## Contributing, license, disclaimer
 

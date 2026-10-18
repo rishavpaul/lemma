@@ -1,0 +1,1374 @@
+# The coding roadmap: 160 problems in 19 phases (core patterns, then practical rounds) plus 5 multi-level builds.
+topics: {hash: Hash map / set, ll: Linked list, stack: Stack, mono: Monotonic stack, queue: Queue / deque, heap: Heap / priority queue, ordered: Sorted
+    set / ordered map, bsearch: Binary search, trie: Trie, prefix: Prefix sums, segtree: Segment tree / Fenwick, intervals: Intervals / sweep
+    line, twoptr: Two pointers, window: Sliding window, tree: Trees, bfs: BFS, dfs: DFS, topo: Topological sort, uf: Union-find, dijkstra: Dijkstra
+    / shortest path, dp: Dynamic programming, backtrack: Backtracking, greedy: Greedy, bits: Bit manipulation, math: Math / combinatorics, parse: Parsing,
+  sim: Simulation, conc: Concurrency}
+phases:
+- {num: 1, track: core, name: 'Arrays, hashing and two pointers', why: The most common patterns in classic rounds. A hash lookup shows up inside
+    about half of all solutions.}
+- {num: 2, track: core, name: Sliding window and binary search, why: Window problems test whether you can hold an invariant. Binary search on
+    the answer is increasingly common at senior levels.}
+- {num: 3, track: core, name: 'Linked lists, stacks and intervals', why: Pointer and ordering problems. Easy to describe and easy to get wrong
+    under time pressure.}
+- {num: 4, track: core, name: Trees, why: Traversal problems appear in a large share of classic rounds. Know the recursive and the iterative version
+    of each.}
+- {num: 5, track: core, name: Graphs, why: 'Grids, dependencies and weighted paths. Senior loops at large companies ask these often.'}
+- {num: 6, track: core, name: Backtracking, why: Generate every option and prune. Interviewers watch how cleanly you structure the recursion.}
+- {num: 7, track: core, name: Dynamic programming, why: 'Say the state in words first, then the transition. Google asks DP more than most companies.'}
+- {num: 8, track: core, name: 'Greedy, math and bits', why: Short problems where the insight is the whole answer. Prove the greedy choice out
+    loud.}
+- {num: 9, track: core, name: Mixed hard problems, why: 'Harder problems that combine two patterns, which a large share of senior-level questions
+    do. Finish the core phases first.'}
+- {num: 10, track: practical, name: Build the primitives, why: Implement the structures you will compose in every later phase. No library collections
+    for the core structure.}
+- {num: 11, track: practical, name: Caches and ordered state, why: Hash map plus a second structure that keeps order. The most common practical-round
+    pattern.}
+- {num: 12, track: practical, name: 'Time, versions and rate limits', why: 'Timestamps, snapshots and expiry. This is the core of the in-memory
+    database OA.'}
+- {num: 13, track: practical, name: Heaps and scheduling, why: 'Priority queues, lazy deletion and event simulation. Dispatch and task-queue rounds
+    live here.'}
+- {num: 14, track: practical, name: 'Tries, strings and parsing', why: 'Prefix lookups, autocomplete and turning text rules into code.'}
+- {num: 15, track: practical, name: Intervals and range queries, why: 'Booking, availability and delivery windows. Ordered maps, sweep lines and
+    segment trees.'}
+- {num: 16, track: practical, name: Trees and graphs, why: 'Hierarchies, dependencies and maps. BFS, DFS, topological sort, union-find and Dijkstra.'}
+- {num: 17, track: practical, name: 'Iterators, streams and windows', why: Wrapping data sources and answering questions about the last N events.}
+- {num: 18, track: practical, name: Multi-level systems, why: 'The CodeSignal Industry Coding format: one domain, requirements added in levels.'}
+- {num: 19, track: practical, name: Concurrency, why: Staff loops often ask how your class behaves under concurrent callers. Practice the primitives.}
+problems:
+- slug: group-anagrams
+  num: 49
+  title: Group Anagrams
+  phase: 1
+  difficulty: Medium
+  premium: false
+  tags: [hash]
+  note: Key by sorted string or a 26-count tuple. Say which is faster and why.
+- slug: top-k-frequent-elements
+  num: 347
+  title: Top K Frequent Elements
+  phase: 1
+  difficulty: Medium
+  premium: false
+  tags: [hash, heap]
+  note: Heap of size k, then bucket sort for O(n). Know both.
+- slug: product-of-array-except-self
+  num: 238
+  title: Product of Array Except Self
+  phase: 1
+  difficulty: Medium
+  premium: false
+  tags: [prefix]
+  note: Prefix and suffix products without division, then O(1) extra space.
+- slug: longest-consecutive-sequence
+  num: 128
+  title: Longest Consecutive Sequence
+  phase: 1
+  difficulty: Medium
+  premium: false
+  tags: [hash]
+  note: Only start counting from numbers with no predecessor.
+- slug: subarray-sum-equals-k
+  num: 560
+  title: Subarray Sum Equals K
+  phase: 1
+  difficulty: Medium
+  premium: false
+  tags: [prefix, hash]
+  note: Prefix sums with a count map. Explain why a sliding window fails with negatives.
+- slug: 3sum
+  num: 15
+  title: 3Sum
+  phase: 1
+  difficulty: Medium
+  premium: false
+  tags: [twoptr]
+  note: Sort, fix one value, two pointers for the rest. Skip duplicates cleanly.
+- slug: container-with-most-water
+  num: 11
+  title: Container With Most Water
+  phase: 1
+  difficulty: Medium
+  premium: false
+  tags: [twoptr, greedy]
+  note: Move the shorter side. Be ready to argue why that is safe.
+- slug: trapping-rain-water
+  num: 42
+  title: Trapping Rain Water
+  phase: 1
+  difficulty: Hard
+  premium: false
+  tags: [twoptr, mono]
+  note: Two pointers with running maxes, then the monotonic stack version.
+- slug: valid-palindrome-ii
+  num: 680
+  title: Valid Palindrome II
+  phase: 1
+  difficulty: Easy
+  premium: false
+  tags: [twoptr]
+  note: 'One deletion allowed. Follow-up: k deletions.'
+- slug: next-permutation
+  num: 31
+  title: Next Permutation
+  phase: 1
+  difficulty: Medium
+  premium: false
+  tags: [twoptr, math]
+  note: Find the pivot, swap with the next larger value, reverse the suffix.
+- slug: spiral-matrix
+  num: 54
+  title: Spiral Matrix
+  phase: 1
+  difficulty: Medium
+  premium: false
+  tags: [sim]
+  note: Shrinking boundaries. Test single-row and single-column inputs.
+- slug: longest-substring-without-repeating-characters
+  num: 3
+  title: Longest Substring Without Repeating Characters
+  phase: 2
+  difficulty: Medium
+  premium: false
+  tags: [window, hash]
+  note: A last-seen index map lets the left edge jump instead of crawl.
+- slug: longest-repeating-character-replacement
+  num: 424
+  title: Longest Repeating Character Replacement
+  phase: 2
+  difficulty: Medium
+  premium: false
+  tags: [window]
+  note: The window is valid while its length minus the top count is at most k.
+- slug: permutation-in-string
+  num: 567
+  title: Permutation in String
+  phase: 2
+  difficulty: Medium
+  premium: false
+  tags: [window, hash]
+  note: Fixed-size window with a running count difference.
+- slug: minimum-window-substring
+  num: 76
+  title: Minimum Window Substring
+  phase: 2
+  difficulty: Hard
+  premium: false
+  tags: [window, hash]
+  note: Expand to satisfy, shrink to minimize. Track how many characters are satisfied.
+- slug: sliding-window-maximum
+  num: 239
+  title: Sliding Window Maximum
+  phase: 2
+  difficulty: Hard
+  premium: false
+  tags: [window, queue, mono]
+  note: Monotonic deque of indexes.
+- slug: search-in-rotated-sorted-array
+  num: 33
+  title: Search in Rotated Sorted Array
+  phase: 2
+  difficulty: Medium
+  premium: false
+  tags: [bsearch]
+  note: Decide which half is sorted, then which half holds the target.
+- slug: find-minimum-in-rotated-sorted-array
+  num: 153
+  title: Find Minimum in Rotated Sorted Array
+  phase: 2
+  difficulty: Medium
+  premium: false
+  tags: [bsearch]
+  note: Compare the middle with the right end.
+- slug: median-of-two-sorted-arrays
+  num: 4
+  title: Median of Two Sorted Arrays
+  phase: 2
+  difficulty: Hard
+  premium: false
+  tags: [bsearch]
+  note: Binary search the partition point of the shorter array.
+- slug: split-array-largest-sum
+  num: 410
+  title: Split Array Largest Sum
+  phase: 2
+  difficulty: Hard
+  premium: false
+  tags: [bsearch, greedy]
+  note: Binary search on the answer with a greedy feasibility check. Same shape as 875.
+- slug: reverse-linked-list
+  num: 206
+  title: Reverse Linked List
+  phase: 3
+  difficulty: Easy
+  premium: false
+  tags: [ll]
+  note: Iterative and recursive. You will reuse this inside harder problems.
+- slug: reorder-list
+  num: 143
+  title: Reorder List
+  phase: 3
+  difficulty: Medium
+  premium: false
+  tags: [ll, twoptr]
+  note: Find the middle, reverse the second half, merge the two halves.
+- slug: copy-list-with-random-pointer
+  num: 138
+  title: Copy List with Random Pointer
+  phase: 3
+  difficulty: Medium
+  premium: false
+  tags: [ll, hash]
+  note: Hash map first, then the interleaving trick for O(1) extra space.
+- slug: merge-k-sorted-lists
+  num: 23
+  title: Merge k Sorted Lists
+  phase: 3
+  difficulty: Hard
+  premium: false
+  tags: [ll, heap]
+  note: Heap of list heads, then divide and conquer. Compare the complexities.
+- slug: reverse-nodes-in-k-group
+  num: 25
+  title: Reverse Nodes in k-Group
+  phase: 3
+  difficulty: Hard
+  premium: false
+  tags: [ll]
+  note: Reverse in groups behind a dummy head. Leave a short tail as it is.
+- slug: valid-parentheses
+  num: 20
+  title: Valid Parentheses
+  phase: 3
+  difficulty: Easy
+  premium: false
+  tags: [stack, parse]
+  note: Stack of expected closers. A warm-up for the calculator problems.
+- slug: daily-temperatures
+  num: 739
+  title: Daily Temperatures
+  phase: 3
+  difficulty: Medium
+  premium: false
+  tags: [mono, stack]
+  note: Monotonic stack of indexes waiting for a warmer day.
+- slug: merge-intervals
+  num: 56
+  title: Merge Intervals
+  phase: 3
+  difficulty: Medium
+  premium: false
+  tags: [intervals]
+  note: Sort by start and merge. The base for every interval problem.
+- slug: insert-interval
+  num: 57
+  title: Insert Interval
+  phase: 3
+  difficulty: Medium
+  premium: false
+  tags: [intervals]
+  note: 'One pass in three parts: before, overlapping, after.'
+- slug: non-overlapping-intervals
+  num: 435
+  title: Non-overlapping Intervals
+  phase: 3
+  difficulty: Medium
+  premium: false
+  tags: [intervals, greedy]
+  note: Sort by end and keep the earliest finishers.
+- slug: meeting-rooms-ii
+  num: 253
+  title: Meeting Rooms II
+  phase: 3
+  difficulty: Medium
+  premium: true
+  tags: [intervals, heap]
+  note: Min-heap of end times, or a sweep over sorted starts and ends.
+- slug: binary-tree-level-order-traversal
+  num: 102
+  title: Binary Tree Level Order Traversal
+  phase: 4
+  difficulty: Medium
+  premium: false
+  tags: [tree, bfs]
+  note: Queue with a level-size loop. The template for every level problem.
+- slug: binary-tree-right-side-view
+  num: 199
+  title: Binary Tree Right Side View
+  phase: 4
+  difficulty: Medium
+  premium: false
+  tags: [tree, bfs]
+  note: Last node of each level, or DFS visiting the right child first.
+- slug: validate-binary-search-tree
+  num: 98
+  title: Validate Binary Search Tree
+  phase: 4
+  difficulty: Medium
+  premium: false
+  tags: [tree, dfs]
+  note: Pass bounds down. An inorder walk must be strictly increasing.
+- slug: kth-smallest-element-in-a-bst
+  num: 230
+  title: Kth Smallest Element in a BST
+  phase: 4
+  difficulty: Medium
+  premium: false
+  tags: [tree, stack]
+  note: 'Iterative inorder. Follow-up: frequent inserts, so keep subtree sizes.'
+- slug: lowest-common-ancestor-of-a-binary-tree
+  num: 236
+  title: Lowest Common Ancestor of a Binary Tree
+  phase: 4
+  difficulty: Medium
+  premium: false
+  tags: [tree, dfs]
+  note: 'Return what each side found. Follow-up: one node may be missing.'
+- slug: construct-binary-tree-from-preorder-and-inorder-traversal
+  num: 105
+  title: Construct Binary Tree from Preorder and Inorder Traversal
+  phase: 4
+  difficulty: Medium
+  premium: false
+  tags: [tree, hash]
+  note: A map of inorder positions avoids O(n²).
+- slug: serialize-and-deserialize-binary-tree
+  num: 297
+  title: Serialize and Deserialize Binary Tree
+  phase: 4
+  difficulty: Hard
+  premium: false
+  tags: [tree, bfs, parse]
+  note: Preorder with null markers. Write both directions and round-trip test them.
+- slug: vertical-order-traversal-of-a-binary-tree
+  num: 987
+  title: Vertical Order Traversal of a Binary Tree
+  phase: 4
+  difficulty: Hard
+  premium: false
+  tags: [tree, bfs, ordered]
+  note: Sort by column, then row, then value.
+- slug: number-of-islands
+  num: 200
+  title: Number of Islands
+  phase: 5
+  difficulty: Medium
+  premium: false
+  tags: [bfs, dfs]
+  note: 'Flood fill. Follow-up: land added one cell at a time, which needs union-find.'
+- slug: clone-graph
+  num: 133
+  title: Clone Graph
+  phase: 5
+  difficulty: Medium
+  premium: false
+  tags: [bfs, hash]
+  note: Map each old node to its clone before visiting neighbors.
+- slug: rotting-oranges
+  num: 994
+  title: Rotting Oranges
+  phase: 5
+  difficulty: Medium
+  premium: false
+  tags: [bfs]
+  note: Multi-source BFS that counts minutes by level.
+- slug: pacific-atlantic-water-flow
+  num: 417
+  title: Pacific Atlantic Water Flow
+  phase: 5
+  difficulty: Medium
+  premium: false
+  tags: [dfs, bfs]
+  note: Search inward from each ocean and intersect the results.
+- slug: word-ladder
+  num: 127
+  title: Word Ladder
+  phase: 5
+  difficulty: Hard
+  premium: false
+  tags: [bfs, hash]
+  note: BFS over words using wildcard buckets. Mention bidirectional BFS.
+- slug: network-delay-time
+  num: 743
+  title: Network Delay Time
+  phase: 5
+  difficulty: Medium
+  premium: false
+  tags: [dijkstra, heap]
+  note: Plain Dijkstra. Be able to write it from memory in under ten minutes.
+- slug: cheapest-flights-within-k-stops
+  num: 787
+  title: Cheapest Flights Within K Stops
+  phase: 5
+  difficulty: Medium
+  premium: false
+  tags: [dijkstra, dp]
+  note: Bellman-Ford limited to k+1 rounds, or Dijkstra with stop counts.
+- slug: redundant-connection
+  num: 684
+  title: Redundant Connection
+  phase: 5
+  difficulty: Medium
+  premium: false
+  tags: [uf]
+  note: 'Union-find: the first edge that joins an already joined pair.'
+- slug: alien-dictionary
+  num: 269
+  title: Alien Dictionary
+  phase: 5
+  difficulty: Hard
+  premium: true
+  tags: [topo, hash]
+  note: Build edges from adjacent words, then sort topologically. Catch the invalid prefix case.
+- slug: min-cost-to-connect-all-points
+  num: 1584
+  title: Min Cost to Connect All Points
+  phase: 5
+  difficulty: Medium
+  premium: false
+  tags: [uf, greedy, heap]
+  note: Minimum spanning tree with Kruskal or Prim.
+- slug: subsets
+  num: 78
+  title: Subsets
+  phase: 6
+  difficulty: Medium
+  premium: false
+  tags: [backtrack, bits]
+  note: Recursive and bitmask versions.
+- slug: permutations
+  num: 46
+  title: Permutations
+  phase: 6
+  difficulty: Medium
+  premium: false
+  tags: [backtrack]
+  note: 'Swap in place or track used values. Follow-up: duplicates (LC 47).'
+- slug: combination-sum
+  num: 39
+  title: Combination Sum
+  phase: 6
+  difficulty: Medium
+  premium: false
+  tags: [backtrack]
+  note: Reuse is allowed, so recurse on the same index.
+- slug: generate-parentheses
+  num: 22
+  title: Generate Parentheses
+  phase: 6
+  difficulty: Medium
+  premium: false
+  tags: [backtrack]
+  note: Track open and close counts.
+- slug: word-search
+  num: 79
+  title: Word Search
+  phase: 6
+  difficulty: Medium
+  premium: false
+  tags: [backtrack, dfs]
+  note: 'Mark visited in place and restore on return. Follow-up: many words (LC 212).'
+- slug: palindrome-partitioning
+  num: 131
+  title: Palindrome Partitioning
+  phase: 6
+  difficulty: Medium
+  premium: false
+  tags: [backtrack, dp]
+  note: Precompute a palindrome table to speed up the checks.
+- slug: n-queens
+  num: 51
+  title: N-Queens
+  phase: 6
+  difficulty: Hard
+  premium: false
+  tags: [backtrack]
+  note: Sets for columns and both diagonals.
+- slug: house-robber
+  num: 198
+  title: House Robber
+  phase: 7
+  difficulty: Medium
+  premium: false
+  tags: [dp]
+  note: 'Two variables. Follow-up: houses in a circle (LC 213).'
+- slug: coin-change
+  num: 322
+  title: Coin Change
+  phase: 7
+  difficulty: Medium
+  premium: false
+  tags: [dp]
+  note: Unbounded knapsack. Explain why greedy fails.
+- slug: longest-increasing-subsequence
+  num: 300
+  title: Longest Increasing Subsequence
+  phase: 7
+  difficulty: Medium
+  premium: false
+  tags: [dp, bsearch]
+  note: O(n²) DP, then patience sorting in O(n log n).
+- slug: word-break
+  num: 139
+  title: Word Break
+  phase: 7
+  difficulty: Medium
+  premium: false
+  tags: [dp, hash]
+  note: dp[i] means the prefix of length i can be split.
+- slug: decode-ways
+  num: 91
+  title: Decode Ways
+  phase: 7
+  difficulty: Medium
+  premium: false
+  tags: [dp]
+  note: One- and two-digit steps. Zeros are the trap.
+- slug: longest-palindromic-substring
+  num: 5
+  title: Longest Palindromic Substring
+  phase: 7
+  difficulty: Medium
+  premium: false
+  tags: [dp, twoptr]
+  note: Expand around centers. Mention the DP table and its cost.
+- slug: longest-common-subsequence
+  num: 1143
+  title: Longest Common Subsequence
+  phase: 7
+  difficulty: Medium
+  premium: false
+  tags: [dp]
+  note: The 2D template for comparing two sequences.
+- slug: edit-distance
+  num: 72
+  title: Edit Distance
+  phase: 7
+  difficulty: Medium
+  premium: false
+  tags: [dp]
+  note: Insert, delete and replace as three neighbors in the table.
+- slug: partition-equal-subset-sum
+  num: 416
+  title: Partition Equal Subset Sum
+  phase: 7
+  difficulty: Medium
+  premium: false
+  tags: [dp]
+  note: 0/1 knapsack on half the sum, with a 1D array walked backwards.
+- slug: jump-game
+  num: 55
+  title: Jump Game
+  phase: 8
+  difficulty: Medium
+  premium: false
+  tags: [greedy]
+  note: Track the farthest reachable index.
+- slug: gas-station
+  num: 134
+  title: Gas Station
+  phase: 8
+  difficulty: Medium
+  premium: false
+  tags: [greedy]
+  note: If the total is non-negative, start right after the lowest point.
+- slug: partition-labels
+  num: 763
+  title: Partition Labels
+  phase: 8
+  difficulty: Medium
+  premium: false
+  tags: [greedy, hash]
+  note: The last occurrence of each letter decides where to cut.
+- slug: task-scheduler
+  num: 621
+  title: Task Scheduler
+  phase: 8
+  difficulty: Medium
+  premium: false
+  tags: [greedy, heap]
+  note: Counting formula, or simulate with a heap and a cooldown queue.
+- slug: single-number
+  num: 136
+  title: Single Number
+  phase: 8
+  difficulty: Easy
+  premium: false
+  tags: [bits]
+  note: 'XOR everything. Follow-up: every other number appears three times.'
+- slug: powx-n
+  num: 50
+  title: Pow(x, n)
+  phase: 8
+  difficulty: Medium
+  premium: false
+  tags: [math]
+  note: Fast exponentiation. Handle negative n and overflow.
+- slug: koko-eating-bananas
+  num: 875
+  title: Koko Eating Bananas
+  phase: 9
+  difficulty: Medium
+  premium: false
+  tags: [bsearch]
+  note: Binary search on the answer. A common phone-screen problem.
+- slug: maximum-profit-in-job-scheduling
+  num: 1235
+  title: Maximum Profit in Job Scheduling
+  phase: 9
+  difficulty: Hard
+  premium: false
+  tags: [dp, bsearch]
+  note: 'Weighted interval scheduling: sort by end, binary search the last compatible job.'
+- slug: count-all-valid-pickup-and-delivery-options
+  num: 1359
+  title: Count All Valid Pickup and Delivery Options
+  phase: 9
+  difficulty: Hard
+  premium: false
+  tags: [math, dp]
+  note: Combinatorics with modular arithmetic.
+- slug: longest-increasing-path-in-a-matrix
+  num: 329
+  title: Longest Increasing Path in a Matrix
+  phase: 9
+  difficulty: Hard
+  premium: false
+  tags: [dfs, dp]
+  note: DFS with memoization.
+- slug: binary-tree-maximum-path-sum
+  num: 124
+  title: Binary Tree Maximum Path Sum
+  phase: 9
+  difficulty: Hard
+  premium: false
+  tags: [tree, dp]
+  note: Tree DP returning one value and tracking another.
+- slug: largest-rectangle-in-histogram
+  num: 84
+  title: Largest Rectangle in Histogram
+  phase: 9
+  difficulty: Hard
+  premium: false
+  tags: [mono, stack]
+  note: The canonical monotonic stack problem.
+- slug: most-profit-assigning-work
+  num: 826
+  title: Most Profit Assigning Work
+  phase: 9
+  difficulty: Medium
+  premium: false
+  tags: [greedy, twoptr]
+  note: Sort both sides and sweep.
+- slug: next-greater-element-iii
+  num: 556
+  title: Next Greater Element III
+  phase: 9
+  difficulty: Medium
+  premium: false
+  tags: [math, twoptr]
+  note: Next permutation on digits, with overflow handling.
+- slug: making-a-large-island
+  num: 827
+  title: Making A Large Island
+  phase: 9
+  difficulty: Hard
+  premium: false
+  tags: [dfs, uf]
+  note: Label components, then test each flip.
+- slug: fancy-sequence
+  num: 1622
+  title: Fancy Sequence
+  phase: 9
+  difficulty: Hard
+  premium: false
+  tags: [math]
+  note: Lazy affine transforms with a modular inverse.
+- slug: design-hashmap
+  num: 706
+  title: Design HashMap
+  phase: 10
+  difficulty: Easy
+  premium: false
+  tags: [hash, ll]
+  note: Add resizing at a 0.75 load factor and explain your collision strategy.
+- slug: design-linked-list
+  num: 707
+  title: Design Linked List
+  phase: 10
+  difficulty: Medium
+  premium: false
+  tags: [ll]
+  note: Use sentinel head and tail nodes. You will reuse this list for the LRU cache.
+- slug: min-stack
+  num: 155
+  title: Min Stack
+  phase: 10
+  difficulty: Medium
+  premium: false
+  tags: [stack]
+  note: 'Follow-up: add getMax, then popMax.'
+- slug: design-circular-queue
+  num: 622
+  title: Design Circular Queue
+  phase: 10
+  difficulty: Medium
+  premium: false
+  tags: [queue]
+  note: Ring buffer with head index and count. This becomes your hit counter later.
+- slug: design-circular-deque
+  num: 641
+  title: Design Circular Deque
+  phase: 10
+  difficulty: Medium
+  premium: false
+  tags: [queue]
+  note: Extend your 622 class instead of starting over.
+- slug: design-front-middle-back-queue
+  num: 1670
+  title: Design Front Middle Back Queue
+  phase: 10
+  difficulty: Medium
+  premium: false
+  tags: [queue, ll]
+  note: Two deques kept balanced. State the size invariant before coding.
+- slug: insert-delete-getrandom-o1
+  num: 380
+  title: Insert Delete GetRandom O(1)
+  phase: 10
+  difficulty: Medium
+  premium: false
+  tags: [hash]
+  note: 'Swap-with-last removal. Follow-up: allow duplicates (LC 381).'
+- slug: design-a-stack-with-increment-operation
+  num: 1381
+  title: Design a Stack With Increment Operation
+  phase: 10
+  difficulty: Medium
+  premium: false
+  tags: [stack, prefix]
+  note: Lazy increments make every op O(1). Same idea as lazy propagation.
+- slug: lru-cache
+  num: 146
+  title: LRU Cache
+  phase: 11
+  difficulty: Medium
+  premium: false
+  tags: [hash, ll]
+  note: 'Use your own doubly linked list. Follow-ups: per-key TTL, an eviction callback.'
+- slug: lfu-cache
+  num: 460
+  title: LFU Cache
+  phase: 11
+  difficulty: Hard
+  premium: false
+  tags: [hash, ll]
+  note: Frequency buckets of LRU lists. Build on 146 and keep its tests passing.
+- slug: all-oone-data-structure
+  num: 432
+  title: All O`one Data Structure
+  phase: 11
+  difficulty: Hard
+  premium: false
+  tags: [hash, ll]
+  note: Bucket list keyed by count, the same shape as LFU.
+- slug: stock-price-fluctuation
+  num: 2034
+  title: Stock Price Fluctuation
+  phase: 11
+  difficulty: Medium
+  premium: false
+  tags: [hash, heap]
+  note: Corrections to old timestamps. Practice lazy deletion in two heaps.
+- slug: design-a-food-rating-system
+  num: 2353
+  title: Design a Food Rating System
+  phase: 11
+  difficulty: Medium
+  premium: false
+  tags: [hash, ordered, heap]
+  note: Re-rating changes rank. Compare a sorted set per cuisine with a heap plus stale-entry checks.
+- slug: design-movie-rental-system
+  num: 1912
+  title: Design Movie Rental System
+  phase: 11
+  difficulty: Hard
+  premium: false
+  tags: [hash, ordered]
+  note: Several indexes over one set of records. Keep them consistent on every write.
+- slug: design-a-leaderboard
+  num: 1244
+  title: Design A Leaderboard
+  phase: 11
+  difficulty: Medium
+  premium: true
+  tags: [hash, ordered, heap]
+  note: top(K) under frequent updates. Discuss heap versus sorted map.
+- slug: time-based-key-value-store
+  num: 981
+  title: Time Based Key-Value Store
+  phase: 12
+  difficulty: Medium
+  premium: false
+  tags: [hash, bsearch]
+  note: The CodeSignal KV store in miniature. Add delete and TTL next.
+- slug: snapshot-array
+  num: 1146
+  title: Snapshot Array
+  phase: 12
+  difficulty: Medium
+  premium: false
+  tags: [bsearch, hash]
+  note: Per-index version lists. This is the backup and restore level.
+- slug: online-election
+  num: 911
+  title: Online Election
+  phase: 12
+  difficulty: Medium
+  premium: false
+  tags: [bsearch, prefix]
+  note: Precompute the leader at each time, then binary search queries.
+- slug: design-hit-counter
+  num: 362
+  title: Design Hit Counter
+  phase: 12
+  difficulty: Medium
+  premium: true
+  tags: [queue, window]
+  note: 'Follow-ups: out-of-order timestamps, concurrent hits, bounded memory.'
+- slug: logger-rate-limiter
+  num: 359
+  title: Logger Rate Limiter
+  phase: 12
+  difficulty: Easy
+  premium: true
+  tags: [hash, window]
+  note: 'Follow-up: evict old keys so memory stays bounded.'
+- slug: design-authentication-manager
+  num: 1797
+  title: Design Authentication Manager
+  phase: 12
+  difficulty: Medium
+  premium: false
+  tags: [hash]
+  note: Is a token valid at exactly its expiry time? Ask, then encode the answer.
+- slug: design-underground-system
+  num: 1396
+  title: Design Underground System
+  phase: 12
+  difficulty: Medium
+  premium: false
+  tags: [hash]
+  note: Aggregate on write or compute on read. Say which and why.
+- slug: find-median-from-data-stream
+  num: 295
+  title: Find Median from Data Stream
+  phase: 13
+  difficulty: Hard
+  premium: false
+  tags: [heap]
+  note: 'Two heaps. Follow-up: remove arbitrary values (sliding median).'
+- slug: seat-reservation-manager
+  num: 1845
+  title: Seat Reservation Manager
+  phase: 13
+  difficulty: Medium
+  premium: false
+  tags: [heap]
+  note: Min-heap of free seats.
+- slug: smallest-number-in-infinite-set
+  num: 2336
+  title: Smallest Number in Infinite Set
+  phase: 13
+  difficulty: Medium
+  premium: false
+  tags: [heap, hash]
+  note: Pointer plus a heap of added-back numbers. Avoid duplicate pushes.
+- slug: design-a-number-container-system
+  num: 2349
+  title: Design a Number Container System
+  phase: 13
+  difficulty: Medium
+  premium: false
+  tags: [hash, heap]
+  note: 'Lazy deletion: validate the heap top against the map before returning.'
+- slug: design-task-manager
+  num: 3408
+  title: Design Task Manager
+  phase: 13
+  difficulty: Medium
+  premium: false
+  tags: [hash, heap]
+  note: Edit and remove tasks, then execTop. Lazy deletion again.
+- slug: single-threaded-cpu
+  num: 1834
+  title: Single-Threaded CPU
+  phase: 13
+  difficulty: Medium
+  premium: false
+  tags: [heap, sim]
+  note: Event simulation over sorted arrivals.
+- slug: exam-room
+  num: 855
+  title: Exam Room
+  phase: 13
+  difficulty: Medium
+  premium: false
+  tags: [ordered, heap]
+  note: Seat in the largest gap. Removing a student merges two gaps.
+- slug: design-twitter
+  num: 355
+  title: Design Twitter
+  phase: 13
+  difficulty: Medium
+  premium: false
+  tags: [hash, heap]
+  note: The news feed is a k-way merge of followees' tweets.
+- slug: implement-trie-prefix-tree
+  num: 208
+  title: Implement Trie (Prefix Tree)
+  phase: 14
+  difficulty: Medium
+  premium: false
+  tags: [trie]
+  note: 'Follow-ups: delete, and count words with a prefix.'
+- slug: design-add-and-search-words-data-structure
+  num: 211
+  title: Design Add and Search Words Data Structure
+  phase: 14
+  difficulty: Medium
+  premium: false
+  tags: [trie, dfs, backtrack]
+  note: Wildcards turn lookup into backtracking DFS.
+- slug: search-suggestions-system
+  num: 1268
+  title: Search Suggestions System
+  phase: 14
+  difficulty: Medium
+  premium: false
+  tags: [trie, bsearch]
+  note: Solve it with a trie and with sort plus binary search. Compare.
+- slug: design-search-autocomplete-system
+  num: 642
+  title: Design Search Autocomplete System
+  phase: 14
+  difficulty: Hard
+  premium: true
+  tags: [trie, heap]
+  note: Ranked by frequency. The staff version caches the top 3 at each node.
+- slug: map-sum-pairs
+  num: 677
+  title: Map Sum Pairs
+  phase: 14
+  difficulty: Medium
+  premium: false
+  tags: [trie, hash]
+  note: Updating an existing key changes prefix sums. Apply the delta.
+- slug: encode-and-decode-tinyurl
+  num: 535
+  title: Encode and Decode TinyURL
+  phase: 14
+  difficulty: Medium
+  premium: false
+  tags: [hash, math]
+  note: Base62 IDs, collisions, custom aliases.
+- slug: basic-calculator-ii
+  num: 227
+  title: Basic Calculator II
+  phase: 14
+  difficulty: Medium
+  premium: false
+  tags: [stack, parse]
+  note: Then add parentheses (LC 772, Premium).
+- slug: design-a-text-editor
+  num: 2296
+  title: Design a Text Editor
+  phase: 14
+  difficulty: Hard
+  premium: false
+  tags: [stack, ll]
+  note: 'Two stacks around the cursor. Follow-up: undo.'
+- slug: my-calendar-i
+  num: 729
+  title: My Calendar I
+  phase: 15
+  difficulty: Medium
+  premium: false
+  tags: [intervals, ordered, bsearch]
+  note: Ordered map lookup for the neighbors of a new booking.
+- slug: my-calendar-ii
+  num: 731
+  title: My Calendar II
+  phase: 15
+  difficulty: Medium
+  premium: false
+  tags: [intervals]
+  note: Sweep line over start and end deltas.
+- slug: my-calendar-iii
+  num: 732
+  title: My Calendar III
+  phase: 15
+  difficulty: Hard
+  premium: false
+  tags: [intervals, segtree]
+  note: Sweep line first, then a lazy segment tree.
+- slug: data-stream-as-disjoint-intervals
+  num: 352
+  title: Data Stream as Disjoint Intervals
+  phase: 15
+  difficulty: Hard
+  premium: false
+  tags: [intervals, ordered]
+  note: Merge on insert with an ordered map.
+- slug: range-module
+  num: 715
+  title: Range Module
+  phase: 15
+  difficulty: Hard
+  premium: false
+  tags: [intervals, ordered, segtree]
+  note: Add, remove and query ranges. Split and merge carefully.
+- slug: range-sum-query-mutable
+  num: 307
+  title: Range Sum Query - Mutable
+  phase: 15
+  difficulty: Medium
+  premium: false
+  tags: [segtree, prefix]
+  note: Fenwick tree and segment tree. Know both.
+- slug: design-memory-allocator
+  num: 2502
+  title: Design Memory Allocator
+  phase: 15
+  difficulty: Medium
+  premium: false
+  tags: [sim, intervals]
+  note: 'Linear scan first. Follow-up: free lists keyed by block size.'
+- slug: interval-list-intersections
+  num: 986
+  title: Interval List Intersections
+  phase: 15
+  difficulty: Medium
+  premium: false
+  tags: [twoptr, intervals]
+  note: Two pointers. Frame it as overlapping shift schedules.
+- slug: design-file-system
+  num: 1166
+  title: Design File System
+  phase: 16
+  difficulty: Medium
+  premium: true
+  tags: [trie, hash, tree]
+  note: Path tree with validation of missing parents.
+- slug: throne-inheritance
+  num: 1600
+  title: Throne Inheritance
+  phase: 16
+  difficulty: Medium
+  premium: false
+  tags: [tree, dfs]
+  note: N-ary tree with a preorder walk that skips the dead.
+- slug: operations-on-tree
+  num: 1993
+  title: Operations on Tree
+  phase: 16
+  difficulty: Medium
+  premium: false
+  tags: [tree, dfs, bfs]
+  note: Lock and upgrade checks walk both up and down the tree.
+- slug: course-schedule-ii
+  num: 210
+  title: Course Schedule II
+  phase: 16
+  difficulty: Medium
+  premium: false
+  tags: [topo, bfs]
+  note: Treat it as job dependencies. Detect and report the cycle.
+- slug: find-all-possible-recipes-from-given-supplies
+  num: 2115
+  title: Find All Possible Recipes from Given Supplies
+  phase: 16
+  difficulty: Medium
+  premium: false
+  tags: [topo, hash]
+  note: Topological sort over a menu. Very close to a practical-round prompt.
+- slug: accounts-merge
+  num: 721
+  title: Accounts Merge
+  phase: 16
+  difficulty: Medium
+  premium: false
+  tags: [uf, hash]
+  note: 'Union-find with path compression. Follow-up: merges arrive as a stream.'
+- slug: 01-matrix
+  num: 542
+  title: 01 Matrix
+  phase: 16
+  difficulty: Medium
+  premium: false
+  tags: [bfs]
+  note: Multi-source BFS. Same idea as Walls and Gates (LC 286, Premium).
+- slug: shortest-distance-from-all-buildings
+  num: 317
+  title: Shortest Distance from All Buildings
+  phase: 16
+  difficulty: Hard
+  premium: true
+  tags: [bfs]
+  note: BFS from every building with pruning.
+- slug: design-graph-with-shortest-path-calculator
+  num: 2642
+  title: Design Graph With Shortest Path Calculator
+  phase: 16
+  difficulty: Hard
+  premium: false
+  tags: [dijkstra, heap]
+  note: Dijkstra on a graph that keeps gaining edges.
+- slug: swim-in-rising-water
+  num: 778
+  title: Swim in Rising Water
+  phase: 16
+  difficulty: Hard
+  premium: false
+  tags: [dijkstra, heap, bsearch, uf]
+  note: Three valid approaches. Explain the tradeoffs.
+- slug: design-snake-game
+  num: 353
+  title: Design Snake Game
+  phase: 16
+  difficulty: Medium
+  premium: true
+  tags: [queue, hash, sim]
+  note: Deque for the body plus a set for collisions.
+- slug: peeking-iterator
+  num: 284
+  title: Peeking Iterator
+  phase: 17
+  difficulty: Medium
+  premium: false
+  tags: [sim]
+  note: Make it generic over any iterator.
+- slug: binary-search-tree-iterator
+  num: 173
+  title: Binary Search Tree Iterator
+  phase: 17
+  difficulty: Medium
+  premium: false
+  tags: [stack, tree]
+  note: Controlled inorder traversal with a stack.
+- slug: flatten-nested-list-iterator
+  num: 341
+  title: Flatten Nested List Iterator
+  phase: 17
+  difficulty: Medium
+  premium: false
+  tags: [stack, dfs]
+  note: Lazy flattening. Don't precompute the whole list.
+- slug: rle-iterator
+  num: 900
+  title: RLE Iterator
+  phase: 17
+  difficulty: Medium
+  premium: false
+  tags: [twoptr, sim]
+  note: Pointer into run-length pairs.
+- slug: online-stock-span
+  num: 901
+  title: Online Stock Span
+  phase: 17
+  difficulty: Medium
+  premium: false
+  tags: [mono, stack]
+  note: Monotonic stack of price and span pairs.
+- slug: maximum-frequency-stack
+  num: 895
+  title: Maximum Frequency Stack
+  phase: 17
+  difficulty: Hard
+  premium: false
+  tags: [hash, stack]
+  note: A stack per frequency level.
+- slug: finding-mk-average
+  num: 1825
+  title: Finding MK Average
+  phase: 17
+  difficulty: Hard
+  premium: false
+  tags: [window, ordered, queue]
+  note: Sliding window split across three sorted containers.
+- slug: product-of-the-last-k-numbers
+  num: 1352
+  title: Product of the Last K Numbers
+  phase: 17
+  difficulty: Medium
+  premium: false
+  tags: [prefix]
+  note: Prefix products that reset on zero.
+- slug: iterator-for-combination
+  num: 1286
+  title: Iterator for Combination
+  phase: 17
+  difficulty: Medium
+  premium: false
+  tags: [backtrack, bits]
+  note: Backtracking or bitmask enumeration, served lazily.
+- slug: simple-bank-system
+  num: 2043
+  title: Simple Bank System
+  phase: 18
+  difficulty: Medium
+  premium: false
+  tags: [hash, sim]
+  note: Level 1 of the bank progression below.
+- slug: design-an-atm-machine
+  num: 2241
+  title: Design an ATM Machine
+  phase: 18
+  difficulty: Medium
+  premium: false
+  tags: [greedy, sim]
+  note: Withdraw is all or nothing. Reject without changing state.
+- slug: implement-router
+  num: 3508
+  title: Implement Router
+  phase: 18
+  difficulty: Medium
+  premium: false
+  tags: [queue, hash, bsearch]
+  note: FIFO with dedupe, eviction and a range count.
+- slug: design-spreadsheet
+  num: 3484
+  title: Design Spreadsheet
+  phase: 18
+  difficulty: Medium
+  premium: false
+  tags: [parse, hash]
+  note: 'Follow-up: formulas that reference other formulas. Add a dependency graph and cycle detection.'
+- slug: design-in-memory-file-system
+  num: 588
+  title: Design In-Memory File System
+  phase: 18
+  difficulty: Hard
+  premium: true
+  tags: [trie, tree]
+  note: Level 2 of the file system progression.
+- slug: design-sql
+  num: 2408
+  title: Design SQL
+  phase: 18
+  difficulty: Medium
+  premium: true
+  tags: [hash]
+  note: 'Follow-ups: select with a where clause, then an index.'
+- slug: design-log-storage-system
+  num: 635
+  title: Design Log Storage System
+  phase: 18
+  difficulty: Medium
+  premium: true
+  tags: [parse, bsearch]
+  note: Timestamp truncation by granularity, then range queries.
+- slug: design-bitset
+  num: 2166
+  title: Design Bitset
+  phase: 18
+  difficulty: Medium
+  premium: false
+  tags: [bits]
+  note: Make flip O(1) with a lazy flag.
+- slug: print-in-order
+  num: 1114
+  title: Print in Order
+  phase: 19
+  difficulty: Easy
+  premium: false
+  tags: [conc]
+  note: Events or semaphores to enforce ordering.
+- slug: fizz-buzz-multithreaded
+  num: 1195
+  title: Fizz Buzz Multithreaded
+  phase: 19
+  difficulty: Medium
+  premium: false
+  tags: [conc]
+  note: Four threads coordinating on one counter.
+- slug: the-dining-philosophers
+  num: 1226
+  title: The Dining Philosophers
+  phase: 19
+  difficulty: Medium
+  premium: false
+  tags: [conc]
+  note: Deadlock avoidance through lock ordering.
+- slug: design-bounded-blocking-queue
+  num: 1188
+  title: Design Bounded Blocking Queue
+  phase: 19
+  difficulty: Medium
+  premium: true
+  tags: [conc, queue]
+  note: Condition variables. Then make your LRU cache thread-safe.
+- slug: web-crawler-multithreaded
+  num: 1242
+  title: Web Crawler Multithreaded
+  phase: 19
+  difficulty: Medium
+  premium: true
+  tags: [conc, bfs]
+  note: Concurrent BFS with a shared visited set.
+progressions:
+- slug: build-bank-system
+  id: A
+  title: Bank system
+  base: Start from LC 2043
+  time: 90 min
+  levels:
+  - {text: 'Accounts: create, deposit, withdraw, transfer. Reject invalid accounts and overdrafts.', staff: false}
+  - {text: 'Transaction history per account, and top N accounts by total outgoing.', staff: false}
+  - {text: 'Scheduled payments that execute at a timestamp, plus cancel. Process due payments before each operation.', staff: false}
+  - {text: 'Merge two accounts while keeping balances, history and pending payments.', staff: false}
+  - {text: 'Multi-currency balances, idempotent transfer IDs, and thread safety.', staff: true}
+- slug: build-in-memory-database
+  id: B
+  title: In-memory database
+  base: Start from LC 981 and 1146
+  time: 90 min
+  levels:
+  - {text: 'set, get and delete on (key, field) records.', staff: false}
+  - {text: 'scan(key) and scanByPrefix(key, prefix), sorted by field.', staff: false}
+  - {text: 'TTL: values written with a lifetime disappear after it at query timestamp t.', staff: false}
+  - {text: 'backup(t) and restore(t, backupT), recalculating remaining TTLs.', staff: false}
+  - {text: 'Nested transactions with begin, commit and rollback.', staff: true}
+- slug: build-cache-service
+  id: C
+  title: Cache service
+  base: Start from LC 146, then 460
+  time: 60 min
+  levels:
+  - {text: LRU cache with capacity., staff: false}
+  - {text: Switch eviction policy to LFU behind the same interface., staff: false}
+  - {text: Per-key TTL that is checked on read and swept periodically., staff: false}
+  - {text: 'Hit rate and eviction metrics, then make the cache thread-safe.', staff: true}
+- slug: build-file-system
+  id: D
+  title: File system
+  base: Start from LC 1166, then 588
+  time: 90 min
+  levels:
+  - {text: createPath and get with parent validation., staff: false}
+  - {text: 'mkdir, ls, addContentToFile and readContentFromFile.', staff: false}
+  - {text: 'File sizes, directory size, and the N largest files under a path.', staff: false}
+  - {text: Users with storage quotas. Reject writes that exceed the quota., staff: false}
+  - {text: Rename and move with locking. Discuss consistency during concurrent moves., staff: true}
+- slug: build-delivery-dispatch
+  id: E
+  title: Delivery dispatch
+  base: Builds on LC 1834, 3508, 2642, 986
+  time: 90 min
+  levels:
+  - {text: Order intake queue with duplicate order IDs rejected., staff: false}
+  - {text: Assign the oldest order to the available driver with the earliest free time., staff: false}
+  - {text: Estimate ETAs with shortest paths over a road graph., staff: false}
+  - {text: 'Driver pay for a pay period: base pay per delivery plus a rate for time spent on active orders, with overlapping orders counted once.',
+    staff: false}
+  - {text: 'Retries when a driver declines, and what changes at 10x order volume.', staff: true}

@@ -5,7 +5,8 @@ import time
 import unittest
 from pathlib import Path
 
-os.environ["SD_COACH_HOME"] = tempfile.mkdtemp()
+os.environ["LEMMA_HOME"] = tempfile.mkdtemp()
+os.environ["LEMMA_TTS"] = "0"  # never download or load the speech model in tests
 
 from app import config, db, grader, progress, transcribe  # noqa: E402
 

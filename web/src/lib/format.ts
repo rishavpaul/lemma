@@ -41,3 +41,13 @@ export function streakStats(startedAts: number[]) {
   }
   return { current, best, doneToday: days.has(key(today)), days };
 }
+
+/** "just now", "5 min ago", "3 h ago", "yesterday", "4 days ago", then a date. */
+export function fmtAgo(t: number): string {
+  const s = Math.max(0, Date.now() / 1000 - t);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  const d = Math.floor(s / 86400);
+  return d === 1 ? "yesterday" : d < 14 ? `${d} days ago` : new Date(t * 1000).toLocaleDateString([], { month: "short", day: "numeric" });
+}

@@ -11,7 +11,7 @@ export function ScoreChip({ score, level, className }: { score: number; level?: 
   );
 }
 
-export function Pill({ children, tone = "muted", className }: { children: React.ReactNode; tone?: "muted" | "mint" | "signal" | "coral"; className?: string }) {
-  const t = { muted: "border-border text-muted-foreground", mint: "border-mint/40 bg-mint/10 text-mint", signal: "border-signal/40 bg-signal/10 text-signal", coral: "border-coral/40 bg-coral/10 text-coral" }[tone];
+export function Pill({ children, tone = "muted", className }: { children: React.ReactNode; tone?: "muted" | "mint" | "signal" | "code" | "coral"; className?: string }) {
+  const t = { muted: "border-border text-muted-foreground", mint: "border-mint/40 bg-mint/10 text-mint", signal: "border-signal/40 bg-signal/10 text-signal", code: "border-code/40 bg-code/10 text-code", coral: "border-coral/40 bg-coral/10 text-coral" }[tone];
   return <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs", t, className)}>{children}</span>;
 }

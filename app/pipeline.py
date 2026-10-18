@@ -253,7 +253,7 @@ async def handle_grade_section(job: dict) -> None:
     known = config.load_gap_tags()
     schema = config.load_schema("section")
     dg = _load_diagram(sec["diagram_json"])
-    payload = prompts.section(fw_sec, config.rubric_section(sec["key"]), earlier, this, dg, probe)
+    payload = prompts.section(fw_sec, config.rubric_section(sec["key"]), earlier, this, dg, probe, spoken=bool(ses["show_feedback_live"]))
     model = task_model(ses, "section")
     cpath = _settings()[1]
     res = await grader.run_claude("grade_section", grader_system(q, brief, known) + NO_WEB_NOTE,

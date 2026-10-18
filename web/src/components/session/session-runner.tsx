@@ -10,9 +10,14 @@ import { Pill, ScoreChip } from "@/components/score-chip";
 import { DiagramCanvas, type CanvasHandle } from "@/components/canvas/diagram-canvas";
 import { emptyDiagram } from "@/components/canvas/legacy";
 import { Stepper } from "./stepper";
+import { FeedbackReview } from "./feedback-review";
 import { ProbePanel } from "./probe-panel";
 import { SectionTimer, TotalTimer } from "./timers";
 import { api } from "@/lib/api";
+import { useWakeLock } from "@/lib/use-wake-lock";
+import { speech, useSpeech } from "@/lib/speech";
+import { ListenButton } from "@/components/listen-button";
+import { feedbackSpeech } from "@/lib/speech";
 import { useApi } from "@/lib/use-api";
 import { cn } from "@/lib/utils";
 import { mmss } from "@/lib/format";
@@ -33,6 +38,7 @@ export function SessionRunner() {
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [rerecord, setRerecord] = useState<string | null>(null);
+  const [review, setReview] = useState<string | null>(null); // section whose feedback is being shown (interactive mode)
   const [pane, setPane] = useState<"speak" | "draw">("speak");
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
 
@@ -48,9 +54,46 @@ export function SessionRunner() {
   // A probe that is asked (or being generated) but not answered blocks everything else.
   const openProbe = sections.find((s) => s.status === "saved" && s.probe && !s.probe.answer) ?? null;
   const allSaved = sections.length > 0 && idx < 0;
+  useWakeLock(phase === "recording");
+  const tts = useSpeech();
   const secRef = useRef(sec);
   const phaseRef = useRef(phase);
   useEffect(() => { secRef.current = sec; phaseRef.current = phase; });
+  const introText = sec && data
+    ? `${idx === 0 ? `The question. ${data.question.prompt} ` : ""}Section ${idx + 1} of ${sections.length}: ${sec.title}. Cover: ${sec.cover.join(". ")}.`
+    : "";
+  const introRef = useRef(introText);
+  useEffect(() => { introRef.current = introText; });
+  const interactive = !!data?.session.show_feedback_live;
+  const voiced = interactive || tts.autoRead;
+  // Read each new section aloud in interactive mode or when the user asked for it. Queued, so it never cuts off feedback.
+  useEffect(() => {
+    if (!voiced || !sec || openProbe || review || sec.status !== "pending" || phaseRef.current !== "idle") return;
+    speech.enqueue(`sec:${sec.key}`, introRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the section, not on every poll of its data
+  }, [sec?.key, openProbe?.key, voiced, review]);
+
+  // Interactive mode: read each grade aloud the moment it arrives. Grades already there on load are not replayed, and
+  // nothing is spoken while recording (the microphone would hear it); it waits for the recording to end.
+  const heard = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!data) return;
+    if (heard.current === null) { heard.current = new Set(data.sections.filter((s) => s.grade).map((s) => s.key)); return; }
+    if (!interactive || phase === "recording") return;
+    for (const s of data.sections) {
+      if (!s.grade || heard.current.has(s.key)) continue;
+      heard.current.add(s.key);
+      if (s.key === review) continue; // FeedbackReview reads this one
+      speech.enqueue(`fb:${s.key}`, feedbackSpeech(s.title, s.grade));
+    }
+  }, [data, interactive, phase, review]);
+
+  // After a probe is answered the section is graded; show that feedback before moving on.
+  const prevProbe = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevProbe.current && !openProbe && interactive) setReview(prevProbe.current);
+    prevProbe.current = openProbe?.key ?? null;
+  }, [openProbe, interactive]);
 
   useEffect(() => { if (data && data.session.status !== "in_progress") router.replace(`/report/?id=${id}`); }, [data, id, router]);
 
@@ -78,6 +121,8 @@ export function SessionRunner() {
 
   async function startRec() {
     const s = secRef.current; if (!s) return;
+    speech.unlock();
+    speech.stop(); // so the microphone does not pick up the speaker
     let stream: MediaStream;
     try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
     catch (e) { toast.error("Microphone unavailable", { description: `${(e as Error).message}. Allow microphone access for this site, then try again.` }); return; }
@@ -129,9 +174,11 @@ export function SessionRunner() {
   }
   async function save() {
     const s = secRef.current; if (!s || busy) return;
+    speech.unlock();
     setBusy(true);
     try {
       await saveSection(s);
+      if (interactive) { setReview(s.key); await reload(); setBusy(false); return; }
       if (isLast) { await api(`/api/sessions/${id}/finish`, { method: "POST" }); router.push(`/report/?id=${id}`); return; }
       await reload();
     } catch (e) { toast.error("Could not save", { description: (e as Error).message }); }
@@ -174,7 +221,11 @@ export function SessionRunner() {
   }, [id]);
 
   async function toggleLive(v: boolean) {
+    speech.unlock();
     setData((d) => (d ? { ...d, session: { ...d.session, show_feedback_live: v ? 1 : 0 } } : d));
+    try { await api(`/api/sessions/${id}/interactive`, { method: "PUT", body: { on: v } }); }
+    catch (e) { toast.error("Could not change the mode", { description: (e as Error).message }); await reload(); }
+    if (!v) speech.stop();
   }
 
   if (error && !data) return <div className="p-10 text-sm text-coral">Could not load this session: {error}</div>;
@@ -210,21 +261,29 @@ export function SessionRunner() {
             <p className="mt-2 leading-relaxed text-muted-foreground">{data.question.prompt}</p>
           </details>
 
-          {openProbe && <ProbePanel key={openProbe.key} sec={openProbe} sessionId={id} onChange={reload} />}
+          {openProbe && <ProbePanel key={openProbe.key} sec={openProbe} sessionId={id} onChange={reload} interactive={interactive} />}
 
-          {!openProbe && allSaved && data.session.status === "in_progress" && (
+          {!openProbe && !review && allSaved && data.session.status === "in_progress" && (
             <div className="space-y-3 rounded-2xl border bg-card p-5 text-sm">
               <p className="font-medium">All sections are done.</p>
               <Button size="lg" onClick={finish} disabled={busy}>{busy ? <Loader2 className="animate-spin" /> : <Check />}Finish and grade</Button>
             </div>
           )}
 
-          {sec && !openProbe && (
+          {review && !openProbe && (() => {
+            const rs = sections.find((x) => x.key === review);
+            if (!rs) return null;
+            const nextSec = sections.find((x) => x.status !== "saved");
+            return <FeedbackReview key={review} sec={rs} nextLabel={nextSec ? `Next: ${nextSec.title}` : "Continue"} onContinue={() => setReview(null)} />;
+          })()}
+
+          {sec && !openProbe && !review && (
             <>
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <h2 className="text-xl font-semibold tracking-tight">{sec.title}</h2>
                   <p className="mt-0.5 text-sm text-muted-foreground">Section {idx + 1} of {sections.length}, {mmss(sec.budget_sec)} budget</p>
+                  <ListenButton id={`sec:${sec.key}`} className="mt-2" label="Read it to me" text={introText} />
                 </div>
                 <div className="w-28 shrink-0"><SectionTimer getUsedSec={getUsedSec} budget={sec.budget_sec} /></div>
               </div>
@@ -269,15 +328,22 @@ export function SessionRunner() {
           )}
 
           <label className="mt-8 flex items-center gap-3 text-sm">
-            <Switch checked={!!data.session.show_feedback_live} onCheckedChange={toggleLive} aria-label="Show feedback after each section" />
-            Show feedback after each section
+            <Switch checked={interactive} onCheckedChange={toggleLive} aria-label="Interactive coaching" />
+            <span>Interactive coaching<span className="block text-xs text-muted-foreground">Grade each section as you submit it and read the feedback aloud.</span></span>
           </label>
+          {!interactive && (
+            <label className="mt-4 flex items-center gap-3 text-sm">
+              <Switch checked={tts.autoRead} onCheckedChange={(v) => { speech.unlock(); speech.setAutoRead(v); if (v && sec && !openProbe) speech.play(`sec:${sec.key}`, introText); else if (!v) speech.stop(); }} aria-label="Read each section aloud" />
+              Read each section and probe aloud
+            </label>
+          )}
           {!!data.session.show_feedback_live && (
             <div className="mt-3 space-y-2">
               {sections.filter((s) => s.status === "saved").map((s) => (
                 <div key={s.key} className="rounded-lg border bg-card p-3 text-sm">
                   <div className="flex items-center justify-between gap-2"><span className="font-medium">{s.title}</span>{s.grade ? <ScoreChip score={s.grade.score} level={s.grade.level_signal} /> : <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><Loader2 className="size-3 animate-spin" />{s.probe && !s.probe.answer ? "after your probe" : "grading"}</span>}</div>
                   {s.grade && <p className="mt-1.5 text-muted-foreground">{s.grade.summary}</p>}
+                  {s.grade && <ListenButton id={`fb:${s.key}`} className="mt-1.5" text={`${s.title}. ${s.grade.summary}`} />}
                 </div>
               ))}
             </div>

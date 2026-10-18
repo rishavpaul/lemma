@@ -23,7 +23,8 @@ PROVIDERS = {
     "groq": {"label": "Groq", "base": "https://api.groq.com/openai/v1", "env": "GROQ_API_KEY",
              "keys_url": "https://console.groq.com/keys"},
 }
-KEYCHAIN_SERVICE = "DesignCoach"
+KEYCHAIN_SERVICE = "Lemma"
+LEGACY_KEYCHAIN_SERVICES = ("InterviewCoach", "DesignCoach")  # earlier names; keys saved under them are still read
 _KEY_RE = re.compile(r"^[A-Za-z0-9_\-\.]{8,300}$")
 _NOT_CHAT = ("whisper", "tts", "guard", "orpheus", "playai", "embed", "moderation")
 
@@ -66,7 +67,7 @@ def get_key(provider: str) -> str:
     env = os.environ.get(PROVIDERS[provider]["env"], "").strip()
     if env:
         return env
-    v = _keychain("find-generic-password", "-s", KEYCHAIN_SERVICE, "-a", provider, "-w")
+    v = next((k for k in (_keychain("find-generic-password", "-s", svc, "-a", provider, "-w") for svc in (KEYCHAIN_SERVICE, *LEGACY_KEYCHAIN_SERVICES)) if k), None)
     return v or _file_secrets().get(provider, "")
 
 
@@ -87,7 +88,8 @@ def set_key(provider: str, key: str) -> None:
 
 
 def delete_key(provider: str) -> None:
-    _keychain("delete-generic-password", "-s", KEYCHAIN_SERVICE, "-a", provider)
+    for service in (KEYCHAIN_SERVICE, *LEGACY_KEYCHAIN_SERVICES):
+        _keychain("delete-generic-password", "-s", service, "-a", provider)
     data = _file_secrets()
     if data.pop(provider, None) is not None:
         _secrets_file().write_text(json.dumps(data))
@@ -111,12 +113,12 @@ class HttpError(Exception):
 
 
 def _request(method: str, url: str, key: str = "", body: dict | None = None, timeout: float = 60) -> dict:
-    headers = {"Content-Type": "application/json", "Accept": "application/json", "User-Agent": "DesignCoach/1.0"}
+    headers = {"Content-Type": "application/json", "Accept": "application/json", "User-Agent": "Lemma/1.0"}
     if key:
         headers["Authorization"] = f"Bearer {key}"
     if "openrouter.ai" in url:
         headers["HTTP-Referer"] = "http://localhost"
-        headers["X-Title"] = "Design Coach"
+        headers["X-Title"] = "Lemma"
     req = urllib.request.Request(url, method=method, headers=headers, data=json.dumps(body).encode() if body is not None else None)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:

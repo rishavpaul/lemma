@@ -251,3 +251,77 @@ MIGRATIONS.append("""
         question TEXT, body TEXT NOT NULL, model TEXT, created_at REAL NOT NULL);
     CREATE INDEX idx_article_comments ON article_comments(article_id);
 """)
+
+
+MIGRATIONS.append("""
+    CREATE TABLE problems(
+        id INTEGER PRIMARY KEY, slug TEXT UNIQUE NOT NULL, num INTEGER, title TEXT NOT NULL, phase INTEGER NOT NULL, ord INTEGER NOT NULL,
+        track TEXT NOT NULL, difficulty TEXT, premium INTEGER NOT NULL DEFAULT 0, tags_json TEXT NOT NULL DEFAULT '[]',
+        note TEXT NOT NULL DEFAULT '', is_build INTEGER NOT NULL DEFAULT 0, levels_json TEXT, created_at REAL NOT NULL);
+    CREATE TABLE problem_specs(
+        id INTEGER PRIMARY KEY, problem_id INTEGER NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
+        status TEXT NOT NULL, spec_json TEXT NOT NULL, secrets_json TEXT NOT NULL, cases_json TEXT NOT NULL, report_json TEXT,
+        model TEXT, created_at REAL NOT NULL);
+    CREATE INDEX idx_problem_specs ON problem_specs(problem_id, id);
+    CREATE TABLE attempts(
+        id INTEGER PRIMARY KEY, problem_id INTEGER NOT NULL REFERENCES problems(id) ON DELETE CASCADE, spec_id INTEGER,
+        code TEXT NOT NULL DEFAULT '', level INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'in_progress',
+        hints_used INTEGER NOT NULL DEFAULT 0, solution_viewed INTEGER NOT NULL DEFAULT 0, explanation TEXT NOT NULL DEFAULT '',
+        started_at REAL NOT NULL, finished_at REAL, active_sec REAL NOT NULL DEFAULT 0);
+    CREATE INDEX idx_attempts_problem ON attempts(problem_id);
+    CREATE TABLE runs(
+        id INTEGER PRIMARY KEY, attempt_id INTEGER NOT NULL REFERENCES attempts(id) ON DELETE CASCADE, kind TEXT NOT NULL,
+        status TEXT NOT NULL, passed INTEGER NOT NULL DEFAULT 0, total INTEGER NOT NULL DEFAULT 0, level INTEGER NOT NULL DEFAULT 1,
+        result_json TEXT, code TEXT, duration_ms INTEGER, created_at REAL NOT NULL);
+    CREATE INDEX idx_runs_attempt ON runs(attempt_id);
+    CREATE TABLE code_hints(
+        id INTEGER PRIMARY KEY, attempt_id INTEGER NOT NULL REFERENCES attempts(id) ON DELETE CASCADE, question TEXT,
+        status TEXT NOT NULL DEFAULT 'queued', text TEXT, model TEXT, created_at REAL NOT NULL);
+    CREATE TABLE code_reviews(
+        id INTEGER PRIMARY KEY, attempt_id INTEGER NOT NULL REFERENCES attempts(id) ON DELETE CASCADE, run_id INTEGER,
+        status TEXT NOT NULL DEFAULT 'queued', code TEXT, explanation TEXT, result_json TEXT, model TEXT, requested_model TEXT,
+        created_at REAL NOT NULL);
+    CREATE INDEX idx_code_reviews_attempt ON code_reviews(attempt_id);
+    CREATE TABLE code_gaps(
+        id INTEGER PRIMARY KEY, review_id INTEGER NOT NULL REFERENCES code_reviews(id) ON DELETE CASCADE, problem_id INTEGER NOT NULL,
+        tag TEXT NOT NULL, description TEXT, severity TEXT);
+    CREATE INDEX idx_code_gaps_tag ON code_gaps(tag);
+""")
+
+
+MIGRATIONS.append("""
+    CREATE TABLE problem_briefs(
+        problem_id INTEGER PRIMARY KEY REFERENCES problems(id) ON DELETE CASCADE, brief_json TEXT NOT NULL, model TEXT, created_at REAL NOT NULL);
+""")
+
+
+MIGRATIONS.append("""
+    ALTER TABLE attempts ADD COLUMN updated_at REAL;
+""")
+
+
+def sync_problems() -> None:
+    """Upsert the coding roadmap from config/problems.yaml by slug: 160 problems plus the multi-level builds."""
+    data = config.load_problems_yaml()
+    conn = connect()
+    now = time.time()
+    order = 0
+    phases = {p["num"]: p for p in data["phases"]}
+    for p in data["problems"]:
+        order += 1
+        conn.execute(
+            """INSERT INTO problems(slug,num,title,phase,ord,track,difficulty,premium,tags_json,note,is_build,created_at)
+               VALUES(?,?,?,?,?,?,?,?,?,?,0,?)
+               ON CONFLICT(slug) DO UPDATE SET num=excluded.num, title=excluded.title, phase=excluded.phase, ord=excluded.ord,
+                 track=excluded.track, difficulty=excluded.difficulty, premium=excluded.premium, tags_json=excluded.tags_json, note=excluded.note""",
+            (p["slug"], p.get("num"), p["title"], p["phase"], order, phases[p["phase"]]["track"], p.get("difficulty"),
+             int(bool(p.get("premium"))), json.dumps(p.get("tags", [])), p.get("note", ""), now))
+    phase = max(phases) + 1  # builds follow the last phase
+    for b in data.get("progressions", []):
+        order += 1
+        conn.execute(
+            """INSERT INTO problems(slug,num,title,phase,ord,track,difficulty,premium,tags_json,note,is_build,levels_json,created_at)
+               VALUES(?,NULL,?,?,?,'practical','Build',0,'[]',?,1,?,?)
+               ON CONFLICT(slug) DO UPDATE SET title=excluded.title, ord=excluded.ord, note=excluded.note, levels_json=excluded.levels_json""",
+            (b["slug"], b["title"], phase, order, f"{b['base']}. {b['time']}.", json.dumps(b["levels"]), now))
+    conn.commit()

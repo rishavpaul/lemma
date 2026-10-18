@@ -105,7 +105,7 @@ _lock = None
 
 def _alert(text: str) -> None:
     import subprocess
-    subprocess.run(["/usr/bin/osascript", "-e", f'display alert "Design Coach" message "{text}"'], check=False)
+    subprocess.run(["/usr/bin/osascript", "-e", f'display alert "Lemma" message "{text}"'], check=False)
 
 
 class Bridge:
@@ -127,7 +127,7 @@ class Bridge:
 
 def main() -> None:
     if not _single_instance():
-        _alert("Design Coach is already running. Look for its window, or quit it (and any run.sh instance) first.")
+        _alert("Lemma is already running. Look for its window, or quit it (and any run.sh instance) first.")
         sys.exit(0)
     from . import main as api
     port = _free_port()
@@ -136,14 +136,14 @@ def main() -> None:
     thread.start()
     url = f"http://127.0.0.1:{port}"
     if not _wait_ready(url):
-        _alert("Design Coach could not start its engine. Details are in ~/SystemDesignCoach/logs/app.log")
+        _alert("Lemma could not start its engine. Details are in ~/Lemma/logs/app.log")
         sys.exit(1)
     try:
         import webview
         _allow_microphone()
         _restore_context_menu()
         from webview.menu import Menu, MenuAction
-        window = webview.create_window("Design Coach", url, width=1440, height=920, min_size=(900, 600), js_api=Bridge(), text_select=True)
+        window = webview.create_window("Lemma", url, width=1440, height=920, min_size=(900, 600), js_api=Bridge(), text_select=True)
         reload_page = lambda: window.evaluate_js("location.reload()")  # noqa: E731
         webview.start(_add_edit_menu, menu=[Menu("Page", [MenuAction("Reload", reload_page)])])
     except ImportError:

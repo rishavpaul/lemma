@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Page, PageHeader, Panel, Section, Empty } from "@/components/shell/page-header";
 import { Pill } from "@/components/score-chip";
 import { api } from "@/lib/api";
+import { ModePicker } from "@/components/mode-picker";
+import { modeBody, useStartMode } from "@/lib/start-mode";
+import { speech } from "@/lib/speech";
 import { useApi } from "@/lib/use-api";
 import { dimLabel, fmtDate, fmtDay } from "@/lib/format";
 import type { Progress } from "@/lib/types";
@@ -17,6 +20,7 @@ const tip = { contentStyle: { background: "var(--popover)", border: "1px solid v
 
 export default function ProgressPage() {
   const router = useRouter();
+  const startMode = useStartMode();
   const { data: p } = useApi<Progress>("/api/progress");
   if (!p) return <Page><Skeleton className="h-96 w-full" /></Page>;
   const T = p.timeline.map((t, i) => ({ ...t, label: `#${i + 1} ${fmtDay(t.started_at)}`, ...t.dimensions }));
@@ -31,7 +35,8 @@ export default function ProgressPage() {
           <p className="mt-1 text-sm text-muted-foreground">{p.focus.drill ?? "Complete a graded session to get a drill."}</p>
           <p className="mt-2 text-sm">Suggested: <b>{p.focus.suggested.title}</b> <span className="text-muted-foreground">{p.focus.suggested.reason}</span></p>
         </div>
-        <Button size="lg" onClick={async () => { const s = await api<{ id: number }>("/api/sessions", { method: "POST", body: { question_id: p.focus.suggested.question_id } }); router.push(`/session/?id=${s.id}`); }}>Start it</Button>
+        <ModePicker className="w-full max-w-xl" />
+        <Button size="lg" onClick={async () => { speech.unlock(); const s = await api<{ id: number }>("/api/sessions", { method: "POST", body: { question_id: p.focus.suggested.question_id, ...modeBody(startMode) } }); router.push(`/session/?id=${s.id}`); }}>Start it</Button>
       </Panel>
 
       <Section title="Concepts to study"><ConceptsPanel recent={recent} /></Section>

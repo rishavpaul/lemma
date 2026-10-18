@@ -1,0 +1,31 @@
+tags:
+  algo.pattern_not_recognised: Did not recognise the standard pattern for this problem
+  algo.suboptimal_complexity: Correct but slower or heavier than the expected approach
+  algo.wrong_invariant: Loop or recursion invariant is wrong or unstated
+  algo.greedy_unproven: Greedy choice used without arguing it is safe
+  algo.dp_state_unclear: Dynamic programming state or transition not clear
+  algo.graph_modelling: Problem not modelled as the right graph or structure
+  correct.edge_cases: Empty, single, duplicate or boundary input mishandled
+  correct.off_by_one: Index or range off by one
+  correct.overflow: Integer overflow or precision not considered
+  correct.aliasing_mutation: Shared reference or input mutation caused a bug
+  correct.state_invariant: Object state left inconsistent after an operation
+  correct.ordering_ties: Tie-breaking or ordering rule missed
+  design.extensibility: Structure resists the next requirement
+  design.encapsulation: Internal state exposed or responsibilities mixed
+  design.api_contract: Behaviour on invalid input or repeated calls unspecified or wrong
+  design.data_structure_choice: Data structure does not fit the access pattern
+  design.over_engineering: More abstraction than the problem needs
+  quality.naming_structure: Names or method structure hide the intent
+  quality.duplication: Copy-pasted logic
+  quality.java_idioms: Non-idiomatic Java (collections, generics, boxing, streams misuse)
+  quality.readability_under_time: Hard to follow at interview speed
+  ops.concurrency: Thread safety or atomicity not considered
+  ops.memory_bounds: Unbounded growth not noticed or bounded
+  ops.validation_errors: Input validation or error handling missing
+  ops.observability: No thought about metrics, logging or debugging
+  ops.idempotency: Retries or duplicate requests not considered
+  process.no_verification: No testing plan beyond the given example
+  process.communication: Approach and tradeoffs not explained
+  process.time_management: Slow to a first working version
+  process.leaned_on_hints: Needed hints or the solution to finish

@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {"type": "string", "enum": ["function", "design"]},
+    "class_name": {"type": "string"},
+    "method": {"type": "string"},
+    "inplace_param": {"type": "number"},
+    "statement_md": {"type": "string"},
+    "constraints": {"type": "array", "items": {"type": "string"}},
+    "starter_code": {"type": "string"},
+    "levels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "n": {"type": "number"},
+          "title": {"type": "string"},
+          "statement_md": {"type": "string"},
+          "methods_added": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["n", "title", "statement_md", "methods_added"]
+      }
+    }
+  },
+  "required": ["kind", "class_name", "method", "inplace_param", "statement_md", "constraints", "starter_code", "levels"]
+}

@@ -1,6 +1,6 @@
 """One-off: move the `## Q: ...` sections that "Add to article" appended to article bodies into article comments.
 
-    SD_COACH_HOME=/some/dir .venv/bin/python scripts/split_article_comments.py          # dry run, prints what would move
+    LEMMA_HOME=/some/dir .venv/bin/python scripts/split_article_comments.py          # dry run, prints what would move
     .venv/bin/python scripts/split_article_comments.py --apply                          # backs up coach.db, then moves them
 
 Everything from the first `## Q:` heading to the end of a body is treated as appended content, split at each further

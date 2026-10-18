@@ -3,19 +3,24 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useSyncExternalStore } from "react";
-import { BarChart3, BookOpenCheck, Gauge, Home, Library, Newspaper, Moon, Settings, Sun, TriangleAlert } from "lucide-react";
+import { BarChart3, Code2, Gauge, Home, Library, Newspaper, Moon, Settings, Sun, TriangleAlert } from "lucide-react";
+import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
 import type { Health, PlanUsage } from "@/lib/types";
 import { fmtDate } from "@/lib/format";
 
-const NAV = [
-  { href: "/", label: "Today", icon: Home },
-  { href: "/progress", label: "Progress", icon: BarChart3 },
-  { href: "/questions", label: "Library", icon: Library },
-  { href: "/articles", label: "Articles", icon: Newspaper },
-  { href: "/usage", label: "Usage", icon: Gauge },
-  { href: "/settings", label: "Settings", icon: Settings },
+/** Two practice tracks share one shell: system design (amber) and coding (blue). Usage and Settings are shared. */
+type NavItem = { href: string; label: string; icon: typeof Home };
+const NAV: { group: string | null; accent: string; items: NavItem[] }[] = [
+  { group: null, accent: "text-signal", items: [{ href: "/", label: "Today", icon: Home }] },
+  { group: "Design", accent: "text-signal", items: [
+    { href: "/questions", label: "Questions", icon: Library },
+    { href: "/progress", label: "Progress", icon: BarChart3 },
+    { href: "/articles", label: "Articles", icon: Newspaper },
+  ] },
+  { group: "Code", accent: "text-code", items: [{ href: "/code", label: "Problems", icon: Code2 }] },
+  { group: null, accent: "text-signal", items: [{ href: "/usage", label: "Usage", icon: Gauge }, { href: "/settings", label: "Settings", icon: Settings }] },
 ];
 
 function PlanMeter() {
@@ -97,18 +102,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
   const active = (href: string) => (href === "/" ? path === "/" || path.startsWith("/session") || path.startsWith("/report") : path.startsWith(href));
   return (
-    <div className="flex h-full flex-col md:flex-row">
-      <nav aria-label="Primary" className="order-last flex shrink-0 items-center justify-around border-t border-sidebar-border bg-sidebar px-2 py-1 md:order-first md:w-[68px] md:flex-col md:justify-start md:gap-1 md:border-r md:border-t-0 md:py-4">
-        <Link href="/" className="mb-0 hidden size-10 items-center justify-center rounded-xl bg-signal text-signal-foreground md:mb-5 md:flex" title="Design Coach" aria-label="Design Coach home">
-          <BookOpenCheck className="size-5" />
-        </Link>
-        {NAV.map(({ href, label, icon: Icon }) => (
-          <Link key={href} href={href} aria-current={active(href) ? "page" : undefined} title={label}
-            className={cn("group flex w-14 flex-col items-center gap-0.5 rounded-lg px-1 py-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
-              active(href) && "bg-sidebar-accent text-foreground")}>
-            <Icon className={cn("size-[18px]", active(href) && "text-signal")} />
-            {label}
-          </Link>
+    <div className="flex h-full flex-col pt-[env(safe-area-inset-top)] md:flex-row md:pt-0">
+      <nav aria-label="Primary" className="order-last flex shrink-0 items-center justify-around border-t border-sidebar-border bg-sidebar px-2 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 md:order-first md:w-[68px] md:flex-col md:justify-start md:gap-1 md:border-r md:border-t-0 md:py-4">
+        <Link href="/" className="mb-0 hidden md:mb-3 md:flex" title="Lemma" aria-label="Lemma home"><Logo /></Link>
+        {NAV.map(({ group, accent, items }, i) => (
+          <div key={group ?? i} className="contents">
+            {i > 0 && <div aria-hidden className="mx-3 my-1 hidden h-px w-8 bg-sidebar-border md:block" />}
+            {group && <div className={cn("hidden items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.14em] md:flex", accent)}><span className="size-1 rounded-full bg-current" />{group}</div>}
+            {items.map(({ href, label, icon: Icon }) => (
+              <Link key={href} href={href} aria-current={active(href) ? "page" : undefined} title={group ? `${group}: ${label}` : label}
+                className={cn("group flex w-14 flex-col items-center gap-0.5 rounded-lg px-1 py-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
+                  active(href) && "bg-sidebar-accent text-foreground")}>
+                <Icon className={cn("size-[18px]", active(href) && accent)} />
+                {label}
+              </Link>
+            ))}
+          </div>
         ))}
         <div className="mt-auto hidden flex-col items-center gap-4 md:flex">
           <PlanMeter />

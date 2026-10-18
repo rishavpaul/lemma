@@ -2,10 +2,13 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Page, PageHeader, Panel } from "@/components/shell/page-header";
 import { Markdown } from "@/components/markdown";
+import { ListenButton } from "@/components/listen-button";
+import { mdToSpeech } from "@/lib/speech";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { fmtDate } from "@/lib/format";
@@ -91,7 +94,7 @@ function Comments({ a, onChange }: { a: Article; onChange: (a: Article) => void 
   );
 }
 
-function Reader({ id, reload, onGone }: { id: number; reload: () => void; onGone: () => void }) {
+function Reader({ id, reload, onGone, onBack }: { id: number; reload: () => void; onGone: () => void; onBack: () => void }) {
   const { data: a, setData, error } = useApi<Article>(`/api/articles/${id}`);
   const [edit, setEdit] = useState<{ title: string; summary: string; body: string } | null>(null);
   const [confirm, setConfirm] = useState(false);
@@ -106,7 +109,8 @@ function Reader({ id, reload, onGone }: { id: number; reload: () => void; onGone
     catch (e) { toast.error((e as Error).message); }
   }
   return (
-    <div>
+    <div className="min-w-0">
+      <Button size="sm" variant="ghost" className="-ml-2 mb-2 lg:hidden" onClick={onBack}><ArrowLeft className="size-4" />All articles</Button>
       {edit ? (
         <div className="space-y-2">
           <input className="w-full rounded-lg border bg-background p-2 text-lg font-semibold" value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} />
@@ -118,7 +122,7 @@ function Reader({ id, reload, onGone }: { id: number; reload: () => void; onGone
       ) : (
         <>
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div><h2 className="text-xl font-semibold">{a.title}</h2>{a.questions.length > 0 && <p className="mt-1 text-xs text-muted-foreground">From: {a.questions.map((q) => q.title).join(", ")}</p>}<p className="mt-1 text-sm text-muted-foreground">{a.summary}</p>
+            <div className="min-w-0"><h2 className="text-xl font-semibold">{a.title}</h2>{a.questions.length > 0 && <p className="mt-1 text-xs text-muted-foreground">From: {a.questions.map((q) => q.title).join(", ")}</p>}<p className="mt-1 text-sm text-muted-foreground">{a.summary}</p>
               <StateControls id={id} status={a.status} rating={a.rating} onChange={(n) => { setData(n); reload(); }} /></div>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={() => setEdit({ title: a.title, summary: a.summary, body: a.body })}>Edit</Button>
@@ -126,7 +130,8 @@ function Reader({ id, reload, onGone }: { id: number; reload: () => void; onGone
                 : <Button size="sm" variant="outline" onClick={() => setConfirm(true)}>Delete</Button>}
             </div>
           </div>
-          <div className="mt-4"><Markdown>{a.body}</Markdown></div>
+          <ListenButton id={`article:${id}`} className="mt-4" label="Listen to this article" controls text={`${a.title}. ${a.summary}\n${mdToSpeech(a.body)}`} />
+          <div className="mt-2"><Markdown>{a.body}</Markdown></div>
           <Comments a={a} onChange={setData} />
           <AskPanel a={a} onSave={async (q, ans, m) => {
             try { setData(await api<Article>(`/api/articles/${id}/comments`, { method: "POST", body: { body: ans, question: q, model: m } })); toast.success("Saved as comment"); }
@@ -161,7 +166,7 @@ export function ArticlesView() {
       <PageHeader title="Articles" subtitle="Articles on the concepts you have studied, grouped by design problem. Generate more from Progress or any session report." />
       {list.length === 0 ? <Panel><p className="text-sm text-muted-foreground">No articles yet. Click Explain with on a concept in Progress or a session report and its article lands here.</p></Panel> : (
         <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-          <div className="space-y-4">
+          <div className={cn("min-w-0 space-y-4", id && "hidden lg:block")}>
             <div className="flex flex-wrap items-center gap-2">
               <input className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs" placeholder="Search articles" aria-label="Search articles" value={f.text} onChange={(e) => setF({ ...f, text: e.target.value })} />
               <select className="h-8 rounded-md border bg-background px-2 text-xs" aria-label="Design problem" value={f.problem} onChange={(e) => setF({ ...f, problem: e.target.value })}>
@@ -182,7 +187,7 @@ export function ArticlesView() {
                 </ul>
               </Panel>))}
           </div>
-          <Panel>{id ? <Reader key={id} id={id} reload={reload} onGone={() => go(null)} /> : <p className="text-sm text-muted-foreground">Pick an article from the graph or the list.</p>}</Panel>
+          <Panel className={cn("min-w-0", !id && "hidden lg:block")}>{id ? <Reader key={id} id={id} reload={reload} onGone={() => go(null)} onBack={() => go(null)} /> : <p className="text-sm text-muted-foreground">Pick an article from the graph or the list.</p>}</Panel>
         </div>)}
     </Page>
   );

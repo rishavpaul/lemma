@@ -10,7 +10,12 @@ from . import config, db
 log = logging.getLogger("coach.jobs")
 
 TRANSCRIBE_TYPES = ("transcribe",)
-CLAUDE_TYPES = ("research", "grade_section", "grade_session", "probe", "improvement")
+CLAUDE_TYPES = ("research", "grade_section", "grade_session", "probe", "improvement", "code_spec", "code_spec_batch", "code_review", "code_hint")
+# Someone at the keyboard waits on these, so each kind gets its own worker and never queues behind a batch of problem building:
+# reviews and hints, and the problem the user just opened (`code_spec`; the bulk "build tests" action enqueues `code_spec_batch`).
+CODE_INTERACTIVE_TYPES = ("code_review", "code_hint")
+CODE_BUILD_TYPES = ("code_spec",)
+GENERAL_TYPES = tuple(t for t in CLAUDE_TYPES if t not in CODE_INTERACTIVE_TYPES + CODE_BUILD_TYPES)
 TERMINAL = ("done", "failed")
 
 # type -> async handler(job: dict) -> None. A handler raises JobError to fail with a classified error.
@@ -84,8 +89,9 @@ def _claim(types: tuple[str, ...]) -> dict | None:
     if not types:
         return None
     q = ",".join("?" * len(types))
-    # a probe goes first: the candidate is waiting on it
-    for job in db.rows(f"SELECT * FROM jobs WHERE status='queued' AND type IN ({q}) ORDER BY (type!='probe'), id", types):
+    # a probe goes first: the candidate is waiting on it. Building coding problems is a long batch that nobody is waiting on, so it goes last.
+    order = "CASE type WHEN 'probe' THEN 0 WHEN 'code_spec_batch' THEN 2 ELSE 1 END, id"
+    for job in db.rows(f"SELECT * FROM jobs WHERE status='queued' AND type IN ({q}) ORDER BY {order}", types):
         if _ready(job):
             db.execute("UPDATE jobs SET status='running', started_at=?, attempts=attempts+1 WHERE id=?",
                        (time.time(), job["id"]))
@@ -133,5 +139,7 @@ def start_workers(stop: asyncio.Event) -> list[asyncio.Task]:
         log.info("requeued %d running job(s) after restart", n)
     conc = int(config.get_setting(db.connect(), "claude_concurrency") or 1)
     tasks = [asyncio.create_task(worker("transcribe", TRANSCRIBE_TYPES, stop))]
-    tasks += [asyncio.create_task(worker(f"claude{i}", CLAUDE_TYPES, stop)) for i in range(max(1, min(2, conc)))]
+    tasks += [asyncio.create_task(worker(f"claude{i}", GENERAL_TYPES, stop)) for i in range(max(1, min(2, conc)))]
+    tasks.append(asyncio.create_task(worker("code_interactive", CODE_INTERACTIVE_TYPES, stop)))
+    tasks.append(asyncio.create_task(worker("code_build", CODE_BUILD_TYPES, stop)))
     return tasks
