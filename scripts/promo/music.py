@@ -1,7 +1,7 @@
 import numpy as np, wave
 from scipy.signal import butter, sosfilt, fftconvolve
 sr = 44100; bpm = 76; beat = 60/bpm; bar = 4*beat
-dur = 140; N = int(dur*sr); rng = np.random.default_rng(3)
+dur = 156; N = int(dur*sr); rng = np.random.default_rng(3)
 def hz(m): return 440*2**((m-69)/12)
 # progression (midi note lists), one per bar, 4-bar loop
 chords = [[50,57,61,64,69],   # Dmaj9-ish (D A C# E A)

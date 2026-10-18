@@ -18,9 +18,9 @@ streak, one set of settings and one look:
 - UI: Next.js (App Router) + Tailwind + shadcn/ui in `web/`, with Excalidraw for the diagram canvas. The Python API in `app/` is
   unchanged in role; the browser reaches it through Next's `/api` proxy (`web/next.config.ts`).
 
-[![Watch the 2-minute tour](docs/screenshots/promo-poster.png)](docs/promo.mp4)
+[![Watch the tour](docs/screenshots/promo-poster.png)](docs/promo.mp4)
 
-*An 2-minute tour (`docs/promo.mp4`). All data shown here is made up; see `scripts/demo_data.py`.*
+*A two-and-a-half-minute tour (`docs/promo.mp4`). All data shown here is made up; see `scripts/demo_data.py`.*
 
 ## Features
 

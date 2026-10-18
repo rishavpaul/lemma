@@ -189,6 +189,23 @@ await scene('review', async el => {
 });
 await endSeg();
 
+await loadFresh('/settings/', 1800); await beginSeg('usage');
+await p.evaluate(() => { // never show real key suffixes
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = w.nextNode(); n; n = w.nextNode()) n.textContent = n.textContent.replace(/(Saved\s*\S*?)\w{4}$/, '$1\u2022\u2022\u2022\u2022');
+});
+await scene('usage', async el => {
+  await moveTo(700, 420, 1200); await scrollBy(560, 3600);
+  await until(el, 6.2); await moveTo(780, 360, 1400); await scrollBy(420, 3600);
+});
+await endSeg();
+
+await loadFresh('/usage/', 2200); await beginSeg('tracking');
+await scene('tracking', async el => {
+  await moveTo(900, 380, 1200); await until(el, 2.6); await scrollBy(640, 3200); await scrollBy(560, 2600);
+});
+await endSeg();
+
 await card('design', 'Lemma.', 'Local, private, and free.'); await beginSeg('outro');
 await scene('outro', async () => {}, { tail: 2.4 });
 await endSeg();
