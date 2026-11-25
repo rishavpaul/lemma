@@ -8,8 +8,9 @@ function Inner() {
   const sp = useSearchParams();
   const slug = sp.get("slug");
   const attempt = Number(sp.get("attempt")) || null;
+  const from = sp.get("from");
   if (!slug) return <p className="p-6 text-sm text-muted-foreground">No problem selected.</p>;
-  return <ProblemWorkspace key={slug} slug={slug} attemptParam={attempt} />;
+  return <ProblemWorkspace key={slug} slug={slug} attemptParam={attempt} from={from} />;
 }
 
 export default function ProblemPage() {

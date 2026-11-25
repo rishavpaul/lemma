@@ -16,6 +16,8 @@ import { ModePicker } from "@/components/mode-picker";
 import { modeBody, useStartMode } from "@/lib/start-mode";
 import { speech } from "@/lib/speech";
 import { useApi } from "@/lib/use-api";
+import { AddToProgram, FocusSelect } from "@/components/programs/add-to-program";
+import { inProgram, useFocus, usePrograms } from "@/lib/programs";
 import { dimLabel } from "@/lib/format";
 import type { Question } from "@/lib/types";
 
@@ -27,6 +29,9 @@ export default function Library() {
   const [hints, setHints] = useState(false);
   const startMode = useStartMode();
   const [q, setQ] = useState("");
+  const programs = usePrograms();
+  const [focus, setFocus] = useFocus();
+  const focusProgram = programs.data?.find((x) => x.id === focus) ?? null;
   const { data, reload } = useApi<Question[]>(`/api/questions?include_hints=${hints}`);
   const [brief, setBrief] = useState<{ title: string; md: string | null; state: string } | null>(null);
   const [title, setTitle] = useState(""), [prompt, setPrompt] = useState(""), [open, setOpen] = useState(false);
@@ -42,7 +47,7 @@ export default function Library() {
     try { await api("/api/questions", { method: "POST", body: { title, prompt } }); setTitle(""); setPrompt(""); setOpen(false); reload(); toast.success("Question added"); }
     catch (e) { toast.error((e as Error).message); }
   }
-  const list = (data ?? []).filter((x) => (x.title + x.prompt).toLowerCase().includes(q.toLowerCase()));
+  const list = (data ?? []).filter((x) => (!focusProgram || inProgram(focusProgram, "design", String(x.id))) && (x.title + x.prompt).toLowerCase().includes(q.toLowerCase()));
 
   return (
     <Page>
@@ -61,7 +66,10 @@ export default function Library() {
 
       <div className="rise mb-14 grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] md:items-end" style={{ "--i": 1 } as React.CSSProperties}>
         <div className="space-y-4">
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter questions" aria-label="Filter questions" className={field + " w-full"} />
+          <div className="flex flex-wrap gap-2">
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter questions" aria-label="Filter questions" className={field + " min-w-0 flex-1"} />
+            <FocusSelect programs={programs.data} value={focusProgram?.id ?? null} onChange={setFocus} className={field} />
+          </div>
           <label className="flex items-center gap-2.5 text-[14px] text-muted-foreground"><Switch checked={hints} onCheckedChange={setHints} />Show the grader&apos;s hints (spoilers)</label>
         </div>
         <ModePicker />
@@ -84,6 +92,7 @@ export default function Library() {
               </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 md:flex-col md:items-end md:pt-2">
                 {x.last_score != null && <ScoreChip score={x.last_score} className="md:mb-1" />}
+                <AddToProgram item={{ kind: "design", ref: String(x.id) }} programs={programs.data} reload={programs.reload} />
                 <Button variant="design" disabled={starting !== null} onClick={() => start(x.id)}>{starting === x.id ? <Loader2 className="animate-spin" /> : null}Practice<ArrowRight /></Button>
                 <div className="flex items-center gap-1">
                   <Button variant="ghost" size="sm" onClick={async () => { const r = await api<{ brief_md: string | null; state: string }>(`/api/questions/${x.id}/research`); setBrief({ title: x.title, md: r.brief_md, state: r.state }); }}>Answer key</Button>
@@ -92,7 +101,7 @@ export default function Library() {
               </div>
             </li>
           ))}
-          {list.length === 0 && <p className="text-[15px] text-muted-foreground">No question matches &ldquo;{q}&rdquo;.</p>}
+          {list.length === 0 && <p className="text-[15px] text-muted-foreground">{focusProgram ? "Nothing in this program matches." : <>No question matches &ldquo;{q}&rdquo;.</>}</p>}
         </ol>
       )}
 

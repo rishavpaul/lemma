@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, ChevronRight, Lightbulb, Loader2, Play, RotateCcw, Send, TriangleAlert, Unlock } from "lucide-react";
+import { ArrowLeft, ChevronRight, Lightbulb, Loader2, Play, RotateCcw, Send, TriangleAlert, Unlock, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Markdown } from "@/components/markdown";
@@ -35,7 +35,11 @@ function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: T; labe
   );
 }
 
-export function ProblemWorkspace({ slug, attemptParam }: { slug: string; attemptParam: number | null }) {
+/** Where the back link goes, by the page that opened the problem. Only these, so a link cannot send you anywhere else. */
+const HIDE_TIMER_KEY = "lemma.code.hideTimer";
+const BACK: Record<string, { href: string; label: string }> = { programs: { href: "/programs", label: "Programs" }, today: { href: "/", label: "Today" } };
+
+export function ProblemWorkspace({ slug, attemptParam, from }: { slug: string; attemptParam: number | null; from: string | null }) {
   const detail = useApi<CodeProblemDetail>(`/api/code/problems/${slug}`, (d) => (d.problem.spec === "generating" ? 3000 : false));
   const [chosenId, setAttemptId] = useState<number | null>(attemptParam);
   const attemptId = chosenId ?? detail.data?.attempts.find((x) => x.status === "in_progress")?.id ?? null;  // reopen the unfinished attempt
@@ -59,10 +63,11 @@ export function ProblemWorkspace({ slug, attemptParam }: { slug: string; attempt
 
   if (!d) return <div className="p-6"><Skeleton className="h-96 w-full" /></div>;
   const p = d.problem;
+  const back = (from && BACK[from]) || { href: "/code", label: "Roadmap" };
   return (
     <div className="mx-auto w-full max-w-[1560px] px-5 pb-10 pt-5 md:px-8">
       <div className="mb-5 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <Link href="/code" className="inline-flex items-center gap-1 text-[14px] text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4 self-center" />Roadmap</Link>
+        <Link href={back.href} className="inline-flex items-center gap-1 text-[14px] text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4 self-center" />{back.label}</Link>
         <h1 className="font-serif text-[1.85rem] font-medium tracking-tight">{p.num ? <span className="num mr-2.5 font-sans text-[1rem] text-muted-foreground">{p.num}</span> : null}{p.title}</h1>
         <span className={cn("text-[14px] font-medium", { mint: "text-mint", signal: "text-signal", coral: "text-coral", muted: "text-muted-foreground" }[DIFF_TONE[p.difficulty] ?? "muted"])}>{p.difficulty}</span>
         {p.premium && <Pill>premium</Pill>}
@@ -146,6 +151,9 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
     const t = setInterval(() => { if (document.visibilityState === "visible" && a.status !== "solved") setSeconds((n) => n + 1); }, 1000);
     return () => clearInterval(t);
   }, [a.status]);
+  // The clock keeps running either way; this only hides it. Remembered across problems.
+  const [hideTimer, setHideTimer] = useState(() => { try { return localStorage.getItem(HIDE_TIMER_KEY) === "1"; } catch { return false; } });
+  const toggleTimer = (hide: boolean) => { setHideTimer(hide); try { if (hide) localStorage.setItem(HIDE_TIMER_KEY, "1"); else localStorage.removeItem(HIDE_TIMER_KEY); } catch { /* private window */ } };
 
   // Autosave
   const dirty = useRef(false);
@@ -237,7 +245,10 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
       <section className="min-w-0">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           {nLevels > 1 && <Pill tone="signal">Level {a.level} of {nLevels}</Pill>}
-          <span className="inline-flex items-baseline gap-1.5 text-[14px] text-muted-foreground" title="Active time, paused when this tab is hidden"><span className={cn("fig text-[1.6rem]", elapsed > target ? "text-coral" : "text-foreground")}>{mmss(elapsed)}</span>of {mmss(target)}</span>
+          {hideTimer
+            ? <button type="button" onClick={() => toggleTimer(false)} className="text-[14px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Show timer</button>
+            : <span className="inline-flex items-baseline gap-1.5 text-[14px] text-muted-foreground" title="Active time, paused when this tab is hidden"><span className={cn("fig text-[1.6rem]", elapsed > target ? "text-coral" : "text-foreground")}>{mmss(elapsed)}</span>of {mmss(target)}
+                <button type="button" aria-label="Hide the timer" title="Hide the timer (it keeps counting)" onClick={() => toggleTimer(true)} className="self-center p-1 text-muted-foreground hover:text-foreground"><X className="size-3.5" /></button></span>}
           <div className="ml-auto flex flex-wrap gap-2">
             <Button size="sm" variant="ghost" title="Replace your code with the starter file" onClick={() => { if (code === pub.starter_code || window.confirm("Replace your code with the starter file?")) { setCode(pub.starter_code); dirty.current = true; } }}><RotateCcw />Reset</Button>
             <Button size="sm" variant="outline" disabled={!!running || !testsReady} title={testsReady ? undefined : "Unlocks when the tests are built"} onClick={onRun}>{running === "run" ? <Loader2 className="animate-spin" /> : <Play />}Run</Button>
@@ -260,7 +271,7 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
           <div className="mt-3 flex flex-wrap items-center gap-3 rounded-[3px] bg-mint/12 p-3">
             <Tomb className="text-[1.4rem] text-mint" />
             <div className="min-w-0 flex-1 text-sm">
-              {solved ? <><b>{RATING_TEXT[a.rating]}</b> in {mmss(Math.round(a.active_sec || seconds))}. {a.rating !== "clean" && "This problem is in your review list."}</>
+              {solved ? <><b>{RATING_TEXT[a.rating]}</b>{hideTimer ? "" : ` in ${mmss(Math.round(a.active_sec || seconds))}`}. {a.rating !== "clean" && "This problem is in your review list."}</>
                 : <><b>Level {a.level} passed.</b> Unlock the next level and extend the same class.</>}
             </div>
             {!solved && a.level < nLevels && <Button size="sm" onClick={async () => { try { await api(`/api/code/attempts/${a.id}/advance`, { method: "POST" }); setLevelPassed(false); setRun(null); setLeft("problem"); reload(); } catch (e) { toast.error((e as Error).message); } }}><Unlock />Unlock level {a.level + 1}</Button>}

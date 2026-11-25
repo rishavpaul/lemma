@@ -12,6 +12,8 @@ import { api } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { dimLabel, fmtAgo, scoreTone } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { AddToProgram, FocusSelect } from "@/components/programs/add-to-program";
+import { inProgram, useFocus, usePrograms, type Program } from "@/lib/programs";
 import type { CodePhase, CodeProblem, CodeProgress, CodeRoadmap, CodeStatus } from "@/lib/types";
 
 const DIFF: Record<string, string> = { Easy: "text-mint", Medium: "text-signal", Hard: "text-coral", Build: "text-muted-foreground" };
@@ -45,13 +47,13 @@ function SpecPill({ p }: { p: CodeProblem }) {
 }
 
 /** One problem on one line. The note and topics are there to scan on wide screens, in full on hover. */
-function Row({ p, topics }: { p: CodeProblem; topics: Record<string, string> }) {
+function Row({ p, topics, programs, reloadPrograms }: { p: CodeProblem; topics: Record<string, string>; programs: Program[] | null; reloadPrograms: () => void }) {
   const tags = p.tags.map((t) => topics[t] ?? t).join(", ");
   const detail = [p.note, tags && `Topics: ${tags}.`].filter(Boolean).join(" ");
   return (
-    <li>
+    <li className="flex items-center gap-1">
       <Link href={href(p.slug)} title={detail}
-        className="group grid grid-cols-[1.1rem_2.4rem_minmax(0,1fr)_auto] items-baseline gap-x-3 rounded-[3px] px-3 py-2 transition-colors hover:bg-muted lg:grid-cols-[1.1rem_2.4rem_minmax(0,19rem)_minmax(0,1fr)_auto]">
+        className="group grid min-w-0 flex-1 grid-cols-[1.1rem_2.4rem_minmax(0,1fr)_auto] items-baseline gap-x-3 rounded-[3px] px-3 py-2 transition-colors hover:bg-muted lg:grid-cols-[1.1rem_2.4rem_minmax(0,19rem)_minmax(0,1fr)_auto]">
         <StatusIcon p={p} />
         <span className="num text-[13px] text-muted-foreground">{p.num ?? "build"}</span>
         <span className={cn("truncate font-serif text-[1.1rem] group-hover:underline group-hover:underline-offset-4", p.status === "done" && "text-muted-foreground")}>{p.title}</span>
@@ -65,13 +67,15 @@ function Row({ p, topics }: { p: CodeProblem; topics: Record<string, string> }) 
           <span className={cn("w-14 text-right text-[13px] font-medium", DIFF[p.difficulty])}>{p.difficulty}</span>
         </span>
       </Link>
+      <AddToProgram item={{ kind: "code", ref: p.slug }} programs={programs} reload={reloadPrograms} />
     </li>
   );
 }
 
 /** A chapter folds to one line: name, what comes next in it, and how far along it is. Open, it lists every problem. */
-function Chapter({ ph, shown, open, onToggle, topics, filtered, busy, onBuild }: {
+function Chapter({ ph, shown, open, onToggle, topics, filtered, busy, onBuild, programs, reloadPrograms }: {
   ph: CodePhase; shown: CodeProblem[]; open: boolean; onToggle: () => void; topics: Record<string, string>; filtered: boolean; busy: boolean; onBuild: () => void;
+  programs: Program[] | null; reloadPrograms: () => void;
 }) {
   const done = ph.problems.filter((x) => x.status === "done").length;
   const total = ph.problems.length;
@@ -95,7 +99,7 @@ function Chapter({ ph, shown, open, onToggle, topics, filtered, busy, onBuild }:
             <p className="max-w-[75ch] text-[14px] leading-relaxed text-muted-foreground">{ph.why}</p>
             <Button size="xs" variant="ghost" disabled={busy} onClick={onBuild}>{busy ? <Loader2 className="animate-spin" /> : <Sparkles />}Build this chapter&apos;s tests</Button>
           </div>
-          <ul className="pl-5">{shown.map((x) => <Row key={x.id} p={x} topics={topics} />)}</ul>
+          <ul className="pl-5">{shown.map((x) => <Row key={x.id} p={x} topics={topics} programs={programs} reloadPrograms={reloadPrograms} />)}</ul>
         </div>
       )}
     </section>
@@ -236,6 +240,9 @@ export function CodeDashboard() {
   const status = useApi<CodeStatus>("/api/code/status");
   const [q, setQ] = useState(""), [track, setTrack] = useState(""), [st, setSt] = useState(""), [topic, setTopic] = useState(""), [hidePrem, setHidePrem] = useState(false);
   const [tab, setTab] = useState<"practice" | "progress">("practice");
+  const programs = usePrograms();
+  const [focus, setFocus] = useFocus();
+  const focusProgram = programs.data?.find((x) => x.id === focus) ?? null;  // a deleted program stops narrowing
   const [picked, setPicked] = useState<number[] | null>(readOpen);  // chapters opened by hand, remembered across visits
   const [busy, setBusy] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -266,16 +273,16 @@ export function CodeDashboard() {
     if (slugs.length) api("/api/code/generate", { method: "POST", body: { slugs, only_missing: true } }).then(() => road.reload()).catch(() => {});
   }, [prog.data, road]);
 
-  const filtered = Boolean(q.trim() || track || st || topic || hidePrem);
+  const filtered = Boolean(q.trim() || track || st || topic || hidePrem || focusProgram);
   const phases = useMemo(() => {
     if (!road.data) return [];
     const needle = q.trim().toLowerCase();
     const ok = (p: CodeProblem) =>
-      (!track || p.track === track) && (!hidePrem || !p.premium) && (!topic || p.tags.includes(topic)) &&
+      (!focusProgram || inProgram(focusProgram, "code", p.slug)) && (!track || p.track === track) && (!hidePrem || !p.premium) && (!topic || p.tags.includes(topic)) &&
       (!st || (st === "todo" ? p.status === "todo" : st === "done" ? p.status === "done" : p.needs_review)) &&
       (!needle || (p.title + " " + p.note + " " + p.tags.join(" ")).toLowerCase().includes(needle));
     return road.data.phases.map((ph) => ({ ...ph, shown: ph.problems.filter(ok) })).filter((ph) => ph.shown.length);
-  }, [road.data, q, track, st, topic, hidePrem]);
+  }, [road.data, q, track, st, topic, hidePrem, focusProgram]);
 
   async function prepare(key: string, body: object) {
     setBusy(key);
@@ -284,7 +291,7 @@ export function CodeDashboard() {
     setBusy(null);
   }
   const showRoadmap = () => { setTab("practice"); requestAnimationFrame(() => roadRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })); };
-  const clearFilters = () => { setQ(""); setTrack(""); setSt(""); setTopic(""); setHidePrem(false); };
+  const clearFilters = () => { setQ(""); setTrack(""); setSt(""); setTopic(""); setHidePrem(false); setFocus(null); };
 
   const s = road.data?.stats, p = prog.data;
   const clean = s && s.done ? Math.round((s.clean / s.done) * 100) : 0;
@@ -353,6 +360,7 @@ export function CodeDashboard() {
               {phases.length > 0 && <button type="button" className="text-[14px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" onClick={() => setOpenSaved(allOpen ? [] : phases.map((ph) => ph.num))}>{allOpen ? "Fold every chapter" : "Open every chapter"}</button>}
             </div>
             <div className="mb-6 flex flex-wrap items-center gap-2">
+              <FocusSelect programs={programs.data} value={focusProgram?.id ?? null} onChange={setFocus} className={field} />
               <select value={track} onChange={(e) => setTrack(e.target.value)} aria-label="Track" className={field}><option value="">Both tracks</option><option value="core">{TRACK.core}</option><option value="practical">{TRACK.practical}</option></select>
               <select value={st} onChange={(e) => setSt(e.target.value)} aria-label="Status" className={field}><option value="">Any status</option><option value="todo">Not started</option><option value="done">Solved</option><option value="review">To redo</option></select>
               <select value={topic} onChange={(e) => setTopic(e.target.value)} aria-label="Topic" className={field}><option value="">Any topic</option>{Object.entries(topics).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
@@ -371,7 +379,8 @@ export function CodeDashboard() {
                       {list.map((ph) => (
                         <Chapter key={ph.num} ph={ph} shown={ph.shown} topics={topics} filtered={filtered}
                           open={filtered || open.includes(ph.num)} onToggle={() => toggle(ph.num)}
-                          busy={busy === `p${ph.num}`} onBuild={() => prepare(`p${ph.num}`, { phase: ph.num, only_missing: true })} />
+                          busy={busy === `p${ph.num}`} onBuild={() => prepare(`p${ph.num}`, { phase: ph.num, only_missing: true })}
+                          programs={programs.data} reloadPrograms={programs.reload} />
                       ))}
                     </div>
                   </div>

@@ -128,7 +128,7 @@ export default function Today() {
               )}
               {nextProblem && <p className="mt-3 text-[14px] text-muted-foreground">{[nextProblem.difficulty, ...nextProblem.tags.slice(0, 3)].join(", ")}{nextProblem.status === "attempted" ? ". You started this one." : "."}</p>}
               <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3">
-                {nextProblem && <Link href={`/code/problem/?slug=${nextProblem.slug}`} className={cn(buttonVariants({ variant: "code", size: "lg" }), "h-12 px-6 text-base")}>{nextProblem.status === "attempted" ? "Continue the problem" : "Solve it"}<ArrowRight /></Link>}
+                {nextProblem && <Link href={`/code/problem/?slug=${nextProblem.slug}&from=today`} className={cn(buttonVariants({ variant: "code", size: "lg" }), "h-12 px-6 text-base")}>{nextProblem.status === "attempted" ? "Continue the problem" : "Solve it"}<ArrowRight /></Link>}
                 <Link href="/code" className="text-[15px] font-medium underline decoration-1 underline-offset-4 hover:decoration-2">The whole roadmap</Link>
               </div>
             </div>

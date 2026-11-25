@@ -16,7 +16,7 @@ from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import articles, auth, config, db, export, grader, jobs, pipeline, progress, providers, transcribe, tts
+from . import articles, auth, config, db, export, grader, jobs, pipeline, programs, progress, providers, transcribe, tts
 from . import diagram as diagram_mod
 from .code import handlers as code_handlers  # noqa: F401  (registers the code_* job handlers)
 from .code import routes as code_routes
@@ -565,6 +565,7 @@ async def delete_session(sid: int):
 
 app.include_router(articles.router)
 app.include_router(code_routes.router)
+app.include_router(programs.router)
 
 
 @app.get("/api/questions/suggest")

@@ -325,3 +325,13 @@ def sync_problems() -> None:
                ON CONFLICT(slug) DO UPDATE SET title=excluded.title, ord=excluded.ord, note=excluded.note, levels_json=excluded.levels_json""",
             (b["slug"], b["title"], phase, order, f"{b['base']}. {b['time']}.", json.dumps(b["levels"]), now))
     conn.commit()
+
+
+MIGRATIONS.append("""
+    CREATE TABLE programs(
+        id INTEGER PRIMARY KEY, name TEXT NOT NULL, created_at REAL NOT NULL);
+    CREATE TABLE program_items(
+        program_id INTEGER NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL CHECK(kind IN ('code','design')), ref TEXT NOT NULL, ord INTEGER NOT NULL,
+        PRIMARY KEY(program_id, kind, ref));
+""")

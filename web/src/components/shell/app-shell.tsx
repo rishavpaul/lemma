@@ -15,7 +15,7 @@ import { fmtDate } from "@/lib/format";
  */
 type NavItem = { href: string; label: string; track: "design" | "code" | null };
 const NAV: { group: string | null; track: "design" | "code" | null; items: NavItem[] }[] = [
-  { group: null, track: null, items: [{ href: "/", label: "Today", track: null }] },
+  { group: null, track: null, items: [{ href: "/", label: "Today", track: null }, { href: "/programs", label: "Programs", track: null }] },
   { group: "Design", track: "design", items: [
     { href: "/questions", label: "Questions", track: "design" },
     { href: "/progress", label: "Progress", track: "design" },
