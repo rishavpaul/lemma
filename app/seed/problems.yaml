@@ -756,6 +756,11 @@ problems:
   premium: false
   tags: [hash, ll]
   note: 'Use your own doubly linked list. Follow-ups: per-key TTL, an eviction callback.'
+  levels:
+  - {text: "LRUCache(capacity) with get(key) and put(key, value), both O(1), using your own doubly linked list.", staff: false}
+  - {text: "Per-key TTL on an explicit clock: put(key, value, ttl) and advance(ms). An expired entry behaves as missing on get and does not count toward capacity; at capacity, drop expired entries before evicting the least recently used one.", staff: false}
+  - {text: "Eviction listener: every removal for capacity or expiry is reported in order; drainEvictions() returns them as \"key:reason\" (reason capacity or expired) and clears the log.", staff: false}
+  - {text: "Metrics: stats() returns hits, misses, evictions and current size. Then explain how you would make the cache safe for concurrent callers (a get also writes the list, so a single lock first, then striping by key with per-segment LRU).", staff: true}
 - slug: lfu-cache
   num: 460
   title: LFU Cache
@@ -764,6 +769,10 @@ problems:
   premium: false
   tags: [hash, ll]
   note: Frequency buckets of LRU lists. Build on 146 and keep its tests passing.
+  levels:
+  - {text: "LFUCache(capacity) with get and put in O(1); ties on frequency evict the least recently used key.", staff: false}
+  - {text: "topK(k): the k most frequently used keys, highest frequency first, ties by most recent use, without scanning every key.", staff: false}
+  - {text: "Aging: decay() halves every key's frequency (rounding down, minimum 1) so keys that were hot long ago can be evicted. Keep get and put O(1); state the cost of decay.", staff: true}
 - slug: all-oone-data-structure
   num: 432
   title: All O`one Data Structure
@@ -812,6 +821,11 @@ problems:
   premium: false
   tags: [hash, bsearch]
   note: The CodeSignal KV store in miniature. Add delete and TTL next.
+  levels:
+  - {text: "TimeMap with set(key, value, timestamp) and get(key, timestamp) returning the value with the largest timestamp at or before it.", staff: false}
+  - {text: "delete(key, timestamp) writes a tombstone: get at or after it returns \"\" until a later set.", staff: false}
+  - {text: "history(key, from, to): every value set in [from, to], oldest first.", staff: false}
+  - {text: "compact(key, before): drop versions that no get at a timestamp >= before can return, and keep every such get's answer unchanged. Explain the memory bound this gives.", staff: true}
 - slug: snapshot-array
   num: 1146
   title: Snapshot Array
@@ -836,6 +850,10 @@ problems:
   premium: true
   tags: [queue, window]
   note: 'Follow-ups: out-of-order timestamps, concurrent hits, bounded memory.'
+  levels:
+  - {text: "HitCounter with hit(timestamp) and getHits(timestamp) over the past 300 seconds.", staff: false}
+  - {text: "getHitsInWindow(timestamp, seconds) for any window up to 300 seconds.", staff: false}
+  - {text: "Per user: hitBy(user, timestamp) and getHitsBy(user, timestamp). Use constant memory per active second (a ring of buckets), not one entry per hit, so bursts of millions of hits are cheap.", staff: true}
 - slug: logger-rate-limiter
   num: 359
   title: Logger Rate Limiter
@@ -844,6 +862,11 @@ problems:
   premium: true
   tags: [hash, window]
   note: 'Follow-up: evict old keys so memory stays bounded.'
+  levels:
+  - {text: "shouldPrintMessage(timestamp, message): a message prints at most once every 10 seconds.", staff: false}
+  - {text: "setWindow(message, seconds): per-message windows; messages without one keep the 10-second default.", staff: false}
+  - {text: "Quota instead of a single print: setQuota(n, seconds) allows up to n prints of the same message in any sliding window of that length.", staff: false}
+  - {text: "Bounded memory: cleanup(timestamp) removes state that can no longer affect any answer, and size() reports how many messages are tracked.", staff: true}
 - slug: design-authentication-manager
   num: 1797
   title: Design Authentication Manager
@@ -868,6 +891,10 @@ problems:
   premium: false
   tags: [heap]
   note: 'Two heaps. Follow-up: remove arbitrary values (sliding median).'
+  levels:
+  - {text: "MedianFinder with addNum and findMedian.", staff: false}
+  - {text: "removeNum(num) removes one occurrence (returns false if absent) and medians stay correct.", staff: false}
+  - {text: "percentile(p) for p in 1..99 using the nearest-rank method. Say how you would bound memory if all numbers are in [0, 100].", staff: true}
 - slug: seat-reservation-manager
   num: 1845
   title: Seat Reservation Manager
@@ -900,6 +927,10 @@ problems:
   premium: false
   tags: [hash, heap]
   note: Edit and remove tasks, then execTop. Lazy deletion again.
+  levels:
+  - {text: "TaskManager with add, edit, rmv and execTop (run and remove the highest-priority task, ties by larger task id).", staff: false}
+  - {text: "execTopForUser(userId): the same, but only among that user's tasks.", staff: false}
+  - {text: "boostUser(userId, delta) adds delta to the priority of every task of that user. Make it cheaper than touching each task (lazy per-user offsets) and explain the cost.", staff: true}
 - slug: single-threaded-cpu
   num: 1834
   title: Single-Threaded CPU
@@ -908,6 +939,10 @@ problems:
   premium: false
   tags: [heap, sim]
   note: Event simulation over sorted arrivals.
+  levels:
+  - {text: "CpuScheduler(tasks) with getOrder(): the order a single CPU processes tasks (shortest processing time among available, ties by index).", staff: false}
+  - {text: "getOrder(k): the order tasks start when k identical CPUs share the queue (ties in start time by CPU-free time, then index).", staff: false}
+  - {text: "cancel(index) before calling getOrder removes a task; cancelling an unknown index returns false.", staff: true}
 - slug: exam-room
   num: 855
   title: Exam Room
@@ -956,6 +991,10 @@ problems:
   premium: true
   tags: [trie, heap]
   note: Ranked by frequency. The staff version caches the top 3 at each node.
+  levels:
+  - {text: "AutocompleteSystem(sentences, times) with input(c): the top 3 historical sentences for the typed prefix; '#' ends and records the sentence.", staff: false}
+  - {text: "remove(sentence) and addWeight(sentence, delta) change the history immediately.", staff: false}
+  - {text: "Stateless query top(prefix, k) with any k, answered without scanning every sentence under the prefix (keep the top results at each trie node and say what an update costs).", staff: true}
 - slug: map-sum-pairs
   num: 677
   title: Map Sum Pairs
@@ -988,6 +1027,10 @@ problems:
   premium: false
   tags: [stack, ll]
   note: 'Two stacks around the cursor. Follow-up: undo.'
+  levels:
+  - {text: "TextEditor with addText, deleteText, cursorLeft and cursorRight (the last two return the 10 characters left of the cursor).", staff: false}
+  - {text: "undo() and redo() for addText and deleteText; any new edit clears the redo history.", staff: false}
+  - {text: "copy(k) copies the k characters left of the cursor and paste() inserts the clipboard at the cursor; both are undoable.", staff: true}
 - slug: my-calendar-i
   num: 729
   title: My Calendar I
@@ -996,6 +1039,10 @@ problems:
   premium: false
   tags: [intervals, ordered, bsearch]
   note: Ordered map lookup for the neighbors of a new booking.
+  levels:
+  - {text: "MyCalendar with book(start, end) that rejects any overlap.", staff: false}
+  - {text: "cancel(start, end) removes an exact booking and returns whether one was removed.", staff: false}
+  - {text: "nextFree(from, duration): the earliest start >= from where a booking of that length fits.", staff: true}
 - slug: my-calendar-ii
   num: 731
   title: My Calendar II
@@ -1004,6 +1051,10 @@ problems:
   premium: false
   tags: [intervals]
   note: Sweep line over start and end deltas.
+  levels:
+  - {text: "MyCalendarTwo with book(start, end) that rejects any triple booking.", staff: false}
+  - {text: "cancel(start, end) removes an exact booking and returns whether one was removed.", staff: false}
+  - {text: "conflicts(start, end): the bookings that overlap the interval, sorted by start.", staff: true}
 - slug: my-calendar-iii
   num: 732
   title: My Calendar III
@@ -1012,6 +1063,10 @@ problems:
   premium: false
   tags: [intervals, segtree]
   note: Sweep line first, then a lazy segment tree.
+  levels:
+  - {text: "MyCalendarThree with book(start, end) returning the maximum k-booking so far.", staff: false}
+  - {text: "maxOverlap(start, end): the maximum number of overlapping bookings at any point inside the interval.", staff: false}
+  - {text: "cancel(start, end) removes an exact booking; later answers reflect the removal.", staff: true}
 - slug: data-stream-as-disjoint-intervals
   num: 352
   title: Data Stream as Disjoint Intervals
@@ -1084,6 +1139,11 @@ problems:
   premium: false
   tags: [topo, bfs]
   note: Treat it as job dependencies. Detect and report the cycle.
+  levels:
+  - {text: "CourseScheduler(numCourses, prerequisites) with findOrder(): a valid order to take every course, or an empty array if impossible.", staff: false}
+  - {text: "minSemesters(): the fewest semesters needed if any number of courses can be taken per semester, or -1 if impossible.", staff: false}
+  - {text: "addPrerequisite(course, pre) adds an edge only if it keeps a valid order possible and returns whether it was added.", staff: false}
+  - {text: "findCycle(): when no order exists, return one cycle of courses (the error message a real system would show), else an empty array.", staff: true}
 - slug: find-all-possible-recipes-from-given-supplies
   num: 2115
   title: Find All Possible Recipes from Given Supplies
@@ -1092,6 +1152,10 @@ problems:
   premium: false
   tags: [topo, hash]
   note: Topological sort over a menu. Very close to a practical-round prompt.
+  levels:
+  - {text: "RecipeBook(recipes, ingredients, supplies) with findAllRecipes(): every recipe that can be made.", staff: false}
+  - {text: "missingFor(recipe): the smallest sorted set of base supplies that, if added, would make the recipe makeable (empty if already makeable).", staff: false}
+  - {text: "addSupply(item) updates which recipes are makeable incrementally, touching only recipes that depend on the item.", staff: true}
 - slug: accounts-merge
   num: 721
   title: Accounts Merge
@@ -1100,6 +1164,10 @@ problems:
   premium: false
   tags: [uf, hash]
   note: 'Union-find with path compression. Follow-up: merges arrive as a stream.'
+  levels:
+  - {text: "AccountBook(accounts) with merge(): accounts that share an email belong to one person; return each person's name and sorted emails.", staff: false}
+  - {text: "addAccount(account) merges incrementally and owner(email) returns the merged account containing it.", staff: false}
+  - {text: "people(): the number of distinct people, kept up to date in near O(1) per addAccount.", staff: true}
 - slug: 01-matrix
   num: 542
   title: 01 Matrix
@@ -1124,6 +1192,10 @@ problems:
   premium: false
   tags: [dijkstra, heap]
   note: Dijkstra on a graph that keeps gaining edges.
+  levels:
+  - {text: "Graph(n, edges) with addEdge and shortestPath(from, to).", staff: false}
+  - {text: "removeEdge(from, to) and updateCost(from, to, cost); later shortest paths reflect the change.", staff: false}
+  - {text: "route(from, to): the nodes on one shortest path (the smallest node sequence among ties), empty if unreachable.", staff: true}
 - slug: swim-in-rising-water
   num: 778
   title: Swim in Rising Water
@@ -1140,6 +1212,10 @@ problems:
   premium: true
   tags: [queue, hash, sim]
   note: Deque for the body plus a set for collisions.
+  levels:
+  - {text: "SnakeGame(width, height, food) with move(direction) returning the score, or -1 on game over.", staff: false}
+  - {text: "Obstacles: the constructor also takes obstacle cells; moving into one ends the game.", staff: false}
+  - {text: "Wrap mode: a constructor flag makes the snake wrap around the edges instead of dying; keep move O(1).", staff: true}
 - slug: peeking-iterator
   num: 284
   title: Peeking Iterator
@@ -1148,6 +1224,10 @@ problems:
   premium: false
   tags: [sim]
   note: Make it generic over any iterator.
+  levels:
+  - {text: "PeekingIterator(nums) with peek, next and hasNext.", staff: false}
+  - {text: "peekAhead(n): the element n positions ahead without consuming anything (null if past the end).", staff: false}
+  - {text: "mark() and reset(): reset returns the iterator to the last mark, buffering only what is needed since it.", staff: true}
 - slug: binary-search-tree-iterator
   num: 173
   title: Binary Search Tree Iterator
@@ -1156,6 +1236,10 @@ problems:
   premium: false
   tags: [stack, tree]
   note: Controlled inorder traversal with a stack.
+  levels:
+  - {text: "BSTIterator(root) with next and hasNext in average O(1) and O(h) memory.", staff: false}
+  - {text: "prev and hasPrev to move backwards over values already returned.", staff: false}
+  - {text: "seek(x): the next call to next returns the smallest value >= x, in O(h).", staff: true}
 - slug: flatten-nested-list-iterator
   num: 341
   title: Flatten Nested List Iterator
@@ -1164,6 +1248,10 @@ problems:
   premium: false
   tags: [stack, dfs]
   note: Lazy flattening. Don't precompute the whole list.
+  levels:
+  - {text: "NestedIterator(nestedList as a JSON-style string) with next and hasNext.", staff: false}
+  - {text: "depth(): the nesting depth of the integer most recently returned by next (top level is 1).", staff: false}
+  - {text: "peek() returns the next integer without consuming it. Flatten lazily: never hold more than the current path of lists in memory, and explain why that matters for deep or huge inputs.", staff: true}
 - slug: rle-iterator
   num: 900
   title: RLE Iterator
@@ -1196,6 +1284,9 @@ problems:
   premium: false
   tags: [window, ordered, queue]
   note: Sliding window split across three sorted containers.
+  levels:
+  - {text: "MKAverage(m, k) with addElement and calculateMKAverage.", staff: false}
+  - {text: "calculate(k2): the same average over the last m elements but trimming k2 from each end, for any 2*k2 < m, without rebuilding.", staff: true}
 - slug: product-of-the-last-k-numbers
   num: 1352
   title: Product of the Last K Numbers
@@ -1220,6 +1311,11 @@ problems:
   premium: false
   tags: [hash, sim]
   note: Level 1 of the bank progression below.
+  levels:
+  - {text: "Bank(balance) with transfer, deposit and withdraw that reject invalid accounts and overdrafts.", staff: false}
+  - {text: "Idempotency: every operation takes a request id; repeating an id returns the first answer without applying it again.", staff: false}
+  - {text: "history(account): the account's successful operations in order, as \"type:amount\".", staff: false}
+  - {text: "reverse(requestId) undoes a successful transfer if both balances allow it and returns whether it did. Explain how you would keep balances consistent under concurrent transfers (lock ordering by account).", staff: true}
 - slug: design-an-atm-machine
   num: 2241
   title: Design an ATM Machine
@@ -1244,6 +1340,11 @@ problems:
   premium: false
   tags: [parse, hash]
   note: 'Follow-up: formulas that reference other formulas. Add a dependency graph and cycle detection.'
+  levels:
+  - {text: "Spreadsheet(rows) with setCell, resetCell and getValue(\"=X+Y\") where X and Y are cells or numbers.", staff: false}
+  - {text: "Cells hold formulas: setFormula(cell, \"=A1+B2+5\"); getCell(cell) returns the current value and dependents update when an input changes.", staff: false}
+  - {text: "Cycles: setFormula returns false and leaves the sheet unchanged if it would create a dependency cycle.", staff: false}
+  - {text: "Ranges: formulas may use SUM(A1:B3). Recalculate only cells downstream of a change, in dependency order, and explain the cost.", staff: true}
 - slug: design-in-memory-file-system
   num: 588
   title: Design In-Memory File System
@@ -1252,6 +1353,10 @@ problems:
   premium: true
   tags: [trie, tree]
   note: Level 2 of the file system progression.
+  levels:
+  - {text: "FileSystem with ls, mkdir, addContentToFile and readContentFromFile.", staff: false}
+  - {text: "rm(path) removes a file or a directory recursively; mv(src, dst) moves a file or directory and returns false if dst exists or is inside src.", staff: false}
+  - {text: "du(path) returns the total bytes under a path, and find(path, name) returns every path below it with that name, sorted.", staff: true}
 - slug: design-sql
   num: 2408
   title: Design SQL
@@ -1323,22 +1428,20 @@ progressions:
   base: Start from LC 2043
   time: 90 min
   levels:
-  - {text: 'Accounts: create, deposit, withdraw, transfer. Reject invalid accounts and overdrafts.', staff: false}
-  - {text: 'Transaction history per account, and top N accounts by total outgoing.', staff: false}
-  - {text: 'Scheduled payments that execute at a timestamp, plus cancel. Process due payments before each operation.', staff: false}
-  - {text: 'Merge two accounts while keeping balances, history and pending payments.', staff: false}
-  - {text: 'Multi-currency balances, idempotent transfer IDs, and thread safety.', staff: true}
+  - {text: "Accounts: create, deposit, withdraw, transfer. Reject invalid accounts and overdrafts.", staff: false}
+  - {text: "Transaction history per account, and top N accounts by total outgoing.", staff: false}
+  - {text: "Scheduled payments that execute at a timestamp, plus cancel (process due payments before each operation); then merge two accounts while keeping balances, history and pending payments.", staff: false}
+  - {text: "Multi-currency balances, idempotent transfer IDs, and thread safety.", staff: true}
 - slug: build-in-memory-database
   id: B
   title: In-memory database
   base: Start from LC 981 and 1146
   time: 90 min
   levels:
-  - {text: 'set, get and delete on (key, field) records.', staff: false}
-  - {text: 'scan(key) and scanByPrefix(key, prefix), sorted by field.', staff: false}
-  - {text: 'TTL: values written with a lifetime disappear after it at query timestamp t.', staff: false}
-  - {text: 'backup(t) and restore(t, backupT), recalculating remaining TTLs.', staff: false}
-  - {text: 'Nested transactions with begin, commit and rollback.', staff: true}
+  - {text: "set, get and delete on (key, field) records, plus scan(key) and scanByPrefix(key, prefix), sorted by field.", staff: false}
+  - {text: "TTL: values written with a lifetime disappear after it at query timestamp t.", staff: false}
+  - {text: "backup(t) and restore(t, backupT), recalculating remaining TTLs.", staff: false}
+  - {text: "Nested transactions with begin, commit and rollback.", staff: true}
 - slug: build-cache-service
   id: C
   title: Cache service
@@ -1355,20 +1458,17 @@ progressions:
   base: Start from LC 1166, then 588
   time: 90 min
   levels:
-  - {text: createPath and get with parent validation., staff: false}
-  - {text: 'mkdir, ls, addContentToFile and readContentFromFile.', staff: false}
-  - {text: 'File sizes, directory size, and the N largest files under a path.', staff: false}
-  - {text: Users with storage quotas. Reject writes that exceed the quota., staff: false}
-  - {text: Rename and move with locking. Discuss consistency during concurrent moves., staff: true}
+  - {text: "createPath and get with parent validation, then mkdir, ls, addContentToFile and readContentFromFile.", staff: false}
+  - {text: "File sizes, directory size, and the N largest files under a path.", staff: false}
+  - {text: "Users with storage quotas. Reject writes that exceed the quota.", staff: false}
+  - {text: "Rename and move with locking. Discuss consistency during concurrent moves.", staff: true}
 - slug: build-delivery-dispatch
   id: E
   title: Delivery dispatch
   base: Builds on LC 1834, 3508, 2642, 986
   time: 90 min
   levels:
-  - {text: Order intake queue with duplicate order IDs rejected., staff: false}
-  - {text: Assign the oldest order to the available driver with the earliest free time., staff: false}
-  - {text: Estimate ETAs with shortest paths over a road graph., staff: false}
-  - {text: 'Driver pay for a pay period: base pay per delivery plus a rate for time spent on active orders, with overlapping orders counted once.',
-    staff: false}
-  - {text: 'Retries when a driver declines, and what changes at 10x order volume.', staff: true}
+  - {text: "Order intake queue with duplicate order IDs rejected, then assign the oldest order to the available driver with the earliest free time.", staff: false}
+  - {text: "Estimate ETAs with shortest paths over a road graph.", staff: false}
+  - {text: "Driver pay for a pay period: base pay per delivery plus a rate for time spent on active orders, with overlapping orders counted once.", staff: false}
+  - {text: "Retries when a driver declines, and what changes at 10x order volume.", staff: true}

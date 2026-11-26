@@ -44,6 +44,8 @@
   --color-signal-foreground: var(--signal-foreground);
   --color-code: var(--code);
   --color-code-foreground: var(--code-foreground);
+  --color-lead: var(--lead);
+  --color-lead-foreground: var(--lead-foreground);
   --color-mint: var(--mint);
   --color-coral: var(--coral);
   --color-ink: var(--ink);
@@ -84,6 +86,8 @@
   --signal-foreground: #ffffff;
   --code: #2350c8; /* coding: blue */
   --code-foreground: #ffffff;
+  --lead: #8f3a6e; /* behavioral and leadership: plum */
+  --lead-foreground: #ffffff;
   --mint: #1d7349;
   --coral: #b8382b;
   --ink: #1b1b18;
@@ -118,6 +122,8 @@
   --signal-foreground: #1a1100;
   --code: #84a9ff;
   --code-foreground: #0a1430;
+  --lead: #e48bbd;
+  --lead-foreground: #2a0a1d;
   --mint: #67d09d;
   --coral: #ff7d6b;
   --ink: #0e0e0d;

@@ -12,7 +12,8 @@ from pathlib import Path
 from .. import config
 
 JAVA_DIR = Path(__file__).resolve().parent / "java"
-HARNESS_FILES = ("Harness.java", "ListNode.java", "TreeNode.java")
+SUPPORT_TYPES = ("ListNode.java", "TreeNode.java")  # types candidate code may use
+HARNESS_FILES = ("Harness.java", *SUPPORT_TYPES, "Tracer.java")
 COMPILE_TIMEOUT = 60
 _tools: dict = {}
 _harness_dir: Path | None = None
@@ -125,8 +126,9 @@ def parse_compile_errors(text: str, workdir: Path) -> list[dict]:
     return errors[:20]
 
 
-async def compile_sources(files: dict[str, str], workdir: Path) -> dict:
-    """Compile `files` (name -> source) into workdir/out. Returns {"ok", "errors", "output"}."""
+async def compile_sources(files: dict[str, str], workdir: Path, debug: bool = False) -> dict:
+    """Compile `files` (name -> source) into workdir/out. Returns {"ok", "errors", "output"}.
+    `debug` keeps local variable names in the class files (-g), which the tracer needs."""
     tools = find_java()
     if not tools["ok"]:
         return {"ok": False, "errors": [], "output": tools["error"], "unavailable": True}
@@ -138,7 +140,7 @@ async def compile_sources(files: dict[str, str], workdir: Path) -> dict:
     out = workdir / "out"
     out.mkdir(exist_ok=True)
     code, so, se, timed_out = await _exec([tools["javac"], "-d", str(out), "-cp", str(harness), "-proc:none", "-Xlint:none", "-encoding", "UTF-8",
-                                           *[str(src / n) for n in files]], workdir, COMPILE_TIMEOUT)
+                                           *(["-g"] if debug else []), *[str(src / n) for n in files]], workdir, COMPILE_TIMEOUT)
     if timed_out:
         return {"ok": False, "errors": [], "output": "compilation timed out"}
     text = (se or so).strip()
@@ -203,3 +205,41 @@ async def execute(files: dict[str, str], class_name: str, kind: str, method: str
         if not comp["ok"]:
             return {"compile": comp, "results": []}
         return {"compile": comp, "results": await run_cases(wd, class_name, kind, method, inplace, cases)}
+
+
+TRACE_MAX_STEPS = 1500
+TRACE_TIMEOUT = 90
+
+
+async def trace_case(files: dict[str, str], class_name: str, kind: str, method: str, inplace, case: dict) -> dict:
+    """Record one case under the debugger (Tracer.java): {"compile", "steps", "truncated", "result", "error"}.
+    `result` is the harness's verdict line for the case (status, result or error, printed output), or None if it never finished."""
+    tools = find_java()
+    with Workdir() as wd:
+        comp = await compile_sources(files, wd, debug=True)
+        if not comp["ok"]:
+            return {"compile": comp, "steps": [], "truncated": False, "result": None, "error": None}
+        harness = await ensure_harness()
+        spec = wd / "cases.json"
+        # The program pauses at every line while it is recorded, so the per-case time limit is lifted; TRACE_TIMEOUT bounds the whole run.
+        spec.write_text(json.dumps({"method": method or "", "inplace": inplace, "cases": [{"id": case["id"], "input": case["input"], "timeout_ms": 600000}]}),
+                        encoding="utf-8")
+        cp = f"{wd / 'out'}{os.pathsep}{harness}"
+        code, out, err, timed_out = await _exec(
+            [tools["java"], "-cp", str(harness), "Tracer", class_name + ".java", str(TRACE_MAX_STEPS),
+             "-cp", f'"{cp}"', "-Xmx512m", "-XX:+UseSerialGC", "--", "Harness", class_name, "design" if kind == "design" else "function", f'"{spec}"'],
+            wd, TRACE_TIMEOUT)
+    if timed_out:
+        return {"compile": comp, "steps": [], "truncated": True, "result": None, "error": "recording took too long; try a smaller case"}
+    try:
+        doc = json.loads(out.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return {"compile": comp, "steps": [], "truncated": False, "result": None, "error": (err or out or "the recorder failed").strip()[-500:]}
+    result = None
+    for line in doc.get("output", "").splitlines():
+        if line.startswith("@@R@@"):
+            try:
+                result = json.loads(line[5:])
+            except ValueError:
+                pass
+    return {"compile": comp, "steps": doc["steps"], "truncated": doc["truncated"], "result": result, "error": doc.get("error")}

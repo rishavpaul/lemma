@@ -13,8 +13,9 @@ import { fmtDate } from "@/lib/format";
  * ochre rule when active, the coding page the blue one. Usage and Settings are shared. On a phone the same links sit
  * in a bar at the bottom, within reach of a thumb.
  */
-type NavItem = { href: string; label: string; track: "design" | "code" | null };
-const NAV: { group: string | null; track: "design" | "code" | null; items: NavItem[] }[] = [
+type Track = "design" | "code" | "lead" | null;
+type NavItem = { href: string; label: string; track: Track };
+const NAV: { group: string | null; track: Track; items: NavItem[] }[] = [
   { group: null, track: null, items: [{ href: "/", label: "Today", track: null }, { href: "/programs", label: "Programs", track: null }] },
   { group: "Design", track: "design", items: [
     { href: "/questions", label: "Questions", track: "design" },
@@ -22,9 +23,11 @@ const NAV: { group: string | null; track: "design" | "code" | null; items: NavIt
     { href: "/articles", label: "Articles", track: "design" },
   ] },
   { group: "Code", track: "code", items: [{ href: "/code", label: "Problems", track: "code" }] },
+  // The mobile bar shows labels without their group, so this one names the track itself.
+  { group: "Lead", track: "lead", items: [{ href: "/behavioral", label: "Behavioral", track: "lead" }] },
 ];
 const UTIL: NavItem[] = [{ href: "/usage", label: "Usage", track: null }, { href: "/settings", label: "Settings", track: null }];
-const rule = (t: NavItem["track"]) => (t === "design" ? "bg-signal" : t === "code" ? "bg-code" : "bg-foreground");
+const rule = (t: Track) => (t === "design" ? "bg-signal" : t === "code" ? "bg-code" : t === "lead" ? "bg-lead" : "bg-foreground");
 
 function NavLink({ item, active, compact }: { item: NavItem; active: boolean; compact?: boolean }) {
   return (
@@ -126,7 +129,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav aria-label="Primary" className="flex items-center gap-5">
           {NAV.map(({ group, track, items }) => (
             <div key={group ?? "home"} className="flex items-center">
-              {group && <span className={cn("mr-1 text-[14px] font-semibold", track === "design" ? "text-signal" : "text-code")}>{group}</span>}
+              {group && <span className={cn("mr-1 text-[14px] font-semibold", track === "design" ? "text-signal" : track === "lead" ? "text-lead" : "text-code")}>{group}</span>}
               {items.map((it) => <NavLink key={it.href} item={it} active={active(it.href)} />)}
             </div>
           ))}

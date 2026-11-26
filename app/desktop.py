@@ -61,26 +61,124 @@ def _restore_context_menu() -> None:
     objc.classAddMethods(cocoa.BrowserView.WebKitHost, [objc.selector(will_open_menu, selector=b"willOpenMenu:withEvent:", signature=b"v@:@@")])
 
 
+# Select All goes through the page, not WKWebView's native selectAll:. The menu's key equivalent takes Cmd+A before the page sees
+# it, and the native command cannot select a CodeMirror document (CodeMirror only keeps the visible lines in the DOM).
+# window.__lemmaSelectAll (web/src/components/code/java-editor.tsx) selects the whole document of a focused editor; anywhere
+# else this falls back to the browser's own select-all, which covers text fields and the page.
+SELECT_ALL_JS = "(window.__lemmaSelectAll || (() => document.execCommand('selectAll')))()"
+_menu_target = None  # the Objective-C object the Select All and zoom items call; kept alive for the app's lifetime
+
+
+ZOOM_STEPS = (0.5, 0.67, 0.75, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0)
+
+
+def _zoom_file() -> Path:
+    from . import config
+    return config.DATA_DIR / ".zoom"
+
+
+def _webviews() -> list:
+    from webview.platforms import cocoa
+    return [i.webview for i in cocoa.BrowserView.instances.values()]
+
+
+def _set_zoom(z: float) -> None:
+    """Page zoom (Cmd +/-/0): the whole page scales and text reflows. Remembered across launches."""
+    for wv in _webviews():
+        wv.setPageZoom_(z)
+    try:
+        _zoom_file().write_text(str(z))
+    except OSError:
+        pass
+
+
+def _current_zoom() -> float:
+    wvs = _webviews()
+    return float(wvs[0].pageZoom()) if wvs else 1.0
+
+
+def _enable_zoom() -> None:
+    """Trackpad pinch-to-zoom (and two-finger double-tap) like Safari, plus the page zoom saved last time."""
+    try:
+        saved = float(_zoom_file().read_text())
+    except (OSError, ValueError):
+        saved = 1.0
+    for wv in _webviews():
+        wv.setAllowsMagnification_(True)
+        if saved != 1.0:
+            wv.setPageZoom_(saved)
+
+
+def _menu_target_factory():
+    import objc
+    from Foundation import NSObject
+
+    class LemmaMenuTarget(NSObject):
+        def selectAllInPage_(self, sender):
+            import webview
+            # evaluate_js waits for the main thread, and menu actions run on it: hand the call to another thread.
+            threading.Thread(target=lambda: webview.windows[0].evaluate_js(SELECT_ALL_JS), daemon=True).start()
+
+        def zoomInPage_(self, sender):
+            z = _current_zoom()
+            _set_zoom(next((s for s in ZOOM_STEPS if s > z + 0.01), ZOOM_STEPS[-1]))
+
+        def zoomOutPage_(self, sender):
+            z = _current_zoom()
+            _set_zoom(next((s for s in reversed(ZOOM_STEPS) if s < z - 0.01), ZOOM_STEPS[0]))
+
+        def actualSizePage_(self, sender):
+            _set_zoom(1.0)
+            for wv in _webviews():
+                wv.setMagnification_centeredAtPoint_(1.0, (0, 0))  # also undo any pinch
+
+        selectAllInPage_ = objc.selector(selectAllInPage_, signature=b"v@:@")
+        zoomInPage_ = objc.selector(zoomInPage_, signature=b"v@:@")
+        zoomOutPage_ = objc.selector(zoomOutPage_, signature=b"v@:@")
+        actualSizePage_ = objc.selector(actualSizePage_, signature=b"v@:@")
+
+    return LemmaMenuTarget.alloc().init()
+
+
 def _add_edit_menu() -> None:
     """Our custom menu bar has no Edit menu, so Cmd+C/V/X/A never reach WKWebView. Add the standard one."""
     from PyObjCTools import AppHelper
 
     def build():
+        global _menu_target
         from AppKit import NSApplication, NSMenu, NSMenuItem
         main_menu = NSApplication.sharedApplication().mainMenu()
         if main_menu is None:
             return
+        _menu_target = _menu_target_factory()
         edit = NSMenu.alloc().initWithTitle_("Edit")
         for title, action, key in (("Undo", b"undo:", "z"), ("Redo", b"redo:", "Z"), (None, None, None),
                                    ("Cut", b"cut:", "x"), ("Copy", b"copy:", "c"), ("Paste", b"paste:", "v"),
-                                   ("Select All", b"selectAll:", "a")):
+                                   ("Select All", b"selectAllInPage:", "a")):
             if title is None:
                 edit.addItem_(NSMenuItem.separatorItem())
                 continue
-            edit.addItem_(NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, action, key))
+            item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, action, key)
+            if action == b"selectAllInPage:":
+                item.setTarget_(_menu_target)
+            edit.addItem_(item)
         holder = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("Edit", None, "")
         holder.setSubmenu_(edit)
         main_menu.insertItem_atIndex_(holder, min(1, main_menu.numberOfItems()))
+
+        view = NSMenu.alloc().initWithTitle_("View")
+        for title, action, key in (("Actual Size", b"actualSizePage:", "0"), ("Zoom In", b"zoomInPage:", "="),
+                                   ("Zoom In", b"zoomInPage:", "+"), ("Zoom Out", b"zoomOutPage:", "-")):
+            item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, action, key)
+            item.setTarget_(_menu_target)
+            if key == "+":
+                item.setHidden_(True)  # Cmd+Shift+= also zooms in, as in Safari, without a second visible item
+                item.setAllowsKeyEquivalentWhenHidden_(True)
+            view.addItem_(item)
+        vholder = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("View", None, "")
+        vholder.setSubmenu_(view)
+        main_menu.insertItem_atIndex_(vholder, min(2, main_menu.numberOfItems()))
+        _enable_zoom()
 
     AppHelper.callAfter(build)
 

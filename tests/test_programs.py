@@ -44,6 +44,42 @@ class ProgramsTest(unittest.TestCase):
         self.assertEqual(c.get(f"/api/programs/{pid}").status_code, 404)
         self.assertEqual(db.one("SELECT COUNT(*) n FROM program_items WHERE program_id=?", (pid,))["n"], 0)
 
+    def test_schedule(self):
+        c = self.client
+        pid = c.post("/api/programs", json={"name": "Sprint"}).json()["id"]
+        slugs = [r["slug"] for r in db.rows("SELECT slug FROM problems ORDER BY ord LIMIT 3")]
+        for s in slugs:
+            c.put(f"/api/programs/{pid}/items", json={"kind": "code", "ref": s})
+        c.put(f"/api/programs/{pid}/items", json={"kind": "design", "ref": self.qid})
+        self.assertEqual(c.post(f"/api/programs/{pid}/schedule/spread").status_code, 409)  # no dates yet
+
+        p = c.put(f"/api/programs/{pid}/schedule", json={"start_date": "2026-11-25", "end_date": "2026-11-27"}).json()
+        self.assertEqual(p["days"], ["2026-11-25", "2026-11-26", "2026-11-27"])
+        self.assertTrue(all(i["day"] is None for i in p["items"]))
+
+        p = c.post(f"/api/programs/{pid}/schedule/spread").json()
+        days = [i["day"] for i in p["items"]]
+        self.assertEqual(days, sorted(days))  # order is kept
+        self.assertEqual(days[0], "2026-11-25")
+        self.assertEqual(days[-1], "2026-11-27")
+
+        # Move the design question to the first day; it goes last within that day.
+        self.assertEqual(c.put(f"/api/programs/{pid}/items/day", json={"kind": "design", "ref": self.qid, "day": "2026-11-25"}).status_code, 200)
+        first = [i for i in c.get(f"/api/programs/{pid}").json()["items"] if i["day"] == "2026-11-25"]
+        self.assertEqual(first[-1]["ref"], self.qid)
+        self.assertEqual(c.put(f"/api/programs/{pid}/items/day", json={"kind": "design", "ref": self.qid, "day": "2026-12-25"}).status_code, 400)
+
+        # Shrinking the dates unschedules what falls outside.
+        p = c.put(f"/api/programs/{pid}/schedule", json={"start_date": "2026-11-25", "end_date": "2026-11-25"}).json()
+        self.assertTrue(all(i["day"] in (None, "2026-11-25") for i in p["items"]))
+        self.assertEqual(c.put(f"/api/programs/{pid}/schedule", json={"start_date": "2026-11-26", "end_date": "2026-11-25"}).status_code, 400)
+        self.assertEqual(c.put(f"/api/programs/{pid}/schedule", json={"start_date": "soon", "end_date": "2026-11-25"}).status_code, 400)
+
+        c.delete(f"/api/programs/{pid}/schedule")
+        p = c.get(f"/api/programs/{pid}").json()
+        self.assertEqual((p["start_date"], p["days"]), (None, []))
+        self.assertTrue(all(i["day"] is None for i in p["items"]))
+
     def test_rejects_bad_input(self):
         c = self.client
         self.assertEqual(c.post("/api/programs", json={"name": "  "}).status_code, 400)

@@ -199,3 +199,28 @@ questions:
       - "GPU utilization: continuous batching, KV-cache memory, prefill vs decode, model sharding"
       - "Scheduling and fairness across tenants, queueing, autoscaling with slow model load times, priority tiers"
       - "Latency metrics (time to first token, tokens/s), cost per token, failure and rollout of model versions"
+  - slug: splitwise
+    title: Shared expenses (Splitwise)
+    prompt: Design a shared-expenses service like Splitwise for tens of millions of users. People add expenses to groups and see who owes whom. Some groups (trips, clubs, offices) have thousands of members and a steady stream of expenses, and the app must show each person a simplified set of payments that settles the group with as few transfers as possible.
+    stresses: [data_modeling, technical_depth, scalability_reliability]
+    crux_hints:
+      - "Expenses as an immutable ledger (double-entry, idempotency keys) with per-user net balances derived from it; edits and deletes as reversing entries, never in-place updates"
+      - "Debt simplification: net each member's balance, then greedily match largest creditor with largest debtor (at most n-1 transfers; true minimum is NP-hard). Recompute incrementally or asynchronously for large groups instead of on every write"
+      - "Large and hot groups: shard by group id, keep a materialized balance per (group, user), serialize writes per group (single writer or optimistic versioning), cache the simplified plan and invalidate on change"
+      - "Cross-group 'total you owe' view, multi-currency (store in original currency, convert at read or settle time), notifications fan-out, settle-up payments and reconciliation"
+  - slug: search-service
+    title: Search service
+    prompt: Design full-text search for a marketplace with hundreds of millions of listings. Results must be relevant, filterable by attributes like price and location, and reflect new or changed listings within seconds.
+    stresses: [technical_depth, architecture, tradeoff_reasoning]
+    crux_hints:
+      - "Inverted index basics (tokenizing, postings, BM25), document vs term partitioning, scatter-gather with replicas, tail latency"
+      - "Indexing pipeline from the source of truth (CDC, near-real-time segments, refresh vs merge), reindexing without downtime"
+      - "Relevance: retrieval then ranking stages, filters and facets, personalisation, query understanding; measuring quality offline and online"
+  - slug: data-platform
+    title: Event data platform
+    prompt: Design the data platform that collects product events from every service and app at a large company and makes them available for real-time dashboards, batch analytics and machine-learning features.
+    stresses: [architecture, scalability_reliability, operational_maturity]
+    crux_hints:
+      - "Ingestion through a durable log (Kafka-style), schemas and a registry, backpressure, late and duplicate events"
+      - "Lambda vs kappa: stream processing for fresh aggregates, a lakehouse (columnar files, partitioning, compaction) for batch, reconciling the two"
+      - "Data quality and lineage, backfills, privacy (PII, deletion requests), cost of storage and compute, multi-tenant access"

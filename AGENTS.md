@@ -1,7 +1,7 @@
 # AGENTS.md
 
-Lemma: a local-only macOS app for practicing staff-level interviews, in two tracks (system design and coding) that share one shell,
-streak and settings. In the UI, design is amber (`--signal`) and code is blue (`--code`); the logo is code braces around a system diagram.
+Lemma: a local-only macOS app for practicing staff-level interviews, in three tracks (system design, coding and behavioral) that share
+one shell, streak and settings. In the UI, design is amber (`--signal`), code is blue (`--code`) and behavioral is plum (`--lead`); the logo is code braces around a system diagram.
 The UI is set like a mathematics paper: STIX Two Text for headlines and reading, Schibsted Grotesk for controls, monospace
 only for real code; theorem-style statements (`Statement`), the end-of-proof mark `Tomb` for done things, surfaces told apart by
 tone (no borders, shadows, gradients, pills or tiny uppercase labels). Tokens and rules are in `web/src/app/globals.css`.
@@ -17,6 +17,11 @@ The data folder is `~/Lemma` (copied from `~/SystemDesignCoach` on first launch 
 - Articles (`app/articles.py`, `/articles/`): explainer articles grouped by design problem; Explain picks an existing article or writes one.
 - Code (`app/code/`, `/code/`): a second vertical for coding interviews, driven by the 160-problem roadmap in `app/seed/problems.yaml`.
   See "Coding vertical" below.
+- Behavioral (`app/behavioral.py`, `/behavioral/`): leadership questions by competency (`app/seed/behavioral.yaml`, synced by slug), reusable
+  stories, an autosaved draft per question, spoken or typed answers, and a staff-level judge (`behavioral_review` job, prompt in
+  `app/seed/behavioral/`, schema `behavioral_review.json`). An off-topic answer is capped at 2.0 in code.
+- Programs (`app/programs.py`, `/programs/`): named sets of code, design and behavioral items, with optional dates and a planned day per item.
+  "Spread" plans items in order by rough effort (design 2, Hard 1.5, Medium 1, behavioral 0.5), optionally heavier on weekends.
 - Grading through the `claude` CLI (Pro login), OpenRouter or Groq, chosen per task; Usage page shows calls, tokens and cost.
 
 ## Architecture
@@ -57,6 +62,9 @@ Next.js UI (web/) ──/api──► FastAPI (app/main.py) ──► SQLite (~/
   must agree on every example, edge case and random input (or both satisfy `checker_py` when many answers are valid). Disagreements go
   back to the model (up to 3 rounds); what still disagrees is dropped and the spec is marked `partial`. Stress-case time limits are
   scaled from the reference's measured time (`time_limit`).
+- Levels: every problem is ONE class with exactly 4 levels (level 1 the original problem, 2-3 follow-ups, 4 the staff follow-up), from the
+  roadmap's `levels` where given, otherwise designed by the generator (`generate.LEVELS`). Levels are groups of test cases: Run and Submit test
+  levels 1..`attempts.level`; a passing Submit unlocks the next level (`routes.run_attempt`), and passing level 4 solves the problem.
 - `java/Harness.java` is one generic, reflection-driven harness (function problems and class/operation-list "design" problems, with
   `ListNode`/`TreeNode`). It reads a JSON cases file and prints `@@R@@{...}` lines; Python does all comparing. Change it and the
   compiled copy is rebuilt automatically (cached by source hash under `~/Lemma/code/harness/`).
@@ -75,6 +83,10 @@ Next.js UI (web/) ──/api──► FastAPI (app/main.py) ──► SQLite (~/
 - Editor language server: `lsp.py` bridges `WS /api/code/lsp` to Eclipse JDT LS (`brew install jdtls`), started when a problem page connects and stopped when it
   closes; `web/src/lib/lsp.ts` + `@codemirror/lsp-client` give completion, auto-import, live errors and go to definition. Without jdtls the editor stays plain.
   `judge.add_missing_imports` also adds common `java.util` imports at compile time, on line 1 so error lines do not move.
+- Debugger (record and replay): `java/Tracer.java` launches the harness on one visible case under JDI, stops on every line of the
+  candidate's file and records the call stack, locals and reachable objects (JDK collections read from their fields, so no code runs in
+  the program), plus return values and exceptions; capped at `runner.TRACE_MAX_STEPS`. `POST /attempts/{id}/trace`; the Debug tab
+  replays it with breakpoints from the editor gutter. It does not count as a run and does not affect the rating.
 - Needs a JDK (`javac`). Tests in `tests/test_code.py` skip the Java parts without one.
 
 ## Making changes locally

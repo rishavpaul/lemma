@@ -2,14 +2,16 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, ChevronRight, Lightbulb, Loader2, Play, RotateCcw, Send, TriangleAlert, Unlock, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, Lightbulb, Loader2, MessageSquare, Play, RotateCcw, Send, TriangleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Markdown } from "@/components/markdown";
 import { Pill } from "@/components/score-chip";
 import { Statement, Tomb } from "@/components/shell/page-header";
 import { JavaEditor } from "@/components/code/java-editor";
+import type { InlineReview } from "@/components/code/inline-review";
 import { ResultsPanel } from "@/components/code/results-panel";
+import { DebugPanel } from "@/components/code/debug-panel";
 import { ReviewView } from "@/components/code/review-view";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
@@ -19,8 +21,11 @@ import type { CodeAttempt, CodeProblemDetail, CodeRun, CodeSolution, Rating } fr
 
 const DIFF_TONE: Record<string, "mint" | "signal" | "coral" | "muted"> = { Easy: "mint", Medium: "signal", Hard: "coral", Build: "muted" };
 const RATING_TEXT: Record<Rating, string> = { clean: "Clean solve", hints: "Solved with hints", solution: "Needed the solution" };
+/** The editor fills the window: everything above it (app bar, title, toolbar, about 12rem) and the Results tab bar below it
+ * (about 5rem) stay on screen, so the tabs are always in view. Never shorter than 320px. */
+const EDITOR_HEIGHT = "max(320px, calc(100dvh - 17rem))";
 type LeftTab = "problem" | "tests" | "about";
-type RightTab = "results" | "review" | "hints" | "solution";
+type RightTab = "results" | "debug" | "review" | "hints" | "solution";
 
 function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: T; label: React.ReactNode }[]; value: T; onChange: (t: T) => void }) {
   return (
@@ -122,6 +127,21 @@ function StartScreen({ d, onStart, onOpen }: { d: CodeProblemDetail; onStart: (r
   );
 }
 
+/** Which levels' tests are unlocked: filled squares for passed levels, the current one outlined, locked ones faint. */
+function LevelMeter({ level, total, solved }: { level: number; total: number; solved: boolean }) {
+  const passed = solved ? total : level - 1;
+  return (
+    <span className="inline-flex items-center gap-2 text-[13px] text-muted-foreground" title={`Run and Submit test levels 1 to ${level}`}>
+      <span className="inline-flex gap-1" aria-hidden>
+        {Array.from({ length: total }, (_, i) => (
+          <span key={i} className={cn("size-2.5", i < passed ? "bg-signal" : i < level ? "border-[1.5px] border-signal" : "bg-muted")} />
+        ))}
+      </span>
+      {solved ? `All ${total} levels passed` : `Level ${level} of ${total}`}
+    </span>
+  );
+}
+
 function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeAttempt; reload: () => void; onRestart: () => void }) {
   const spec = d.spec;                    // the validated tests; null while they are still being built
   const pub = (d.spec ?? d.brief)!;       // the statement and starter exist before the tests do
@@ -134,8 +154,23 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
   const [right, setRight] = useState<RightTab>("results");
   const [running, setRunning] = useState<"run" | "submit" | null>(null);
   const [run, setRun] = useState<CodeRun | null>(a.last_run);
-  const [levelPassed, setLevelPassed] = useState(false);
   const solved = a.status === "solved";
+  // Debugger: breakpoints are remembered per attempt; execLine is the line being replayed in the Debug tab.
+  const bpKey = `lemma.code.breakpoints.${a.id}`;
+  const [breakpoints, setBreakpoints] = useState<number[]>(() => {
+    try { return JSON.parse(localStorage.getItem(bpKey) ?? "[]"); } catch { return []; }
+  });
+  const [execLine, setExecLine] = useState<number | null>(null);
+  // The latest staff review, shown in the editor under the code each comment is about.
+  const [showReview, setShowReview] = useState(true);
+  const [reveal, setReveal] = useState<{ key: string; n: number } | null>(null);
+  const toggleBreakpoint = useCallback((line: number) => {
+    setBreakpoints((cur) => {
+      const next = cur.includes(line) ? cur.filter((x) => x !== line) : [...cur, line].sort((x, y) => x - y);
+      try { localStorage.setItem(bpKey, JSON.stringify(next)); } catch { /* private window */ }
+      return next;
+    });
+  }, [bpKey]);
 
   const wasReady = useRef(testsReady);
   useEffect(() => {
@@ -173,14 +208,14 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
   useEffect(() => { readyRef.current = testsReady; }, [testsReady]);
   const doRun = useCallback(async (kind: "run" | "submit") => {
     if (!readyRef.current) { toast.info("The tests are still being built", { description: "Keep coding. Run unlocks as soon as they are ready." }); return; }
-    setRunning(kind); setRight("results"); setLevelPassed(false);
+    setRunning(kind); setRight("results");
     try {
-      const r = await api<{ run_id: number; kind: string; verdict: CodeRun["verdict"]; duration_ms: number; solved: boolean; level_passed: boolean; level: number }>(
+      const r = await api<{ run_id: number; kind: string; verdict: CodeRun["verdict"]; duration_ms: number; solved: boolean; unlocked: number | null; level: number }>(
         `/api/code/attempts/${a.id}/run`, { method: "POST", body: { code: latest.current.code, kind, active_sec: active.current } });
       setRun({ id: r.run_id, kind: r.kind, status: r.verdict?.status ?? "", passed: r.verdict?.passed ?? 0, total: r.verdict?.total ?? 0, level: r.level, created_at: Date.now() / 1000, duration_ms: r.duration_ms, verdict: r.verdict });
       dirty.current = false;
       if (r.solved) { toast.success("Solved. Ask for the staff review while it is fresh."); setRight("results"); reload(); }
-      else if (r.level_passed) { setLevelPassed(true); toast.success(`Level ${r.level} passed`); reload(); }
+      else if (r.unlocked) { toast.success(`Level ${r.level} passed. Level ${r.unlocked} tests are unlocked.`, { description: "Its requirements are under the problem statement; extend the same class and submit again." }); reload(); }
     } catch (e) { toast.error("Could not run", { description: (e as Error).message }); }
     setRunning(null);
   }, [a.id, reload]);
@@ -192,6 +227,17 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
   const elapsed = Math.round(seconds);
   const target = (d.problem.difficulty === "Hard" ? 35 : 25) * 60;
   const lastReview = a.reviews.find((r) => r.status === "done");
+  const reviewComments = lastReview?.result?.comments ?? [];
+  const inlineReview = useMemo<InlineReview>(() => {
+    if (!showReview || !lastReview?.result?.comments.length) return null;
+    const lines = lastReview.code.split("\n");
+    return {
+      id: lastReview.id,
+      comments: lastReview.result.comments.map((c, i) => ({
+        ...c, key: `${lastReview.id}:${i}`, anchorText: c.line_start != null && c.line_end != null ? lines.slice(c.line_start - 1, c.line_end).join("\n") : "",
+      })),
+    };
+  }, [lastReview, showReview]);
   const reviewing = a.reviews.some((r) => r.job && ["queued", "running"].includes(r.job.status));
 
   return (
@@ -203,13 +249,19 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
             <>
               <Markdown>{pub.statement_md}</Markdown>
               {pub.constraints.length > 0 && <><h3 className="mt-6 font-serif text-[1.15rem] font-semibold">Constraints</h3><ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm">{pub.constraints.map((c, i) => <li key={i}><code className="font-mono text-xs">{c}</code></li>)}</ul></>}
-              {pub.levels.slice(0, a.level).map((lv) => (
-                <div key={lv.n} className="mt-6 rounded-[3px] bg-card p-4">
-                  <div className="mb-1 flex items-center gap-2 text-sm font-semibold"><Pill tone="signal">Level {lv.n}</Pill>{lv.title}{d.levels_text?.[lv.n - 1]?.staff && <Pill tone="coral">staff</Pill>}</div>
-                  <Markdown>{lv.statement_md}</Markdown>
-                </div>
-              ))}
-              {a.level < nLevels && <p className="mt-4 text-sm text-muted-foreground">{nLevels - a.level} more level{nLevels - a.level === 1 ? "" : "s"} unlock as you pass each one. Keep the same class and do not restart between levels.</p>}
+              {nLevels > 1 && <p className="mt-6 text-sm text-muted-foreground">{nLevels} levels, each a follow-up an interviewer asks, all in one class. Run and Submit test every unlocked level; passing Submit unlocks the next level&apos;s tests. You can write ahead at any time.</p>}
+              {pub.levels.map((lv) => {
+                const later = lv.n > a.level;
+                return (
+                  <div key={lv.n} className={cn("mt-4 rounded-[3px] bg-card p-4", later && "opacity-60")}>
+                    <div className="mb-1 flex flex-wrap items-center gap-2 text-sm font-semibold">
+                      <Pill tone={later ? "muted" : "signal"}>Level {lv.n}</Pill>{lv.title}{d.levels_text?.[lv.n - 1]?.staff && <Pill tone="coral">staff</Pill>}
+                      {later && <span className="font-normal text-muted-foreground">tests unlock when level {lv.n - 1} passes</span>}
+                    </div>
+                    <Markdown>{lv.statement_md}</Markdown>
+                  </div>
+                );
+              })}
             </>
           )}
           {left === "tests" && !spec && <TestsPending building={building} d={d} reload={reload} />}
@@ -244,12 +296,17 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
 
       <section className="min-w-0">
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          {nLevels > 1 && <Pill tone="signal">Level {a.level} of {nLevels}</Pill>}
+          {nLevels > 1 && <LevelMeter level={a.level} total={nLevels} solved={solved} />}
           {hideTimer
             ? <button type="button" onClick={() => toggleTimer(false)} className="text-[14px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Show timer</button>
             : <span className="inline-flex items-baseline gap-1.5 text-[14px] text-muted-foreground" title="Active time, paused when this tab is hidden"><span className={cn("fig text-[1.6rem]", elapsed > target ? "text-coral" : "text-foreground")}>{mmss(elapsed)}</span>of {mmss(target)}
                 <button type="button" aria-label="Hide the timer" title="Hide the timer (it keeps counting)" onClick={() => toggleTimer(true)} className="self-center p-1 text-muted-foreground hover:text-foreground"><X className="size-3.5" /></button></span>}
           <div className="ml-auto flex flex-wrap gap-2">
+            {reviewComments.length > 0 && (
+              <Button size="sm" variant="ghost" aria-pressed={showReview} title="Show the staff review's comments under your code" onClick={() => setShowReview((v) => !v)}>
+                <MessageSquare />{showReview ? "Hide review" : `Show review (${reviewComments.length})`}
+              </Button>
+            )}
             <Button size="sm" variant="ghost" title="Replace your code with the starter file" onClick={() => { if (code === pub.starter_code || window.confirm("Replace your code with the starter file?")) { setCode(pub.starter_code); dirty.current = true; } }}><RotateCcw />Reset</Button>
             <Button size="sm" variant="outline" disabled={!!running || !testsReady} title={testsReady ? undefined : "Unlocks when the tests are built"} onClick={onRun}>{running === "run" ? <Loader2 className="animate-spin" /> : <Play />}Run</Button>
             <Button size="sm" variant="code" disabled={!!running || !testsReady} title={testsReady ? undefined : "Unlocks when the tests are built"} onClick={onSubmit}>{running === "submit" ? <Loader2 className="animate-spin" /> : <Send />}Submit</Button>
@@ -265,16 +322,17 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
             )}
           </div>
         )}
-        <JavaEditor value={code} onChange={(v) => { setCode(v); dirty.current = true; }} onRun={onRun} onSubmit={onSubmit} attemptId={a.id} height="clamp(320px, 48vh, 620px)" />
+        <JavaEditor value={code} onChange={(v) => { setCode(v); dirty.current = true; }} onRun={onRun} onSubmit={onSubmit} attemptId={a.id} height={EDITOR_HEIGHT}
+          breakpoints={breakpoints} onToggleBreakpoint={toggleBreakpoint} execLine={right === "debug" ? execLine : null}
+          review={inlineReview} reveal={reveal}
+          onReviewApplied={(title, undo) => toast.success(undo ? `Undid “${title}”` : `Applied “${title}”`, testsReady && !undo ? { action: { label: "Run", onClick: onRun } } : undefined)} />
 
-        {(solved || levelPassed) && (
+        {solved && (
           <div className="mt-3 flex flex-wrap items-center gap-3 rounded-[3px] bg-mint/12 p-3">
             <Tomb className="text-[1.4rem] text-mint" />
             <div className="min-w-0 flex-1 text-sm">
-              {solved ? <><b>{RATING_TEXT[a.rating]}</b>{hideTimer ? "" : ` in ${mmss(Math.round(a.active_sec || seconds))}`}. {a.rating !== "clean" && "This problem is in your review list."}</>
-                : <><b>Level {a.level} passed.</b> Unlock the next level and extend the same class.</>}
+              <b>{RATING_TEXT[a.rating]}</b>{hideTimer ? "" : ` in ${mmss(Math.round(a.active_sec || seconds))}`}. {a.rating !== "clean" && "This problem is in your review list."}
             </div>
-            {!solved && a.level < nLevels && <Button size="sm" onClick={async () => { try { await api(`/api/code/attempts/${a.id}/advance`, { method: "POST" }); setLevelPassed(false); setRun(null); setLeft("problem"); reload(); } catch (e) { toast.error((e as Error).message); } }}><Unlock />Unlock level {a.level + 1}</Button>}
             {solved && <Button size="sm" variant="outline" onClick={onRestart}><RotateCcw />Redo from scratch</Button>}
           </div>
         )}
@@ -282,12 +340,17 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
         <div className="mt-4 overflow-hidden rounded-[3px] bg-card px-1 pt-1">
           <div className="px-4"><Tabs<RightTab> value={right} onChange={setRight} tabs={[
             { id: "results", label: "Results" },
+            { id: "debug", label: "Debug" },
             { id: "review", label: <span className="inline-flex items-center gap-1.5">Staff review{reviewing && <Loader2 className="size-3 animate-spin" />}</span> },
             { id: "hints", label: <span className="inline-flex items-center gap-1.5">Hints{a.hints_used > 0 && <span className="num text-xs text-signal">{a.hints_used}</span>}</span> },
             { id: "solution", label: "Solution" },
           ]} /></div>
           {right === "results" && <ResultsPanel run={run} running={running} />}
-          {right === "review" && <ReviewTab a={a} explanation={explanation} setExplanation={(v) => { setExplanation(v); dirty.current = true; }} code={code} hasRun={!!run} lastReview={lastReview} reload={reload} />}
+          {right === "debug" && (spec
+            ? <DebugPanel attemptId={a.id} code={code} cases={spec.cases.filter((c) => c.level <= a.level)} breakpoints={breakpoints} onExecLine={setExecLine} />
+            : <WaitingForTests what="The debugger" />)}
+          {right === "review" && <ReviewTab a={a} explanation={explanation} setExplanation={(v) => { setExplanation(v); dirty.current = true; }} code={code} hasRun={!!run} lastReview={lastReview} reload={reload}
+            onReveal={(i) => { if (lastReview) { setShowReview(true); setReveal({ key: `${lastReview.id}:${i}`, n: Date.now() }); } }} />}
           {right === "hints" && (spec ? <HintsTab a={a} spec={spec} code={code} reload={reload} /> : <WaitingForTests what="Hints and the coach" />)}
           {right === "solution" && (spec ? <SolutionTab a={a} reload={reload} /> : <WaitingForTests what="The solution and write-up" />)}
         </div>
@@ -314,8 +377,9 @@ function TestsPending({ building, d, reload }: { building: boolean; d: CodeProbl
   );
 }
 
-function ReviewTab({ a, explanation, setExplanation, code, hasRun, lastReview, reload }: {
+function ReviewTab({ a, explanation, setExplanation, code, hasRun, lastReview, reload, onReveal }: {
   a: CodeAttempt; explanation: string; setExplanation: (v: string) => void; code: string; hasRun: boolean; lastReview: CodeAttempt["reviews"][number] | undefined; reload: () => void;
+  onReveal: (i: number) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const running = a.reviews.find((r) => r.job && ["queued", "running"].includes(r.job.status));
@@ -348,7 +412,7 @@ function ReviewTab({ a, explanation, setExplanation, code, hasRun, lastReview, r
         <span>Reviewed {fmtDate(lastReview.created_at)} by {lastReview.model}</span>
         <Button size="sm" variant="outline" className="ml-auto" onClick={() => setShowForm(true)}>Review again</Button>
       </div>
-      {lastReview.result ? <ReviewView r={lastReview.result} id={`review-${lastReview.id}`} /> : null}
+      {lastReview.result ? <ReviewView r={lastReview.result} id={`review-${lastReview.id}`} onReveal={onReveal} /> : null}
     </div>
   );
 }

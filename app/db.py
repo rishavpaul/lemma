@@ -310,12 +310,14 @@ def sync_problems() -> None:
     for p in data["problems"]:
         order += 1
         conn.execute(
-            """INSERT INTO problems(slug,num,title,phase,ord,track,difficulty,premium,tags_json,note,is_build,created_at)
-               VALUES(?,?,?,?,?,?,?,?,?,?,0,?)
+            """INSERT INTO problems(slug,num,title,phase,ord,track,difficulty,premium,tags_json,note,is_build,levels_json,created_at)
+               VALUES(?,?,?,?,?,?,?,?,?,?,0,?,?)
                ON CONFLICT(slug) DO UPDATE SET num=excluded.num, title=excluded.title, phase=excluded.phase, ord=excluded.ord,
-                 track=excluded.track, difficulty=excluded.difficulty, premium=excluded.premium, tags_json=excluded.tags_json, note=excluded.note""",
+                 track=excluded.track, difficulty=excluded.difficulty, premium=excluded.premium, tags_json=excluded.tags_json, note=excluded.note,
+                 levels_json=excluded.levels_json""",
             (p["slug"], p.get("num"), p["title"], p["phase"], order, phases[p["phase"]]["track"], p.get("difficulty"),
-             int(bool(p.get("premium"))), json.dumps(p.get("tags", [])), p.get("note", ""), now))
+             int(bool(p.get("premium"))), json.dumps(p.get("tags", [])), p.get("note", ""),
+             json.dumps(p["levels"]) if p.get("levels") else None, now))
     phase = max(phases) + 1  # builds follow the last phase
     for b in data.get("progressions", []):
         order += 1
@@ -335,3 +337,53 @@ MIGRATIONS.append("""
         kind TEXT NOT NULL CHECK(kind IN ('code','design')), ref TEXT NOT NULL, ord INTEGER NOT NULL,
         PRIMARY KEY(program_id, kind, ref));
 """)
+
+# Program schedule: calendar dates (ISO, local) the program runs over, and the day each item is planned for (NULL = unscheduled).
+MIGRATIONS.append("""
+    ALTER TABLE programs ADD COLUMN start_date TEXT;
+    ALTER TABLE programs ADD COLUMN end_date TEXT;
+    ALTER TABLE program_items ADD COLUMN day TEXT;
+""")
+
+# Behavioral track: the question bank (synced from config/behavioral.yaml), reusable stories, the current draft per question and
+# graded attempts. Program items may now be behavioral questions too (SQLite cannot alter a CHECK, so the table is rebuilt).
+MIGRATIONS.append("""
+    CREATE TABLE behavioral_questions(
+        id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE, competency TEXT NOT NULL, title TEXT NOT NULL, prompt TEXT NOT NULL,
+        look_for TEXT NOT NULL DEFAULT '', ord INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1, created_at REAL NOT NULL);
+    CREATE TABLE behavioral_stories(
+        id INTEGER PRIMARY KEY, title TEXT NOT NULL, notes TEXT NOT NULL DEFAULT '', created_at REAL NOT NULL, updated_at REAL NOT NULL);
+    CREATE TABLE behavioral_drafts(
+        question_id INTEGER PRIMARY KEY REFERENCES behavioral_questions(id) ON DELETE CASCADE,
+        story_id INTEGER REFERENCES behavioral_stories(id) ON DELETE SET NULL,
+        text TEXT NOT NULL DEFAULT '', updated_at REAL NOT NULL);
+    CREATE TABLE behavioral_attempts(
+        id INTEGER PRIMARY KEY, question_id INTEGER NOT NULL REFERENCES behavioral_questions(id) ON DELETE CASCADE,
+        story_id INTEGER REFERENCES behavioral_stories(id) ON DELETE SET NULL,
+        text TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'queued', result_json TEXT, model TEXT, created_at REAL NOT NULL);
+    CREATE INDEX behavioral_attempts_q ON behavioral_attempts(question_id);
+
+    CREATE TABLE program_items_new(
+        program_id INTEGER NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL CHECK(kind IN ('code','design','behavioral')), ref TEXT NOT NULL, ord INTEGER NOT NULL, day TEXT,
+        PRIMARY KEY(program_id, kind, ref));
+    INSERT INTO program_items_new(program_id, kind, ref, ord, day) SELECT program_id, kind, ref, ord, day FROM program_items;
+    DROP TABLE program_items;
+    ALTER TABLE program_items_new RENAME TO program_items;
+""")
+
+
+def sync_behavioral() -> None:
+    """Upsert behavioral questions from config/behavioral.yaml by slug; questions no longer listed are hidden, not deleted (attempts keep them)."""
+    conn = connect()
+    data = config.load_behavioral_yaml()
+    slugs = []
+    for i, q in enumerate(data.get("questions", [])):
+        slugs.append(q["slug"])
+        conn.execute(
+            """INSERT INTO behavioral_questions(slug, competency, title, prompt, look_for, ord, active, created_at) VALUES(?,?,?,?,?,?,1,?)
+               ON CONFLICT(slug) DO UPDATE SET competency=excluded.competency, title=excluded.title, prompt=excluded.prompt,
+                 look_for=excluded.look_for, ord=excluded.ord, active=1""",
+            (q["slug"], q["competency"], q["title"], q["prompt"], q.get("look_for", ""), i, time.time()))
+    conn.execute(f"UPDATE behavioral_questions SET active=0 WHERE slug NOT IN ({','.join('?' * len(slugs)) or 'NULL'})", slugs)
+    conn.commit()

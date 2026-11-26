@@ -52,16 +52,61 @@ def _entry(problem: dict, phase: dict, topics: dict) -> str:
         lines.append(f"inspired by: LeetCode #{problem['num']}" + (" (premium)" if problem["premium"] else ""))
     lines += [f"difficulty: {problem['difficulty']}", f"phase: {phase['name']} - {phase['why']}", f"topics: {tags or 'n/a'}",
               f"note from the roadmap (the interviewer's intent and the follow-up): {problem['note']}"]
-    if problem["is_build"]:
-        levels = json.loads(problem["levels_json"])
-        lines.append(f"This is a multi-level build with {len(levels)} levels. Level descriptions from the roadmap (a staff marker means a staff-level follow-up):")
+    levels = json.loads(problem["levels_json"]) if problem.get("levels_json") else []
+    lines.append(f"Every problem has exactly {LEVELS} levels: one class whose methods grow level by level. "
+                 + ("Level 1 is the first stage of this build." if problem["is_build"] else
+                    "Level 1 is the original problem; each later level is a follow-up interviewers really ask; level 4 is the staff-level one."))
+    if levels:
+        lines.append("Levels from the roadmap (a staff marker means a staff-level follow-up)"
+                     + (f"; design the remaining {LEVELS - len(levels)} after them" if len(levels) < LEVELS else "") + ":")
         lines += [f"  level {i}{' (staff)' if lv.get('staff') else ''}: {lv['text']}" for i, lv in enumerate(levels, 1)]
+    else:
+        lines.append(f"The roadmap gives no levels: design all {LEVELS} from the follow-ups in the note and what interviewers commonly ask.")
     lines.append("</roadmap_entry>")
     return "\n".join(lines)
 
 
+LEVELS = 4  # every problem: level 1 is the original, 2-3 follow-ups, 4 the staff follow-up; tests are grouped by level
+
+
 def _n_levels(problem: dict) -> int:
-    return len(json.loads(problem["levels_json"])) if problem["is_build"] else 0
+    return LEVELS
+
+
+_DECL = re.compile(r"^(?P<indent>[ \t]*)(?:(?:public|protected|private|static|final|synchronized)\s+)*(?:[\w<>\[\],.? ]+\s+)?(?P<name>\w+)\s*\((?P<params>[^)]*)\)\s*(?:throws [\w., ]+)?\{", re.M)
+_SIG = re.compile(r"(\w+)\s*\(([^)]*)\)")
+
+
+def _arity(params: str) -> int:
+    params = re.sub(r"<[^<>]*>", "", re.sub(r"<[^<>]*>", "", params))  # drop generics, which contain commas
+    return 0 if not params.strip() else params.count(",") + 1
+
+
+def annotate_starter(starter: str, levels: list[dict]) -> str:
+    """Label each method stub with the level that introduces it (`/** Level 2: Per-key TTL. */`), from the levels' `methods_added`.
+    Methods are matched by name and parameter count, so overloads are told apart. Stubs that already carry a level label are left alone."""
+    wanted: dict[tuple[str, int], tuple[int, str]] = {}
+    for lv in levels or []:
+        for sig in lv.get("methods_added", []):
+            m = _SIG.search(sig)
+            if m:
+                wanted.setdefault((m.group(1), _arity(m.group(2))), (lv["n"], lv.get("title", "")))
+    if not wanted:
+        return starter
+    lines = starter.split("\n")
+    out = []
+    for i, line in enumerate(lines):
+        m = _DECL.match(line)
+        if m and m.group("name") not in ("if", "for", "while", "switch", "catch", "synchronized"):
+            key = (m.group("name"), _arity(m.group("params")))
+            prev = out[-1].strip() if out else ""
+            if key in wanted and not prev.startswith("/** Level"):
+                n, title = wanted[key]
+                if re.fullmatch(r"//\s*Level\s*\d+.*", prev):  # the model's own marker: replace it, do not label twice
+                    out.pop()
+                out.append(f"{m.group('indent')}/** Level {n}{': ' + title.rstrip('.') + '.' if title else '.'} */")
+        out.append(line)
+    return "\n".join(out)
 
 
 def brief_payload(problem: dict, phase: dict, topics: dict) -> str:
@@ -91,6 +136,8 @@ def validate_brief(b: dict, schema: dict, problem: dict) -> str | None:
         return err
     if not re.search(rf"\b(class|interface|record)\s+{re.escape(b['class_name'])}\b", b["starter_code"]):
         return f"starter_code must declare a class named {b['class_name']}"
+    if b["kind"] != "design":
+        return "kind must be design: every problem is one class whose methods grow level by level"
     if b["kind"] == "function" and not b["method"].strip():
         return "method is required for kind function"
     if b["kind"] == "function" and b["method"] not in b["starter_code"]:
@@ -145,9 +192,14 @@ def validate_spec(spec: dict, schema: dict, problem: dict, brief: dict | None = 
         return "three hints are required"
     if spec["perf_size"] < 10:
         return "perf_size must be at least 10"
+    if spec["kind"] != "design":
+        return "kind must be design: every problem is one class whose methods grow level by level"
     n = _n_levels(problem)
     if len(spec["levels"]) != n:
         return f"levels must have exactly {n} entries"
+    case_levels = {c.get("level", 1) for c in spec["examples"] + spec["edge_cases"]}
+    if missing := [k for k in range(1, n + 1) if k not in case_levels]:
+        return f"every level needs an example or edge case; none for level(s) {missing}"
     if spec["inplace_param"] != int(spec["inplace_param"]):
         return "inplace_param must be an integer"
     return None

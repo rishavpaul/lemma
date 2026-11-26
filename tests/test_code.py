@@ -53,13 +53,77 @@ def spec(**over) -> dict:
     return s
 
 
+# Every generated problem is one class with 4 levels; this is the fixture for the generation and end-to-end flow.
+STAGED = """import java.util.*;
+class EvenCounter {
+    private final List<Integer> xs = new ArrayList<>();
+    public void add(int x) { xs.add(x); }
+    public int countEven() { int n = 0; for (int x : xs) if (x % 2 == 0) n++; return n; }
+    public int countOdd() { return xs.size() - countEven(); }
+    public boolean remove(int x) { return xs.remove(Integer.valueOf(x)); }
+    public void reset() { xs.clear(); }
+}"""
+STAGED_BRUTE = """import java.util.*;
+class EvenCounter {
+    private LinkedList<Integer> items = new LinkedList<>();
+    public void add(int x) { items.addLast(x); }
+    public int countEven() { int c = 0; for (int i = 0; i < items.size(); i++) { if (Math.floorMod(items.get(i), 2) == 0) c += 1; } return c; }
+    public int countOdd() { int c = 0; for (int i = 0; i < items.size(); i++) { if (Math.floorMod(items.get(i), 2) == 1) c += 1; } return c; }
+    public boolean remove(int x) { for (int i = 0; i < items.size(); i++) { if (items.get(i) == x) { items.remove(i); return true; } } return false; }
+    public void reset() { items = new LinkedList<>(); }
+}"""
+STAGED_STARTER = ("class EvenCounter {\n    public void add(int x) {}\n    public int countEven() { return 0; }\n    public int countOdd() { return 0; }\n"
+                  "    public boolean remove(int x) { return false; }\n    public void reset() {}\n}")
+GEN_STAGED = ("def gen(rng, size, level=1):\n"
+              "    names = ['add', 'add', 'countEven'] + (['countOdd'] if level >= 2 else []) + (['remove'] if level >= 3 else []) + (['reset'] if level >= 4 else [])\n"
+              "    ops = [['EvenCounter', []]]\n"
+              "    for _ in range(rng.randint(1, size)):\n"
+              "        m = rng.choice(names)\n"
+              "        ops.append([m, [rng.randint(-9, 9)]] if m in ('add', 'remove') else [m, []])\n"
+              "    return ops\n")
+
+
+def _ops(*ops):
+    return [["EvenCounter", []], *[[m, list(a)] for m, *a in ops]]
+
+
+def staged_spec(**over) -> dict:
+    lv = lambda n, title, methods: {"n": n, "title": title, "statement_md": title + ".", "methods_added": methods}  # noqa: E731
+    s = spec(kind="design", class_name="EvenCounter", method="", statement_md="Keep a list of integers and count the even ones.",
+             starter_code=STAGED_STARTER, reference_solution=STAGED, brute_solution=STAGED_BRUTE, generator_py=GEN_STAGED, perf_size=300,
+             examples=[{"input": _ops(("add", 2), ("add", 3), ("countEven",)), "expected": [None, None, None, 1], "explanation": "2 is even", "level": 1},
+                       {"input": _ops(("add", 1), ("countOdd",)), "expected": [None, None, 1], "explanation": "1 is odd", "level": 2},
+                       {"input": _ops(("add", 4), ("remove", 4), ("remove", 4), ("countEven",)), "expected": [None, None, True, False, 0], "explanation": "once", "level": 3},
+                       {"input": _ops(("add", 2), ("reset",), ("countEven",)), "expected": [None, None, None, 0], "explanation": "cleared", "level": 4}],
+             edge_cases=[{"name": "empty", "input": _ops(("countEven",)), "level": 1}, {"name": "negatives", "input": _ops(("add", -2), ("add", -1), ("countEven",)), "level": 1}],
+             levels=[lv(1, "Count evens", ["void add(int x)", "int countEven()"]), lv(2, "Count odds", ["int countOdd()"]),
+                     lv(3, "Remove", ["boolean remove(int x)"]), lv(4, "Reset", ["void reset()"])])
+    s.update(over)
+    return s
+
+
+def _c(title, anchor="", find="", replace="", kind="clarity"):
+    return {"severity": "low", "kind": kind, "title": title, "comment": "c", "anchor": anchor, "find": find, "replace": replace}
+
+
+# Every outcome a suggested edit can have, against COUNT_EVEN.
+REVIEW_COMMENTS = [
+    _c("bit test", find="if (x % 2 == 0) n++;", replace="if ((x & 1) == 0) n++;"),           # passes
+    _c("off by one", find="return n;", replace="return n + 1;", kind="bug"),                # breaks the tests
+    _c("typo", find="int n = 0;", replace="int n = 0"),                                     # does not compile
+    _c("ghost", find="return total;", replace="return 0;"),                                 # not in the code
+    _c("loop", anchor="for (int x :   xs)"),                                                # comment only, odd spacing
+    _c("whole solution"),                                                                   # not pinned to code
+]
+
+
 def review_result(score=3.5) -> dict:
     dim = {"score": 3.5, "assessed": True, "rationale": "r"}
     return {"verdict_kind": "correct_optimal", "overall_score": score, "overall_level": "staff", "hire_signal": "strong_hire", "summary": "Solid.",
             "dimension_scores": {k: dict(dim) for k in ("correctness", "algorithm_and_complexity", "code_quality", "design_and_extensibility",
                                                         "production_awareness", "verification", "communication")},
             "complexity": {"your_time": "O(n)", "your_space": "O(1)", "optimal_time": "O(n)", "optimal_space": "O(1)", "note": "n"},
-            "strengths": ["clear"], "issues": [], "staff_gaps": [], "improvements": [], "say_out_loud": "I would loop once.",
+            "strengths": ["clear"], "comments": REVIEW_COMMENTS, "say_out_loud": "I would loop once.",
             "interviewer_follow_ups": [], "gaps": [{"tag": "ops.memory_bounds", "description": "d", "severity": "low"}, {"tag": "made.up_tag", "description": "x", "severity": "low"}],
             "drill": "d", "redo_advice": "r"}
 
@@ -154,7 +218,7 @@ class Background(unittest.TestCase):
             self.assertEqual(a["code"], brief["starter_code"])
             code = "class Solution { int countEven(int[] a) { return 1; } }"
             self.assertEqual(c.put(f"/api/code/attempts/{aid}/code", json={"code": code}).status_code, 200)  # typing is saved
-            for path in ("run", "advance", "hint", "coach", "solution"):
+            for path in ("run", "hint", "coach", "solution"):
                 body = {"code": code} if path == "run" else {}
                 r = c.post(f"/api/code/attempts/{aid}/{path}", json=body)
                 self.assertEqual(r.status_code, 409, path)
@@ -258,10 +322,13 @@ class Validation(unittest.TestCase):
     def test_spec_validation(self):
         schema = generate.load_schema()
         problem = {"is_build": 0, "levels_json": None}
-        self.assertIsNone(generate.validate_spec(spec(), schema, problem))
-        self.assertIn("class named", generate.validate_spec(spec(brute_solution="class Other {}"), schema, problem))
-        self.assertIn("levels must have", generate.validate_spec(spec(levels=[{"n": 1, "title": "t", "statement_md": "s", "methods_added": []}]), schema, problem))
-        self.assertIn("perf_size", generate.validate_spec(spec(perf_size=3), schema, problem))
+        self.assertIsNone(generate.validate_spec(staged_spec(), schema, problem))
+        self.assertIn("kind must be design", generate.validate_spec(spec(), schema, problem))  # a single function is no longer a problem shape
+        self.assertIn("class named", generate.validate_spec(staged_spec(brute_solution="class Other {}"), schema, problem))
+        self.assertIn("levels must have", generate.validate_spec(staged_spec(levels=staged_spec()["levels"][:1]), schema, problem))
+        no_l4 = [e for e in staged_spec()["examples"] if e["level"] != 4]
+        self.assertIn("level(s) [4]", generate.validate_spec(staged_spec(examples=no_l4), schema, problem))
+        self.assertIn("perf_size", generate.validate_spec(staged_spec(perf_size=3), schema, problem))
 
 
 CALLS: list[str] = []
@@ -270,9 +337,9 @@ CALLS: list[str] = []
 async def fake_run_claude(kind, system, payload, schema, model, timeout, cpath="", validator=None, ref=None, web=True):
     CALLS.append(kind)
     if kind == "code_brief":
-        out = {k: spec()[k] for k in ("kind", "class_name", "method", "inplace_param", "statement_md", "constraints", "starter_code", "levels")}
+        out = {k: staged_spec()[k] for k in ("kind", "class_name", "method", "inplace_param", "statement_md", "constraints", "starter_code", "levels")}
     elif kind == "code_spec":
-        out = spec()
+        out = staged_spec()
     elif kind == "code_review":
         out = review_result(3.5)
     else:
@@ -325,20 +392,41 @@ class Flow(unittest.TestCase):
             self.assertEqual(c.post(f"/api/code/attempts/{aid}/review", json={}).status_code, 200)  # a run exists, so a review can start
             hint = c.post(f"/api/code/attempts/{aid}/hint").json()
             self.assertEqual((hint["hint"], hint["remaining"]), ("h1", 2))
-            r = c.post(f"/api/code/attempts/{aid}/run", json={"code": COUNT_EVEN, "kind": "submit"}).json()
-            self.assertEqual(r["verdict"]["status"], "passed")
+            # Levels are groups of tests: each passing submit unlocks the next level's tests; passing level 4 solves the problem.
+            unlocked = []
+            for _ in range(4):
+                r = c.post(f"/api/code/attempts/{aid}/run", json={"code": STAGED, "kind": "submit"}).json()
+                self.assertEqual(r["verdict"]["status"], "passed")
+                self.assertEqual({x["level"] for x in r["verdict"]["cases"]}, set(range(1, r["level"] + 1)))  # levels 1..current, cumulative
+                unlocked.append(r["unlocked"])
+            self.assertEqual(unlocked, [2, 3, 4, None])
             self.assertTrue(r["solved"])
-            ch = c.post(f"/api/code/attempts/{aid}/coach", json={"question": "why?", "code": COUNT_EVEN}).json()
+            example = next(x for x in d["spec"]["cases"] if x["kind"] == "example")
+            t = c.post(f"/api/code/attempts/{aid}/trace", json={"code": STAGED, "case_id": example["id"]}).json()
+            self.assertTrue(t["steps"] and t["passed"], t.get("error"))
+            self.assertIn("EvenCounter.countEven", {f["method"] for st in t["steps"] for f in st["frames"]})
+            self.assertEqual(c.post(f"/api/code/attempts/{aid}/trace", json={"code": STAGED, "case_id": "nope"}).status_code, 404)
+            ch = c.post(f"/api/code/attempts/{aid}/coach", json={"question": "why?", "code": STAGED}).json()
             self.assertEqual(ch["hints_used"], 2)
             wait(lambda: c.get(f"/api/code/hints/{ch['hint_id']}").json()["status"] == "done")
-            rv = c.post(f"/api/code/attempts/{aid}/review", json={"code": COUNT_EVEN, "explanation": "single pass"}).json()
+            rv = c.post(f"/api/code/attempts/{aid}/review", json={"code": STAGED, "explanation": "single pass"}).json()
             res = wait(lambda: (lambda x: x if x["status"] == "done" else None)(c.get(f"/api/code/reviews/{rv['id']}").json()))["result"]
             self.assertEqual(res["overall_score"], 3.0)  # 3.5 from the model, capped because hints were used
+            cm = {x["title"]: x for x in res["comments"]}
+            self.assertEqual(cm["bit test"]["edit"]["check"]["status"], "passes")
+            self.assertEqual(cm["bit test"]["line_start"], 5)
+            self.assertEqual(cm["off by one"]["edit"]["check"]["status"], "fails")
+            self.assertEqual(cm["typo"]["edit"]["check"]["status"], "compile_error")
+            self.assertIsNone(cm["ghost"]["edit"])
+            self.assertIn("could not be matched", cm["ghost"]["edit_problem"])
+            self.assertEqual((cm["loop"]["line_start"], cm["loop"]["edit"]), (5, None))  # found despite the spacing
+            self.assertIsNone(cm["whole solution"]["line_start"])
+            self.assertEqual(c.get(f"/api/code/reviews/{rv['id']}").json()["code"], STAGED)
             self.assertEqual(res["caps_applied"][0]["cap"], 3.0)
             tags = [g["tag"] for g in res["gaps"]]
             self.assertIn("ops.memory_bounds", tags)
             self.assertIn("other.up_tag", tags)  # an unknown tag is namespaced, not stored as-is
-            self.assertEqual(c.post(f"/api/code/attempts/{aid}/review", json={"code": COUNT_EVEN, "explanation": "single pass"}).json()["id"], rv["id"])  # cached
+            self.assertEqual(c.post(f"/api/code/attempts/{aid}/review", json={"code": STAGED, "explanation": "single pass"}).json()["id"], rv["id"])  # cached
             p = c.get("/api/code/progress").json()
             self.assertEqual(p["stats"]["done"], 1)
             self.assertEqual(p["stats"]["clean"], 0)  # solved with hints
@@ -349,7 +437,7 @@ class Flow(unittest.TestCase):
             self.assertEqual([r["slug"] for r in p["recent"]], [slug])  # untouched problems are not "recent"
             self.assertEqual([t["score"] for t in p["timeline"]], [2.0, 3.0])  # the failing starter was capped at 2.0, the solved attempt at 3.0
             sol = c.post(f"/api/code/attempts/{aid}/solution").json()
-            self.assertIn("class Solution", sol["reference_solution"])
+            self.assertIn("class EvenCounter", sol["reference_solution"])
             self.assertEqual(c.get(f"/api/code/attempts/{aid}").json()["solution_viewed"], 0)  # looking after solving costs nothing
             aid2 = c.post(f"/api/code/problems/{slug}/attempts", json={"restart": True}).json()["id"]
             c.post(f"/api/code/attempts/{aid2}/solution")
@@ -360,3 +448,137 @@ class Flow(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+LRU = """import java.util.*;
+class LRUCache {
+    static class Node { int key, val; Node prev, next; Node(int k, int v) { key = k; val = v; } }
+    private final Map<Integer, Node> map = new HashMap<>();
+    private final Node head = new Node(-1, -1), tail = new Node(-1, -1);
+    private final int cap;
+    public LRUCache(int capacity) { cap = capacity; head.next = tail; tail.prev = head; }
+    public int get(int key) {
+        Node n = map.get(key);
+        if (n == null) return -1;
+        unlink(n);
+        front(n);
+        return n.val;
+    }
+    public void put(int key, int value) {
+        Node n = map.get(key);
+        if (n != null) { n.val = value; unlink(n); front(n); return; }
+        if (map.size() == cap) { Node lru = tail.prev; unlink(lru); map.remove(lru.key); }
+        n = new Node(key, value);
+        map.put(key, n);
+        front(n);
+    }
+    private void unlink(Node n) { n.prev.next = n.next; n.next.prev = n.prev; }
+    private void front(Node n) { n.next = head.next; n.prev = head; head.next.prev = n; head.next = n; }
+}
+"""
+OPS = [["LRUCache", [2]], ["put", [1, 1]], ["put", [2, 2]], ["get", [1]], ["put", [3, 3]], ["get", [2]]]
+
+
+@needs_java
+class Trace(unittest.TestCase):
+    def trace(self, code: str, cls: str, kind: str, method: str, inp) -> dict:
+        return asyncio.run(runner.trace_case({f"{cls}.java": code}, cls, kind, method, None, {"id": "c1", "input": inp}))
+
+    def test_design_class_with_collections(self):
+        t = self.trace(LRU, "LRUCache", "design", "", OPS)
+        self.assertIsNone(t["error"])
+        self.assertFalse(t["truncated"])
+        self.assertEqual(t["result"]["result"], [None, None, None, 1, None, -1])
+        self.assertEqual([s["value"]["v"] for s in t["steps"] if s["kind"] == "return"], ["1", "-1"])
+        last = t["steps"][-1]
+        maps = [h for h in last["heap"].values() if h["type"] == "HashMap"]
+        self.assertEqual(maps[0]["size"], 2)
+        self.assertEqual(sorted(k["v"] for k, _ in maps[0]["entries"]), ["1", "3"])  # 2 was evicted
+        self.assertTrue(any(f["method"] == "new Node" for s in t["steps"] for f in s["frames"]))
+        nodes = [h for h in last["heap"].values() if h["type"] == "LRUCache.Node"]
+        self.assertIn("prev", [f for f, _ in nodes[0]["fields"]])
+
+    def test_exception_is_recorded(self):
+        code = "class Solution {\n  public int f(int[] a) {\n    int s = 0;\n    for (int i = 0; i <= a.length; i++) s += a[i];\n    return s;\n  }\n}\n"
+        t = self.trace(code, "Solution", "function", "f", [[1, 2]])
+        ex = [s for s in t["steps"] if s["kind"] == "exception"]
+        self.assertTrue(ex)
+        self.assertIn("ArrayIndexOutOfBoundsException", ex[0]["value"])
+        self.assertEqual(ex[0]["line"], 4)
+        self.assertEqual(t["result"]["status"], "error")
+
+    def test_infinite_loop_is_cut_off(self):
+        code = "class Solution {\n  public int f(int n) {\n    int i = 0;\n    while (n > 0) {\n      i++;\n    }\n    return i;\n  }\n}\n"
+        t0 = time.time()
+        t = self.trace(code, "Solution", "function", "f", [1])
+        self.assertTrue(t["truncated"])
+        self.assertEqual(len(t["steps"]), runner.TRACE_MAX_STEPS)
+        self.assertLess(time.time() - t0, 60)
+
+    def test_compile_error(self):
+        t = self.trace("class Solution { int f( }", "Solution", "function", "f", [1])
+        self.assertFalse(t["compile"]["ok"])
+        self.assertEqual(t["steps"], [])
+
+
+class ReviewEdits(unittest.TestCase):
+    def test_locate(self):
+        from app.code import review_edits
+        code = "a = 1;\nif (a  ==  1) {\n  b();\n}\nb();\n"
+        self.assertEqual(review_edits.locate(code, "a = 1;")[:2], (0, 6))
+        hit = review_edits.locate(code, "if (a == 1) {")  # whitespace differs
+        self.assertEqual(code[hit[0]:hit[1]], "if (a  ==  1) {")
+        self.assertEqual(review_edits.locate(code, "b();")[2], 2)  # two matches
+        self.assertIsNone(review_edits.locate(code, "c();"))
+        self.assertIsNone(review_edits.locate(code, "  "))
+
+    def test_overlapping_edits_keep_the_first(self):
+        from app.code import review_edits
+        r = {"comments": [_c("a", find="int n = 0;", replace="int n = 1;"), _c("b", find="int n = 0; for", replace="x")]}
+        review_edits.attach(r, COUNT_EVEN)
+        self.assertIsNotNone(r["comments"][0]["edit"])
+        self.assertIsNone(r["comments"][1]["edit"])
+        self.assertIn("overlaps", r["comments"][1]["edit_problem"])
+
+
+class ReviewUpgrade(unittest.TestCase):
+    def test_old_reviews_become_comments(self):
+        from app.code import review_edits
+        old = {"summary": "s", "issues": [{"severity": "high", "title": "t", "detail": "d", "quote": "return n;", "fix": "f"}],
+               "staff_gaps": [{"area": "a", "gap": "g", "what_staff_does": "w"}], "improvements": [{"title": "i", "why": "y", "code": "x();"}]}
+        new = review_edits.upgrade(old, COUNT_EVEN)
+        self.assertNotIn("issues", new)
+        self.assertEqual([c["kind"] for c in new["comments"]], ["bug", "staff_gap", "clarity"])
+        self.assertEqual(new["comments"][0]["line_start"], 3)
+        self.assertTrue(all(c["edit"] is None for c in new["comments"]))
+        self.assertIs(review_edits.upgrade(new, COUNT_EVEN), new)  # already in the new format
+
+
+class Stages(unittest.TestCase):
+    def test_regular_problems_can_have_levels(self):
+        db.sync_problems()
+        p = db.one("SELECT * FROM problems WHERE slug='lru-cache'")
+        self.assertFalse(p["is_build"])
+        self.assertEqual(generate._n_levels(p), 4)
+        entry = generate._entry(p, {"name": "n", "why": "w"}, {})
+        self.assertIn("Level 1 is the original problem", entry)
+        self.assertIn("level 4 (staff)", entry)
+        plain = db.one("SELECT * FROM problems WHERE slug='group-anagrams'")
+        self.assertEqual(generate._n_levels(plain), 4)  # every problem has 4 levels
+        self.assertIn("design all 4", generate._entry(plain, {"name": "n", "why": "w"}, {}))
+
+
+class StarterLabels(unittest.TestCase):
+    def test_each_stub_is_labelled_with_its_level(self):
+        starter = ("class C {\n    public C(int n) {}\n    public int get(int k) { return 0; }\n    // Level 2\n"
+                   "    public void put(int k, int v) {}\n    public void put(int k, int v, int ttl) {}\n    public List<Map<String, Integer>> dump() { return null; }\n}")
+        levels = [{"n": 1, "title": "Basics", "methods_added": ["C(int n)", "int get(int k)", "void put(int k, int v)"]},
+                  {"n": 2, "title": "TTL.", "methods_added": ["void put(int k, int v, int ttl)"]},
+                  {"n": 3, "title": "Dump", "methods_added": ["List<Map<String, Integer>> dump()"]}]
+        out = generate.annotate_starter(starter, levels)
+        lines = out.split("\n")
+        self.assertEqual(lines[lines.index("    public void put(int k, int v, int ttl) {}") - 1], "    /** Level 2: TTL. */")  # overload by arity
+        self.assertEqual(lines[lines.index("    public void put(int k, int v) {}") - 1], "    /** Level 1: Basics. */")  # replaces the model's marker
+        self.assertNotIn("// Level 2", out)
+        self.assertIn("    /** Level 3: Dump. */", out)
+        self.assertEqual(generate.annotate_starter(out, levels), out)  # labelling twice changes nothing

@@ -16,7 +16,22 @@ from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import articles, auth, config, db, export, grader, jobs, pipeline, programs, progress, providers, transcribe, tts
+from . import (
+    articles,
+    auth,
+    behavioral,
+    config,
+    db,
+    export,
+    grader,
+    jobs,
+    pipeline,
+    programs,
+    progress,
+    providers,
+    transcribe,
+    tts,
+)
 from . import diagram as diagram_mod
 from .code import handlers as code_handlers  # noqa: F401  (registers the code_* job handlers)
 from .code import routes as code_routes
@@ -44,6 +59,7 @@ async def lifespan(app: FastAPI):
     version = db.migrate()
     db.sync_questions()
     db.sync_problems()
+    db.sync_behavioral()
     log.info("db ready, schema version %s", version)
     swept = transcribe.sweep_audio()
     if swept:
@@ -389,25 +405,11 @@ async def start_probe(sid: int, key: str):
 @app.post("/api/sessions/{sid}/sections/{key}/probe/transcribe")
 async def transcribe_probe_answer(sid: int, key: str, file: UploadFile = File(...)):
     """Transcribe a spoken probe answer and return the text; nothing is stored, the candidate edits then submits it."""
-    import asyncio
-    import tempfile
-    from pathlib import Path
     _section(sid, key)
-    data = await file.read()
-    if not data:
-        raise HTTPException(400, "empty upload")
-    ctype = (file.content_type or "").lower()
-    ext = "mp4" if ("mp4" in ctype or "m4a" in ctype or "aac" in ctype) else "webm"
-    with tempfile.TemporaryDirectory(dir=config.AUDIO_DIR if config.AUDIO_DIR.exists() else None) as tmp:
-        audio, wav = Path(tmp) / f"probe.{ext}", Path(tmp) / "probe.wav"
-        audio.write_bytes(data)
-        try:
-            await transcribe.convert_to_wav(audio, wav)
-        except RuntimeError as e:
-            raise HTTPException(400, str(e))
-        model = config.get_setting(db.connect(), "whisper_model")
-        result = await asyncio.to_thread(transcribe.transcribe_wav, wav, model, config.load_vocabulary())
-    return {"text": result["text"]}
+    try:
+        return {"text": await transcribe.transcribe_upload(await file.read(), file.content_type or "")}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @app.put("/api/sessions/{sid}/sections/{key}/probe/answer")
@@ -566,6 +568,7 @@ async def delete_session(sid: int):
 app.include_router(articles.router)
 app.include_router(code_routes.router)
 app.include_router(programs.router)
+app.include_router(behavioral.router)
 
 
 @app.get("/api/questions/suggest")

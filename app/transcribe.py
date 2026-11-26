@@ -207,3 +207,26 @@ async def handle_transcribe(job: dict) -> None:
     purge_wav(sec["id"])  # the recording itself stays until the section is saved (re-record, retry)
     log.info("transcribed section %s: %.1fs audio in %.1fs, dropped %d segments", sec["id"], dur,
              time.time() - t0, result["dropped"])
+
+
+async def transcribe_upload(data: bytes, content_type: str) -> str:
+    """Transcribe one short spoken answer (a probe answer, a behavioral answer) and return the text. Nothing is kept:
+    the audio lives in a temporary folder for the length of the call. Raises ValueError for an empty or unreadable upload."""
+    import asyncio
+    import tempfile
+
+    from . import db  # late import: db is not needed by the rest of this module
+    if not data:
+        raise ValueError("empty upload")
+    ctype = content_type.lower()
+    ext = "mp4" if ("mp4" in ctype or "m4a" in ctype or "aac" in ctype) else "webm"
+    with tempfile.TemporaryDirectory(dir=config.AUDIO_DIR if config.AUDIO_DIR.exists() else None) as tmp:
+        audio, wav = Path(tmp) / f"clip.{ext}", Path(tmp) / "clip.wav"
+        audio.write_bytes(data)
+        try:
+            await convert_to_wav(audio, wav)
+        except RuntimeError as e:
+            raise ValueError(str(e)) from None
+        model = config.get_setting(db.connect(), "whisper_model")
+        result = await asyncio.to_thread(transcribe_wav, wav, model, config.load_vocabulary())
+    return result["text"]

@@ -5,7 +5,7 @@ import re
 import time
 
 from .. import config, db, grader, jobs, pipeline
-from . import generate, judge
+from . import generate, judge, review_edits
 
 log = logging.getLogger("coach.code")
 
@@ -48,6 +48,7 @@ async def ensure_brief(problem: dict, phase: dict, topics: dict, model: str, cpa
             pipeline._raise(res)
         brief = res["structured"]
         brief["inplace_param"] = int(brief["inplace_param"])
+        brief["starter_code"] = generate.annotate_starter(brief["starter_code"], brief["levels"])
         comp = await judge.compile_starter(brief)
         if comp is None:
             break
@@ -136,8 +137,8 @@ def validate_review(res: dict, schema: dict) -> str | None:
             return f"dimension_scores.{k}.score must be between 1 and 4"
     if not res["summary"].strip():
         return "summary must not be empty"
-    if len(res["improvements"]) > 4:
-        return "at most 4 improvements"
+    if len(res["comments"]) > 12:
+        return "at most 10 comments"
     return None
 
 
@@ -224,6 +225,17 @@ async def handle_code_review(job: dict) -> None:
         pipeline._raise(res)
     result = apply_caps(res["structured"], ctx)
     normalize_gaps(result, ctx)
+    # The code review: pin comments to lines, then run each suggested edit before it is offered.
+    reviewed = attempt["review_code"]
+    review_edits.attach(result, reviewed)
+    if any(c.get("edit") for c in result.get("comments", [])):
+        visible = [c for c in json.loads(sp["cases_json"]) if c["level"] <= attempt["level"] and c["kind"] in ("example", "edge")]
+        if visible:
+            try:
+                baseline = await judge.judge(reviewed, spec, secrets, visible)
+            except RuntimeError:
+                baseline = None
+            await review_edits.verify(result, reviewed, spec, secrets, visible, baseline)
     conn = db.connect()
     conn.execute("DELETE FROM code_gaps WHERE review_id=?", (rev["id"],))
     for g in result["gaps"]:

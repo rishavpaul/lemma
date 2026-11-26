@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, WebSocket
 from pydantic import BaseModel
 
 from .. import auth, config, db, jobs, providers
-from . import handlers, judge, lsp, runner
+from . import compare, handlers, judge, lsp, review_edits, runner
 
 router = APIRouter(prefix="/api/code")
 _run_slots = asyncio.Semaphore(2)  # each run starts a JVM; keep a burst of clicks from starting dozens
@@ -227,12 +227,12 @@ def _latest_run(aid: int, kind: str | None = None) -> dict | None:
 
 def attempt_payload(a: dict) -> dict:
     p = db.one("SELECT slug,title FROM problems WHERE id=?", (a["problem_id"],))
-    reviews = db.rows("SELECT id,status,model,created_at,explanation,run_id,result_json FROM code_reviews WHERE attempt_id=? ORDER BY id DESC", (a["id"],))
+    reviews = db.rows("SELECT id,status,model,created_at,explanation,run_id,code,result_json FROM code_reviews WHERE attempt_id=? ORDER BY id DESC", (a["id"],))
     hints = db.rows("SELECT id,question,status,text,created_at FROM code_hints WHERE attempt_id=? ORDER BY id", (a["id"],))
     for h in hints:
         h["job"] = db.one("SELECT id,status,error_kind,error FROM jobs WHERE type='code_hint' AND ref_id=? ORDER BY id DESC LIMIT 1", (h["id"],))
     for r in reviews:
-        r["result"] = json.loads(r.pop("result_json")) if r["result_json"] else None
+        r["result"] = review_edits.upgrade(json.loads(r.pop("result_json")) if r["result_json"] else None, r["code"])
         r["job"] = db.one("SELECT id,status,error_kind,error FROM jobs WHERE type='code_review' AND ref_id=? ORDER BY id DESC LIMIT 1", (r["id"],))
     canned = []
     if (a["hints_used"] or a["solution_viewed"]) and a["spec_id"]:
@@ -327,28 +327,47 @@ async def run_attempt(aid: int, body: RunBody):
     now = time.time()
     run_id = db.execute("INSERT INTO runs(attempt_id,kind,status,passed,total,level,result_json,code,duration_ms,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
                         (aid, body.kind, verdict["status"], verdict["passed"], verdict["total"], a["level"], json.dumps(verdict), body.code, dur, now))
-    solved = body.kind == "submit" and verdict["status"] == "passed" and a["level"] >= n_levels
+    # Levels are groups of tests. A submit that passes every unlocked level unlocks the next one; passing the last solves the problem.
+    passed_all = body.kind == "submit" and verdict["status"] == "passed"
+    solved = passed_all and a["level"] >= n_levels
+    unlocked = a["level"] + 1 if passed_all and a["level"] < n_levels else None
     active = max(a["active_sec"], min(body.active_sec, a["active_sec"] + 3600)) if body.active_sec is not None else a["active_sec"]
     if solved and a["status"] != "solved":
         db.execute("UPDATE attempts SET code=?, status='solved', finished_at=?, active_sec=? WHERE id=?", (body.code, now, active, aid))
+    elif unlocked:
+        db.execute("UPDATE attempts SET code=?, level=?, active_sec=? WHERE id=?", (body.code, unlocked, active, aid))
     else:
         db.execute("UPDATE attempts SET code=?, active_sec=? WHERE id=?", (body.code, active, aid))
     return {"run_id": run_id, "kind": body.kind, "verdict": verdict, "duration_ms": dur, "solved": solved,
-            "level_passed": body.kind == "submit" and verdict["status"] == "passed", "level": a["level"], "levels": n_levels}
+            "unlocked": unlocked, "level": a["level"], "levels": n_levels}
 
 
-@router.post("/attempts/{aid}/advance")
-async def advance_level(aid: int):
-    """Unlock the next level of a build, once a submission has passed the current one."""
-    a = _spec_for(_attempt(aid))
-    sp = db.one("SELECT spec_json FROM problem_specs WHERE id=?", (a["spec_id"],))
-    n = max(1, len(json.loads(sp["spec_json"]).get("levels") or []))
-    if a["level"] >= n:
-        raise HTTPException(409, "There is no next level.")
-    if not db.one("SELECT 1 FROM runs WHERE attempt_id=? AND kind='submit' AND status='passed' AND level=?", (aid, a["level"])):
-        raise HTTPException(409, "Submit a passing solution for this level first.")
-    db.execute("UPDATE attempts SET level=level+1 WHERE id=?", (aid,))
-    return attempt_payload(_attempt(aid))
+class TraceBody(BaseModel):
+    code: str
+    case_id: str
+
+
+@router.post("/attempts/{aid}/trace")
+async def trace_attempt(aid: int, body: TraceBody):
+    """Record-and-replay debugger: run one visible case (an example or edge case at the current level) line by line and return
+    every step with its call stack and variables. Practice aid: it does not count as a run and does not change the rating."""
+    a = _attempt(aid)
+    _check_code(body.code)
+    db.execute("UPDATE attempts SET code=?, updated_at=? WHERE id=?", (body.code, time.time(), aid))
+    a = _spec_for(a)
+    sp = db.one("SELECT * FROM problem_specs WHERE id=?", (a["spec_id"],))
+    spec, cases = json.loads(sp["spec_json"]), json.loads(sp["cases_json"])
+    case = next((c for c in cases if c["id"] == body.case_id and c["level"] <= a["level"] and c["kind"] in ("example", "edge")), None)
+    if not case:
+        raise HTTPException(404, "no such example or edge case at this level")
+    async with _run_slots:
+        try:
+            out = await judge.trace_source(body.code, spec, case)
+        except RuntimeError as e:
+            raise HTTPException(503, str(e))
+    if out["compile"].get("unavailable"):
+        raise HTTPException(503, out["compile"]["output"])
+    return {"case_id": case["id"], "case_name": case.get("name") or case["id"], "input": compare.show(case["input"]), **out}
 
 
 @router.delete("/attempts/{aid}")
@@ -437,7 +456,8 @@ class ReviewBody(BaseModel):
 def _review_row(r: dict) -> dict:
     job = db.one("SELECT id,status,error_kind,error FROM jobs WHERE type='code_review' AND ref_id=? ORDER BY id DESC LIMIT 1", (r["id"],))
     return {"id": r["id"], "attempt_id": r["attempt_id"], "status": r["status"], "model": r["model"] or r["requested_model"], "created_at": r["created_at"],
-            "explanation": r["explanation"], "result": json.loads(r["result_json"]) if r["result_json"] else None, "job": job}
+            "explanation": r["explanation"], "code": r["code"],
+            "result": review_edits.upgrade(json.loads(r["result_json"]) if r["result_json"] else None, r["code"]), "job": job}
 
 
 @router.post("/attempts/{aid}/review")
@@ -447,6 +467,7 @@ async def request_review(aid: int, body: ReviewBody):
     _check_code(code)
     if body.model != "default" and body.model not in config.MODEL_CHOICES and not body.model.startswith("claude-") and not providers.valid_model_setting(body.model):
         raise HTTPException(400, "unknown model")
+    a = _spec_for(a)  # the reviewer reads the problem's tests and reference; wait for them like Run does
     run = _latest_run(a["id"])
     if not run:
         raise HTTPException(409, "Run the tests at least once so the review has results to start from.")

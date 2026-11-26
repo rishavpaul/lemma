@@ -36,9 +36,8 @@ def prepare_project(slug: str, class_name: str, starter: str, support: str | Non
     safe = re.sub(r"[^a-z0-9_-]", "_", slug.lower())
     root = lsp_root() / "projects" / safe
     root.mkdir(parents=True, exist_ok=True)
-    for name in runner.HARNESS_FILES:
-        if name != "Harness.java":
-            shutil.copyfile(Path(__file__).parent / "java" / name, root / name)
+    for name in runner.SUPPORT_TYPES:  # ListNode and TreeNode, which candidate code may use; not the judge's own classes
+        shutil.copyfile(Path(__file__).parent / "java" / name, root / name)
     if (support or "").strip():
         (root / "Support.java").write_text(support, encoding="utf-8")
     main = root / f"{class_name}.java"

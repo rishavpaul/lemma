@@ -63,6 +63,20 @@ export function CompileErrors({ v }: { v: Verdict }) {
 }
 
 /** The judge's verdict for a run: summary line, compile errors, and the cases (failures first, opened). */
+/** Pass counts per level, when the run covered more than one. */
+function LevelSummary({ cases }: { cases: CaseVerdict[] }) {
+  const levels = [...new Set(cases.map((c) => c.level ?? 1))].sort((x, y) => x - y);
+  if (levels.length < 2) return null;
+  return (
+    <div className="flex flex-wrap gap-x-5 gap-y-1 px-5 pb-3 text-[13px]">
+      {levels.map((l) => {
+        const cs = cases.filter((c) => (c.level ?? 1) === l), p = cs.filter((c) => c.passed).length;
+        return <span key={l} className={p === cs.length ? "text-mint" : "text-coral"}>Level {l}: <span className="num">{p}/{cs.length}</span></span>;
+      })}
+    </div>
+  );
+}
+
 export function ResultsPanel({ run, running }: { run: Pick<CodeRun, "kind" | "verdict" | "duration_ms"> | null; running: "run" | "submit" | null }) {
   if (running) return <div className="flex items-center gap-2 p-5 text-[15px] text-muted-foreground"><Loader2 className="size-4 animate-spin" />{running === "submit" ? "Running every test, including the stress cases..." : "Running the examples and edge cases..."}</div>;
   if (!run?.verdict) return <p className="p-5 text-[15px] leading-relaxed text-muted-foreground">Run the examples with <kbd className="rounded-[2px] bg-muted px-1 text-xs">Cmd</kbd>+<kbd className="rounded-[2px] bg-muted px-1 text-xs">Enter</kbd>. Submit runs every test, including random and stress cases, with <kbd className="rounded-[2px] bg-muted px-1 text-xs">Cmd</kbd>+<kbd className="rounded-[2px] bg-muted px-1 text-xs">Shift</kbd>+<kbd className="rounded-[2px] bg-muted px-1 text-xs">Enter</kbd>.</p>;
@@ -79,6 +93,7 @@ export function ResultsPanel({ run, running }: { run: Pick<CodeRun, "kind" | "ve
         <span className="num ml-auto text-[13px] text-muted-foreground">{run.kind === "submit" ? "Submit" : "Run"} · {(run.duration_ms / 1000).toFixed(1)}s</span>
       </div>
       {ok && run.kind === "run" && <p className="px-5 pb-3 text-[13px] text-muted-foreground">Submit to run the random and stress cases too.</p>}
+      <LevelSummary cases={v.cases} />
       <ul>{ordered.map((c, i) => <CaseRow key={c.id} c={c} defaultOpen={!c.passed && i === 0} />)}</ul>
     </div>
   );

@@ -72,6 +72,20 @@ async def run_source(code: str, spec: dict, cases: list[dict]) -> dict:
     return await runner.execute(source_files(code, spec), spec["class_name"], spec["kind"], spec.get("method") or "", inplace, run_cases)
 
 
+async def trace_source(code: str, spec: dict, case: dict) -> dict:
+    """Record one case line by line (record-and-replay debugger). See runner.trace_case. Also says whether the answer was right."""
+    inplace = spec.get("inplace_param")
+    inplace = None if inplace is None or inplace < 0 else int(inplace)
+    out = await runner.trace_case(source_files(code, spec), spec["class_name"], spec["kind"], spec.get("method") or "", inplace,
+                                  {"id": case["id"], "input": case["input"]})
+    r = out["result"]
+    if r and r.get("status") == "ok" and case.get("expected") is not None:
+        out["passed"] = compare.equal(r.get("result"), case["expected"], compare_mode(spec))
+    out["expected"] = compare.show(case["expected"]) if case.get("expected") is not None else None
+    out["actual"] = compare.show(r["result"]) if r and r.get("status") == "ok" else None
+    return out
+
+
 def _status_text(r: dict) -> str:
     s = r["status"]
     if s == "timeout":

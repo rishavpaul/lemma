@@ -49,11 +49,11 @@ export function Empty({ title, children }: { title: string; children?: React.Rea
  * name in parentheses, then the statement in italic.
  */
 export function Statement({ label, name, children, className, tone }: {
-  label: string; name?: React.ReactNode; children?: React.ReactNode; className?: string; tone?: "design" | "code";
+  label: string; name?: React.ReactNode; children?: React.ReactNode; className?: string; tone?: "design" | "code" | "lead";
 }) {
   return (
     <p className={cn("statement", className)}>
-      <span className={cn("runin", tone === "design" && "text-signal", tone === "code" && "text-code")}>{label}</span>
+      <span className={cn("runin", tone === "design" && "text-signal", tone === "code" && "text-code", tone === "lead" && "text-lead")}>{label}</span>
       {name && <span className="not-italic"> ({name})</span>}
       <span className="runin">. </span>
       {children}

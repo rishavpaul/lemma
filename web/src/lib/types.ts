@@ -291,12 +291,20 @@ export interface CodeReviewResult {
   verdict_kind: "wrong" | "correct_slow" | "correct_optimal"; overall_score: number; overall_level: Level;
   hire_signal: Signal; summary: string; dimension_scores: Record<string, CodeReviewDim>;
   complexity: { your_time: string; your_space: string; optimal_time: string; optimal_space: string; note: string };
-  strengths: string[]; issues: { severity: string; title: string; detail: string; quote: string; fix: string }[];
-  staff_gaps: { area: string; gap: string; what_staff_does: string }[]; improvements: { title: string; why: string; code: string }[];
+  strengths: string[];
+  /** The code review: comments pinned to lines, with suggested edits that were run before being offered (older reviews are
+   *  converted by the server, without edits). */
+  comments: ReviewComment[];
   say_out_loud: string; interviewer_follow_ups: { question: string; strong_answer: string }[];
   gaps: { tag: string; description: string; severity: string }[]; drill: string; redo_advice: string; caps_applied?: { reason: string; cap: number }[];
 }
-export interface CodeReview { id: number; attempt_id: number; status: string; model: string | null; created_at: number; explanation: string; result: CodeReviewResult | null; job: Job | null }
+export interface ReviewEditCheck { status: "passes" | "fails" | "compile_error" | "error"; passed?: number; total?: number; baseline_passed?: number | null; message?: string | null }
+export interface ReviewComment {
+  severity: "high" | "medium" | "low"; kind: "bug" | "performance" | "staff_gap" | "robustness" | "clarity"; title: string; comment: string;
+  line_start: number | null; line_end: number | null;
+  edit: { find: string; replace: string; check?: ReviewEditCheck } | null; edit_problem: string | null;
+}
+export interface CodeReview { id: number; attempt_id: number; status: string; model: string | null; created_at: number; explanation: string; code: string; result: CodeReviewResult | null; job: Job | null }
 export interface CoachHint { id: number; question: string | null; status: string; text: string | null; job: Job | null }
 export interface CodeAttempt {
   id: number; problem_id: number; spec_id: number; code: string; level: number; status: "in_progress" | "solved"; hints_used: number; solution_viewed: number;

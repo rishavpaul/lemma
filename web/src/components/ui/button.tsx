@@ -11,6 +11,7 @@ const buttonVariants = cva(
         default: "bg-primary text-primary-foreground hover:bg-[color-mix(in_oklch,var(--primary),var(--background)_18%)]",
         design: "bg-signal text-signal-foreground hover:bg-[color-mix(in_oklch,var(--signal),var(--foreground)_14%)]",
         code: "bg-code text-code-foreground hover:bg-[color-mix(in_oklch,var(--code),var(--foreground)_14%)]",
+        lead: "bg-lead text-lead-foreground hover:bg-[color-mix(in_oklch,var(--lead),var(--foreground)_14%)]",
         outline: "bg-muted text-foreground hover:bg-[color-mix(in_oklch,var(--muted),var(--foreground)_9%)] aria-expanded:bg-[color-mix(in_oklch,var(--muted),var(--foreground)_9%)]",
         secondary: "bg-muted text-foreground hover:bg-[color-mix(in_oklch,var(--muted),var(--foreground)_9%)]",
         ghost: "text-muted-foreground hover:bg-muted hover:text-foreground aria-expanded:bg-muted",

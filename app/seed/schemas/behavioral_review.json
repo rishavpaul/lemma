@@ -1,0 +1,48 @@
+{
+  "type": "object",
+  "properties": {
+    "overall_score": {"type": "number", "description": "1-4 in half steps: 1 below senior, 2 senior, 3 staff, 4 senior staff+"},
+    "level_signal": {"type": "string", "enum": ["below_senior", "senior", "staff", "senior_staff_plus"]},
+    "answers_the_question": {"type": "boolean", "description": "False when the story does not actually address what was asked"},
+    "summary": {"type": "string", "description": "The verdict in 2-4 sentences: how a staff-level interviewer would read this answer and the single biggest thing to fix"},
+    "dimension_scores": {
+      "type": "object",
+      "properties": {
+        "scope_impact": {"$ref": "#/$defs/dim"},
+        "ownership": {"$ref": "#/$defs/dim"},
+        "influence_leadership": {"$ref": "#/$defs/dim"},
+        "judgment": {"$ref": "#/$defs/dim"},
+        "self_awareness": {"$ref": "#/$defs/dim"},
+        "structure_clarity": {"$ref": "#/$defs/dim"}
+      },
+      "required": ["scope_impact", "ownership", "influence_leadership", "judgment", "self_awareness", "structure_clarity"]
+    },
+    "strengths": {"type": "array", "items": {"type": "string"}, "description": "What already reads as staff-level, each grounded in a quote or detail from the answer"},
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "issue": {"type": "string", "description": "What is missing or weak relative to the staff bar"},
+          "quote": {"type": "string", "description": "Short verbatim excerpt from the answer it refers to, or empty"},
+          "fix": {"type": "string", "description": "Exactly what to add, cut or reframe"}
+        },
+        "required": ["issue", "quote", "fix"]
+      }
+    },
+    "follow_ups": {"type": "array", "items": {"type": "string"}, "description": "2-4 probing questions a staff interviewer would ask next about this story"},
+    "stronger_outline": {"type": "string", "description": "Markdown bullets: a tighter Situation, Task, Action, Result, Reflection outline of the SAME story, using only facts the candidate gave; put [add: ...] where a fact is missing"}
+  },
+  "required": ["overall_score", "level_signal", "answers_the_question", "summary", "dimension_scores", "strengths", "gaps", "follow_ups", "stronger_outline"],
+  "$defs": {
+    "dim": {
+      "type": "object",
+      "properties": {
+        "score": {"type": "number"},
+        "assessed": {"type": "boolean", "description": "False when the answer gives nothing to judge this on"},
+        "rationale": {"type": "string"}
+      },
+      "required": ["score", "assessed", "rationale"]
+    }
+  }
+}

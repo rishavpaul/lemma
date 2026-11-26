@@ -6,10 +6,10 @@ import { Markdown } from "@/components/markdown";
 import { dimLabel, scoreTone } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { CodeReviewResult } from "@/lib/types";
+import { CommentIndex } from "@/components/code/code-comments";
 
 const VERDICT = { wrong: "Does not solve the problem", correct_slow: "Correct, but not the expected approach", correct_optimal: "Correct, with the expected approach" } as const;
 const SIGNAL = { strong_no: "Strong no", lean_no: "Lean no", lean_hire: "Lean hire", strong_hire: "Strong hire" } as const;
-const SEV: Record<string, string> = { high: "coral", medium: "signal", low: "muted" };
 
 function Sec({ title, children }: { icon?: unknown; title: string; children: React.ReactNode }) {
   return (
@@ -20,8 +20,9 @@ function Sec({ title, children }: { icon?: unknown; title: string; children: Rea
   );
 }
 
-/** The staff-interview review of a solution: verdict, rubric scores, issues tied to the code, and what to say out loud. */
-export function ReviewView({ r, id }: { r: CodeReviewResult; id: string }) {
+/** The staff-interview review of a solution: verdict, rubric scores, an index of the code-review comments (shown in the editor,
+ * where their changes apply), and what to say out loud. */
+export function ReviewView({ r, id, onReveal }: { r: CodeReviewResult; id: string; onReveal: (i: number) => void }) {
   const dims = Object.entries(r.dimension_scores);
   return (
     <div className="p-5 text-[15px]">
@@ -65,45 +66,9 @@ export function ReviewView({ r, id }: { r: CodeReviewResult; id: string }) {
         <Sec title="What works"><ul className="space-y-1.5">{r.strengths.map((s, i) => <li key={i} className="flex gap-3"><span aria-hidden className="mt-[0.55em] size-[5px] shrink-0 bg-mint" />{s}</li>)}</ul></Sec>
       )}
 
-      {r.issues.length > 0 && (
-        <Sec title="Issues in your code">
-          <ul className="space-y-7">
-            {r.issues.map((x, i) => (
-              <li key={i} className="max-w-[72ch]">
-                <p className="font-semibold"><span className={cn(SEV[x.severity] === "coral" ? "text-coral" : SEV[x.severity] === "signal" ? "text-signal" : "text-muted-foreground")}>{x.severity}. </span>{x.title}</p>
-                <p className="mt-1 leading-relaxed">{x.detail}</p>
-                {x.quote && <pre className="mt-2 overflow-x-auto rounded-[2px] bg-background px-3 py-2 font-mono text-xs">{x.quote}</pre>}
-                <p className="mt-2 text-muted-foreground"><span className="font-semibold text-foreground">Fix: </span>{x.fix}</p>
-              </li>
-            ))}
-          </ul>
-        </Sec>
-      )}
-
-      {r.staff_gaps.length > 0 && (
-        <Sec title="Gap to the staff bar">
-          <ul className="space-y-7">
-            {r.staff_gaps.map((g, i) => (
-              <li key={i} className="max-w-[72ch]">
-                <p><span className="font-semibold text-signal">{g.area}. </span>{g.gap}</p>
-                <Statement label="Staff does" className="mt-2 bg-background px-4 py-3 text-[1rem]">{g.what_staff_does}</Statement>
-              </li>
-            ))}
-          </ul>
-        </Sec>
-      )}
-
-      {r.improvements.length > 0 && (
-        <Sec title="Better ways to write it">
-          <ul className="space-y-7">
-            {r.improvements.map((x, i) => (
-              <li key={i}>
-                <p className="font-semibold">{x.title}</p>
-                <p className="mt-1 max-w-[72ch] text-muted-foreground">{x.why}</p>
-                <pre className="mt-2 overflow-x-auto rounded-[2px] bg-background px-3 py-2.5 font-mono text-xs leading-relaxed">{x.code}</pre>
-              </li>
-            ))}
-          </ul>
+      {r.comments.length > 0 && (
+        <Sec title="Code review">
+          <CommentIndex comments={r.comments} onReveal={onReveal} />
         </Sec>
       )}
 

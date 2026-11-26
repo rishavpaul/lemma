@@ -30,6 +30,7 @@ DEFAULT_SETTINGS = {
     "model_code_gen": "sonnet",  # writes a coding problem's statement, reference and brute-force solutions and test generator
     "model_code_review": "opus",  # the staff-level review of a candidate's code
     "model_code_hint": "sonnet",  # personalised hints while stuck
+    "model_behavioral": "opus",  # the staff-level judge for behavioral answers
     "claude_path": "",
     "claude_concurrency": "1",
     "show_feedback_live": "0",
@@ -100,6 +101,10 @@ def load_questions_yaml() -> list[dict]:
 
 def load_problems_yaml() -> dict:
     return yaml.safe_load(_read("problems.yaml"))
+
+
+def load_behavioral_yaml() -> dict:
+    return yaml.safe_load(_read("behavioral.yaml"))
 
 
 def load_code_gap_tags() -> dict:

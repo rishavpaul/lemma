@@ -14,7 +14,7 @@ import type { PlanUsage, Usage, UsageRow } from "@/lib/types";
 
 const tick = { fill: "var(--muted-foreground)", fontSize: 12 };
 const tip = { contentStyle: { background: "var(--popover)", border: "none", borderRadius: 3, fontSize: 13, color: "var(--foreground)", boxShadow: "0 12px 32px rgb(0 0 0 / .18)" }, cursor: { fill: "var(--muted)" } };
-const KIND: Record<string, string> = { research: "Research (per question)", grade_section: "Section grades", grade_session: "Holistic grades", health: "Health checks", code_spec: "Coding: build a problem", code_review: "Coding: staff review", code_hint: "Coding: coach hints" };
+const KIND: Record<string, string> = { research: "Research (per question)", grade_section: "Section grades", grade_session: "Holistic grades", health: "Health checks", code_spec: "Coding: build a problem", code_review: "Coding: staff review", code_hint: "Coding: coach hints", behavioral_review: "Behavioral: staff judge" };
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return <div><div className="fig text-[3.2rem]">{value}</div><div className="mt-2 text-[15px]">{label}</div>{sub && <div className="text-[13px] text-muted-foreground">{sub}</div>}</div>;

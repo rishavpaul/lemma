@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Check, Loader2, Mic, RotateCcw, SkipForward, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import { useWakeLock } from "@/lib/use-wake-lock";
+import { useRecorder } from "@/lib/use-recorder";
 import { speech, useSpeech } from "@/lib/speech";
 import { ListenButton } from "@/components/listen-button";
 import type { Section } from "@/lib/types";
@@ -13,9 +13,6 @@ import type { Section } from "@/lib/types";
 export function ProbePanel({ sec, sessionId, onChange, interactive }: { sec: Section; sessionId: string; onChange: () => Promise<unknown>; interactive?: boolean }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const [rec, setRec] = useState<"idle" | "recording" | "transcribing">("idle");
-  const media = useRef<{ recorder: MediaRecorder | null; stream: MediaStream | null; chunks: Blob[] }>({ recorder: null, stream: null, chunks: [] });
-  useWakeLock(rec === "recording");
   const tts = useSpeech();
   const question = sec.probe?.question;
   const spoken = question ? `${question}${sec.probe?.hint ? ` A nudge: ${sec.probe.hint}` : ""}` : "";
@@ -28,42 +25,12 @@ export function ProbePanel({ sec, sessionId, onChange, interactive }: { sec: Sec
   const job = sec.probe_job;
   const failed = !probe?.question && !!job && (job.status === "failed" || job.status === "pending_retry");
   const base = `/api/sessions/${sessionId}/sections/${sec.key}/probe`;
+  const { rec, start: startRec, stop: stopRec } = useRecorder(`${base}/transcribe`, (t) => setText((cur) => (cur.trim() ? cur.trimEnd() + " " : "") + t));
 
   async function act(fn: () => Promise<unknown>, error: string) {
     setBusy(true);
     try { await fn(); await onChange(); } catch (e) { toast.error(error, { description: (e as Error).message }); }
     setBusy(false);
-  }
-
-  async function startRec() {
-    speech.stop();
-    let stream: MediaStream;
-    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-    catch (e) { toast.error("Microphone unavailable", { description: `${(e as Error).message}. Allow microphone access, then try again.` }); return; }
-    const mime = ["audio/webm;codecs=opus", "audio/mp4"].find((m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) ?? "";
-    const m = media.current;
-    m.stream = stream; m.chunks = [];
-    const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-    m.recorder = recorder;
-    recorder.ondataavailable = (e) => { if (e.data?.size) m.chunks.push(e.data); };
-    recorder.onstop = () => void upload(recorder.mimeType || mime || "audio/webm");
-    recorder.start(1000);
-    setRec("recording");
-  }
-  function stopRec() {
-    const m = media.current;
-    setRec("transcribing");
-    m.recorder?.stop();
-    m.stream?.getTracks().forEach((t) => t.stop());
-  }
-  async function upload(mime: string) {
-    const fd = new FormData();
-    fd.append("file", new Blob(media.current.chunks, { type: mime }), "clip." + (mime.includes("mp4") ? "mp4" : "webm"));
-    try {
-      const r = await api<{ text: string }>(`${base}/transcribe`, { method: "POST", body: fd });
-      setText((t) => (t.trim() ? t.trimEnd() + " " : "") + r.text);
-    } catch (e) { toast.error("Transcription failed", { description: (e as Error).message }); }
-    setRec("idle");
   }
 
   return (

@@ -1,0 +1,225 @@
+# Behavioral and leadership rounds: competencies and the questions asked about each, at senior-to-staff level.
+# `look_for` is what a staff-level interviewer listens for; the judge grades against it (app/seed/behavioral/review_system_prompt.md).
+# Synced into the database by slug on startup: editing a question here updates it; removing one hides it.
+competencies:
+  - {key: scope, name: Scope and impact, why: "The deep dive on your biggest work. Often the most heavily weighted signal for level: how big the problem was, how much of it was yours, and what changed because of it."}
+  - {key: influence, name: Influence without authority, why: "Staff engineers get things done through people they do not manage. Interviewers want the mechanism: documents, data, prototypes, alliances, not just persuasion."}
+  - {key: conflict, name: Conflict and disagreement, why: "How you disagree with peers, managers and other teams, and whether you can commit to a decision you argued against."}
+  - {key: ambiguity, name: Ambiguity and ownership, why: "Turning a vague problem into a plan, owning outcomes beyond your assigned tasks, and acting without waiting to be told."}
+  - {key: judgment, name: Technical judgment and strategy, why: "Big technical decisions, tradeoffs, tech debt and multi-quarter direction. Staff answers show how the decision was made and how it aged."}
+  - {key: execution, name: Execution and delivery, why: "Shipping hard things under constraints: deadlines, incidents, scope cuts, and the calls you made to land them."}
+  - {key: failure, name: Failure and learning, why: "Real mistakes with real cost, your part in them, and what you changed afterwards. Defensive or fake failures are a red flag."}
+  - {key: growing, name: Growing others, why: "Mentoring, raising the bar of a team, delegating real ownership and multiplying impact beyond your own output."}
+  - {key: partnership, name: Cross-functional partnership, why: "Working with product, design, leadership and other teams; managing stakeholders and saying no."}
+  - {key: culture, name: Values and motivation, why: "Why this role, how you work, what you optimise for. Short answers, but a weak one can sink an otherwise strong loop."}
+
+questions:
+  # Scope and impact
+  - slug: most-impactful-project
+    competency: scope
+    title: Your most impactful project
+    prompt: Walk me through the most impactful project you have led. What was the problem, what did you do, and what changed because of it?
+    look_for: "Problem framed in business terms; the candidate's personal decisions separated from the team's; scope across teams or systems; measurable outcome (latency, cost, revenue, incidents, developer time); what they would do differently."
+  - slug: most-complex-system
+    competency: scope
+    title: The most complex system you have owned
+    prompt: Describe the most technically complex system you have designed or owned. Why was it hard, and what were the key design decisions?
+    look_for: "Clear architecture explained simply; the one or two decisions that mattered and the alternatives rejected; numbers (scale, SLOs); how it evolved and what broke; ownership of operations, not just design."
+  - slug: problem-nobody-owned
+    competency: scope
+    title: A problem nobody owned
+    prompt: Tell me about a time you identified an important problem that nobody owned and drove it to resolution.
+    look_for: "Spotting the problem through their own initiative; building the case with data; getting buy-in and resources; organisational scope beyond their team; durable fix (process, platform), not a one-off heroic effort."
+  - slug: biggest-scope-increase
+    competency: scope
+    title: Growing the scope of your role
+    prompt: Tell me about a time you took on work well beyond your role's expected scope. How did you decide to, and how did it go?
+    look_for: "Deliberate choice tied to business need; how they freed capacity or handed off; operating at the next level (multi-team, multi-quarter); honest account of what was hard."
+
+  # Influence
+  - slug: influence-without-authority
+    competency: influence
+    title: Influencing without authority
+    prompt: Tell me about a time you had to convince other teams or senior people to adopt your technical direction when you had no authority over them.
+    look_for: "The mechanism of influence: design docs, prototypes, data, one-on-ones, finding allies, addressing their incentives; handling objections; what they changed in their own proposal; adoption outcome."
+  - slug: changed-org-practice
+    competency: influence
+    title: Changing how the organisation works
+    prompt: Describe a time you changed an engineering practice, standard or process across multiple teams.
+    look_for: "Why the old way was costly (evidence); piloting and iterating; making the new way the easy path (tooling, templates); measuring adoption; sustaining it after they moved on."
+  - slug: aligned-competing-teams
+    competency: influence
+    title: Aligning teams with competing goals
+    prompt: Tell me about a time two or more teams had competing priorities that blocked an important outcome. How did you get them aligned?
+    look_for: "Understanding each team's incentives; reframing around a shared goal; escalating appropriately and early, not as a weapon; a concrete agreement (owners, dates, interfaces)."
+  - slug: sold-unpopular-idea
+    competency: influence
+    title: Selling an unpopular idea
+    prompt: Tell me about an idea you believed in that was initially unpopular. How did you handle it?
+    look_for: "Listening to the objections and adjusting the idea; small proofs before big asks; patience and timing; knowing when to let go; outcome either way told honestly."
+
+  # Conflict
+  - slug: disagreed-with-manager
+    competency: conflict
+    title: Disagreeing with your manager
+    prompt: Tell me about a time you strongly disagreed with your manager or a senior leader. What happened?
+    look_for: "Disagreeing privately and with evidence; understanding the leader's constraints; disagree-and-commit when overruled; no badmouthing; the relationship afterwards."
+  - slug: conflict-with-peer
+    competency: conflict
+    title: Conflict with a peer
+    prompt: Describe a significant conflict with a peer engineer. How did you resolve it?
+    look_for: "Separating the person from the problem; seeking to understand their view first; a resolution mechanism (data, prototype, a decision-maker, a written tradeoff); taking some responsibility; repaired working relationship."
+  - slug: disagree-and-commit
+    competency: conflict
+    title: Committing to a decision you argued against
+    prompt: Tell me about a time a decision went against your recommendation. What did you do afterwards?
+    look_for: "Making the case well, then fully committing; helping the chosen path succeed; no 'I told you so'; what they learned about their own argument; revisiting with new data if warranted."
+  - slug: pushback-on-deadline
+    competency: conflict
+    title: Pushing back on a deadline or requirement
+    prompt: Tell me about a time you pushed back on a deadline, a requirement or a request from leadership.
+    look_for: "Pushback grounded in risk and cost, with options rather than a flat no; negotiating scope; communicating early; outcome and how trust was kept."
+
+  # Ambiguity and ownership
+  - slug: ambiguous-problem
+    competency: ambiguity
+    title: Turning an ambiguous problem into a plan
+    prompt: Tell me about a time you were handed a vague, poorly defined problem. How did you turn it into a plan?
+    look_for: "Clarifying the goal and success metric; talking to users and stakeholders; time-boxed exploration; writing it down; decomposing into milestones; adjusting as they learned."
+  - slug: owned-beyond-role
+    competency: ambiguity
+    title: Ownership beyond your area
+    prompt: Describe a time you took ownership of something outside your team's responsibility because it was the right thing for the company.
+    look_for: "Recognising impact on users or the business; coordinating with the owning team rather than taking over; following through to closure; avoiding hero culture."
+  - slug: decision-without-data
+    competency: ambiguity
+    title: Deciding with incomplete information
+    prompt: Tell me about an important decision you had to make without enough information. How did you make it?
+    look_for: "Identifying what mattered and what was reversible; cheap experiments to reduce uncertainty; explicit assumptions and a checkpoint to revisit; owning the outcome."
+  - slug: changing-priorities
+    competency: ambiguity
+    title: Priorities that kept changing
+    prompt: Tell me about a project where the goals or priorities changed significantly midway. How did you handle it?
+    look_for: "Understanding why they changed; salvaging work; protecting the team from churn; resetting expectations with stakeholders; what they would structure differently."
+
+  # Technical judgment and strategy
+  - slug: hardest-technical-decision
+    competency: judgment
+    title: Your hardest technical decision
+    prompt: What is the hardest technical decision you have made? What were the options, and how did you decide?
+    look_for: "Two or more real options with tradeoffs in cost, risk and time; criteria stated up front; who was consulted; how the decision aged and whether they would make it again."
+  - slug: tech-debt-tradeoff
+    competency: judgment
+    title: Tech debt versus features
+    prompt: Tell me about a time you argued for paying down technical debt instead of building features. How did you make the case?
+    look_for: "Quantifying the cost of the debt (incidents, velocity, on-call load); tying it to business outcomes; incremental plan rather than a rewrite; result measured afterwards."
+  - slug: build-vs-buy
+    competency: judgment
+    title: Build versus buy (or rewrite versus refactor)
+    prompt: Tell me about a time you had to choose between building something in-house and adopting an existing solution, or between a rewrite and a refactor.
+    look_for: "Total cost of ownership; team skills and maintenance; migration risk; reversibility; data from a spike or proof of concept; honest look back."
+  - slug: technical-vision
+    competency: judgment
+    title: Setting technical direction
+    prompt: Tell me about a time you set the technical direction or a multi-quarter roadmap for a team or area.
+    look_for: "Starting from business strategy and pain points; written vision with phases; getting buy-in from engineers and leaders; balancing quick wins with long bets; how it played out."
+  - slug: wrong-technical-call
+    competency: judgment
+    title: A technical call that turned out wrong
+    prompt: Tell me about a technical decision you made that turned out to be wrong. How did you find out, and what did you do?
+    look_for: "Clear ownership without excuses; early signals and how quickly they noticed; correcting course; what in their decision process changed."
+
+  # Execution
+  - slug: hard-deadline-delivery
+    competency: execution
+    title: Delivering under a hard deadline
+    prompt: Tell me about a time you delivered something important under a very tight deadline. What did you trade off?
+    look_for: "Ruthless prioritisation and scope cuts made explicitly; risk management (feature flags, rollback); team sustainability; quality debt acknowledged and paid back."
+  - slug: major-incident
+    competency: execution
+    title: Leading through a major incident
+    prompt: Describe a serious production incident you were involved in. What was your role, and what changed afterwards?
+    look_for: "Calm structure (incident commander, communication); mitigation before root cause; blameless postmortem; systemic fixes beyond the trigger; measurable reduction in recurrence."
+  - slug: project-going-off-track
+    competency: execution
+    title: Rescuing a project that was off track
+    prompt: Tell me about a project that was going off track. How did you notice, and what did you do?
+    look_for: "Leading indicators rather than a missed date; diagnosing the real cause; replanning with stakeholders; hard calls (cut scope, add people, stop the project); outcome."
+  - slug: large-migration
+    competency: execution
+    title: A large migration
+    prompt: Tell me about a large migration you led, such as a data store, platform or architecture change. How did you de-risk it?
+    look_for: "Incremental phases, dual writes or shadow traffic, verification, rollback plan; getting other teams to migrate (tooling, deadlines, support); finishing the long tail and deleting the old system."
+
+  # Failure
+  - slug: biggest-failure
+    competency: failure
+    title: Your biggest professional failure
+    prompt: Tell me about your biggest professional failure. What was your part in it?
+    look_for: "A real failure with real cost; clear personal accountability; no blaming others; specific lessons applied later with evidence."
+  - slug: missed-commitment
+    competency: failure
+    title: A commitment you missed
+    prompt: Tell me about a time you missed a commitment or deadline. How did you handle it?
+    look_for: "Raising the risk early versus late; owning the miss with stakeholders; recovery plan; change in how they estimate or communicate."
+  - slug: critical-feedback
+    competency: failure
+    title: Critical feedback you received
+    prompt: Tell me about the most critical feedback you have received. How did you respond?
+    look_for: "Specific, uncomfortable feedback; non-defensive response; concrete behaviour change sustained over time; ideally evidence that it worked."
+
+  # Growing others
+  - slug: mentored-engineer
+    competency: growing
+    title: Growing another engineer
+    prompt: Tell me about an engineer you mentored who grew significantly. What did you do specifically?
+    look_for: "Tailored approach to that person; stretch opportunities with support; letting them own and sometimes fail; observable growth (promotion, scope); what the candidate learned."
+  - slug: underperformer
+    competency: growing
+    title: Helping a struggling teammate
+    prompt: Describe a time a teammate was struggling or underperforming. What did you do?
+    look_for: "Empathy and directness; understanding root causes; clear expectations; partnering with the manager appropriately; outcome told honestly, including if it did not work out."
+  - slug: raised-the-bar
+    competency: growing
+    title: Raising the bar of a team
+    prompt: Tell me about a time you raised the engineering bar of a team, such as quality, reliability, design rigour or hiring.
+    look_for: "Mechanisms that outlast them (review culture, design reviews, standards, tooling, interview loops); bringing people along rather than gatekeeping; measured improvement."
+  - slug: delegated-ownership
+    competency: growing
+    title: Delegating real ownership
+    prompt: Tell me about a time you delegated something important that you could have done faster yourself.
+    look_for: "Choosing growth over short-term speed deliberately; setting context and guardrails; resisting taking it back; multiplying impact across the team."
+
+  # Partnership
+  - slug: said-no-to-product
+    competency: partnership
+    title: Saying no to product or leadership
+    prompt: Tell me about a time you said no, or not yet, to a product manager or leader. How did you handle it?
+    look_for: "Understanding the underlying need; offering alternatives and sequencing; using data on cost and risk; preserving the partnership; outcome."
+  - slug: non-technical-stakeholders
+    competency: partnership
+    title: Explaining technical work to non-engineers
+    prompt: Tell me about a time you had to get a non-technical stakeholder to understand and support a technical decision.
+    look_for: "Translating to business impact; avoiding jargon; visuals or analogies; checking understanding; securing a decision or resources."
+  - slug: difficult-stakeholder
+    competency: partnership
+    title: A difficult stakeholder
+    prompt: Describe working with a difficult stakeholder or partner team. How did you make it work?
+    look_for: "Understanding their pressures; building trust through small wins; clear agreements in writing; escalating only when needed; improved relationship."
+
+  # Values and motivation
+  - slug: why-staff
+    competency: culture
+    title: What staff engineering means to you
+    prompt: What does a staff engineer do that a senior engineer does not, and where have you already been operating that way?
+    look_for: "A concrete model (scope, direction-setting, multiplying others, ambiguity); two or three real examples from their own work; self-awareness about gaps."
+  - slug: why-this-company
+    competency: culture
+    title: Why this company and role
+    prompt: Why are you looking for a new role, and why this company?
+    look_for: "Positive, specific motivation tied to the company's problems; no complaining about the current employer; alignment between their strengths and the role."
+  - slug: how-you-prioritize
+    competency: culture
+    title: How you choose what to work on
+    prompt: With many possible things to work on, how do you decide where to spend your time? Give a recent example.
+    look_for: "Framework tied to impact and leverage; saying no; aligning with manager and org priorities; an example where they dropped something deliberately."

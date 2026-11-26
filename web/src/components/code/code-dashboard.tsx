@@ -60,7 +60,7 @@ function Row({ p, topics, programs, reloadPrograms }: { p: CodeProblem; topics: 
         <span className="hidden truncate text-[13px] text-muted-foreground lg:block">{p.note}</span>
         <span className="flex items-baseline justify-end gap-2">
           {p.premium && <Pill>premium</Pill>}
-          {p.is_build && p.levels != null && <Pill tone={p.level_cleared ? "code" : "muted"}>{p.level_cleared ?? 0} of {p.levels} levels</Pill>}
+          {p.levels != null && <Pill tone={p.level_cleared ? "code" : "muted"}>{p.level_cleared ?? 0} of {p.levels} levels</Pill>}
           {p.rating && p.status === "done" && p.rating !== "clean" && <Pill tone="signal">{p.rating === "hints" ? "hints" : "solution"}</Pill>}
           {p.needs_review && <Pill tone="coral">redo</Pill>}
           <SpecPill p={p} />

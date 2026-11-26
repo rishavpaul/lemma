@@ -10,10 +10,10 @@ from . import config, db
 log = logging.getLogger("coach.jobs")
 
 TRANSCRIBE_TYPES = ("transcribe",)
-CLAUDE_TYPES = ("research", "grade_section", "grade_session", "probe", "improvement", "code_spec", "code_spec_batch", "code_review", "code_hint")
+CLAUDE_TYPES = ("research", "grade_section", "grade_session", "probe", "improvement", "code_spec", "code_spec_batch", "code_review", "code_hint", "behavioral_review")
 # Someone at the keyboard waits on these, so each kind gets its own worker and never queues behind a batch of problem building:
-# reviews and hints, and the problem the user just opened (`code_spec`; the bulk "build tests" action enqueues `code_spec_batch`).
-CODE_INTERACTIVE_TYPES = ("code_review", "code_hint")
+# reviews and hints (coding and behavioral), and the problem the user just opened (`code_spec`; the bulk "build tests" action enqueues `code_spec_batch`).
+CODE_INTERACTIVE_TYPES = ("code_review", "code_hint", "behavioral_review")
 CODE_BUILD_TYPES = ("code_spec",)
 GENERAL_TYPES = tuple(t for t in CLAUDE_TYPES if t not in CODE_INTERACTIVE_TYPES + CODE_BUILD_TYPES)
 TERMINAL = ("done", "failed")
