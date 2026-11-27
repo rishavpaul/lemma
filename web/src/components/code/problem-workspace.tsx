@@ -393,7 +393,7 @@ function ReviewTab({ a, explanation, setExplanation, code, hasRun, lastReview, r
         <span>Reviewed {fmtDate(lastReview.created_at)} by {lastReview.model}</span>
         <Button size="sm" variant="outline" className="ml-auto" onClick={() => setShowForm(true)}>Review again</Button>
       </div>
-      {lastReview.result ? <ReviewView r={lastReview.result} id={`review-${lastReview.id}`} onReveal={onReveal} /> : null}
+      {lastReview.result ? <ReviewView r={lastReview.result} onReveal={onReveal} /> : null}
     </div>
   );
 }

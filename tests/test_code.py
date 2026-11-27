@@ -123,9 +123,8 @@ def review_result(score=3.5) -> dict:
             "dimension_scores": {k: dict(dim) for k in ("correctness", "algorithm_and_complexity", "code_quality", "design_and_extensibility",
                                                         "production_awareness", "communication")},
             "complexity": {"your_time": "O(n)", "your_space": "O(1)", "optimal_time": "O(n)", "optimal_space": "O(1)", "note": "n"},
-            "strengths": ["clear"], "comments": REVIEW_COMMENTS, "say_out_loud": "I would loop once.",
-            "interviewer_follow_ups": [], "gaps": [{"tag": "ops.memory_bounds", "description": "d", "severity": "low"}, {"tag": "made.up_tag", "description": "x", "severity": "low"}],
-            "drill": "d", "redo_advice": "r"}
+            "strengths": ["clear"], "comments": REVIEW_COMMENTS,
+            "interviewer_follow_ups": [], "gaps": [{"tag": "ops.memory_bounds", "description": "d", "severity": "low"}, {"tag": "made.up_tag", "description": "x", "severity": "low"}]}
 
 
 class Compare(unittest.TestCase):

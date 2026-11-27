@@ -103,7 +103,7 @@
     },
     "comments": {
       "type": "array",
-      "description": "The review as code-review comments on the candidate's code, most important first (at most 10). Bugs, performance problems, gaps to the staff bar and better ways to write it all go here, each pinned to the code it is about.",
+      "description": "The review as code-review comments on the candidate's code, most important first (at most 10). The gaps between this solution and the staff bar, most important first (at most 10), each pinned to the code it is about. Use `staff_gap` for what a staff engineer would do that this code does not; use bug, performance, robustness or clarity for other points.",
       "items": {
         "type": "object",
         "properties": {
@@ -157,12 +157,9 @@
         ]
       }
     },
-    "say_out_loud": {
-      "type": "string",
-      "description": "4-7 sentences a staff candidate would say aloud for this problem: clarifications, approach, complexity, tradeoffs, what is left out"
-    },
     "interviewer_follow_ups": {
       "type": "array",
+      "description": "Questions you would ask next that the problem's levels and this solution do not already cover",
       "items": {
         "type": "object",
         "properties": {
@@ -206,14 +203,6 @@
           "severity"
         ]
       }
-    },
-    "drill": {
-      "type": "string",
-      "description": "One concrete thing to practise next, tied to the biggest gap"
-    },
-    "redo_advice": {
-      "type": "string",
-      "description": "Whether and how to redo this problem (for example from scratch without the judge)"
     }
   },
   "required": [
@@ -226,11 +215,8 @@
     "complexity",
     "strengths",
     "comments",
-    "say_out_loud",
     "interviewer_follow_ups",
-    "gaps",
-    "drill",
-    "redo_advice"
+    "gaps"
   ],
   "$defs": {
     "dim": {

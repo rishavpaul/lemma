@@ -40,7 +40,7 @@ Hire signal: `strong_no` below 1.5, `lean_no` below 2.5, `lean_hire` below 3.25,
 - 4: Chooses the right guarantee for each (atomicity, ordering, eviction, back-pressure), shows how it would be monitored, and names the operational cost.
 
 ### communication
-Judge only the written explanation of the approach if one was given; otherwise `assessed: false`.
+Judge only the written explanation of the approach if one was given. If none was given, set `assessed: false`: it is left out of the overall score and its absence is never a gap.
 - 1: Restates the code line by line.
 - 2: Describes the algorithm and complexity correctly but not why it was chosen.
 - 3: Leads with the insight, states complexity and tradeoffs, and names what was left out and why.
@@ -48,4 +48,4 @@ Judge only the written explanation of the approach if one was given; otherwise `
 
 ## Weights
 
-Correctness and algorithm decide whether the solution is acceptable. A correct but non-optimal solution cannot score above 2.5 overall. A failing solution cannot score above 2.0. Using the full solution caps the overall score at 2.0; using hints caps it at 3.0. Staff (3.0 and above) requires 3+ in correctness, algorithm_and_complexity and at least two of the remaining dimensions.
+Correctness and algorithm decide whether the solution is acceptable. A correct but non-optimal solution cannot score above 2.5 overall. A failing solution cannot score above 2.0. Staff (3.0 and above) requires 3+ in correctness, algorithm_and_complexity and at least two of the remaining assessed dimensions.

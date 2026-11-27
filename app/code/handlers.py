@@ -179,25 +179,20 @@ def normalize_gaps(res: dict, ctx: dict) -> None:
 def review_context(attempt: dict, problem: dict, spec: dict, secrets: dict, run: dict | None) -> tuple[str, dict]:
     """The user-turn payload for a review, plus the facts the caps need."""
     verdict = json.loads(run["result_json"]) if run and run["result_json"] else None
-    n_runs = db.one("SELECT COUNT(*) n FROM runs WHERE attempt_id=?", (attempt["id"],))["n"]
-    n_failed_submits = db.one("SELECT COUNT(*) n FROM runs WHERE attempt_id=? AND kind='submit' AND status!='passed'", (attempt["id"],))["n"]
     status = verdict["status"] if verdict else "not_run"
-    past = db.rows("SELECT g.tag, COUNT(*) n FROM code_gaps g JOIN code_reviews r ON r.id=g.review_id WHERE r.id!=? GROUP BY g.tag ORDER BY n DESC LIMIT 6",
-                   (attempt.get("review_id") or 0,))
+    levels = "\n".join(f"{lv['n']}. {lv['title']}" for lv in spec.get("levels") or [])
     parts = [
-        f"<problem>\ntitle: {problem['title']}\ndifficulty: {problem['difficulty']}\nroadmap note (interviewer's intent): {problem['note']}\n\n{spec['statement_md']}\n</problem>",
+        f"<problem>\ntitle: {problem['title']}\n\n{spec['statement_md']}\n"
+        + (f"\nThe problem already has these levels (do not repeat them as follow-ups):\n{levels}\n" if levels else "") + "</problem>",
         f"<reference>\nExpected complexity: time {secrets.get('time_complexity')}, space {secrets.get('space_complexity')}\n{secrets.get('approach_md', '')}\n"
-        f"Common pitfalls: {'; '.join(secrets.get('pitfalls', []))}\nInterviewer follow-ups: {'; '.join(secrets.get('follow_ups', []))}\n"
-        f"Reference solution (the candidate has {'SEEN' if attempt['solution_viewed'] else 'NOT seen'} it):\n{secrets.get('reference_solution', '')}\n</reference>",
+        f"Reference solution:\n{secrets.get('reference_solution', '')}\n</reference>",
         f"<candidate_code>\n{attempt['review_code']}\n</candidate_code>",
-        "<judge_results>\n" + (judge.summarize(verdict) if verdict else "The candidate never ran the tests.") +
-        f"\nRuns so far: {n_runs}; failed submissions before this one: {n_failed_submits}.\n</judge_results>",
-        f"<process>\nhints used: {attempt['hints_used']} of 3 graded hints plus coach questions\nreference solution viewed: {'yes' if attempt['solution_viewed'] else 'no'}\n</process>",
-        f"<candidate_explanation>\n{(attempt['review_explanation'] or '').strip() or '(none written: mark communication as not assessed)'}\n</candidate_explanation>",
-        "<recurring_gaps note=\"tags from earlier reviews, most frequent first; call out a repeat by name\">\n" + (", ".join(f"{p['tag']} x{p['n']}" for p in past) or "(none yet)") + "\n</recurring_gaps>",
-        "<task>\nReview this solution as a staff interviewer would, per the system rules and the structured schema. Start from what the judge proved, "
-        "then judge the code against the rubric. Return the structured output only.\n</task>",
+        "<judge_results>\n" + (judge.summarize(verdict) if verdict else "The candidate never ran the tests.") + "\n</judge_results>",
     ]
+    explanation = (attempt["review_explanation"] or "").strip()
+    if explanation:
+        parts.append(f"<candidate_explanation>\n{explanation}\n</candidate_explanation>")
+    parts.append("<task>\nReview this solution as a principal engineer interviewing for a staff role. Return the structured output only.\n</task>")
     return "\n\n".join(parts), {"status": status, "hints_used": attempt["hints_used"], "solution_viewed": bool(attempt["solution_viewed"])}
 
 

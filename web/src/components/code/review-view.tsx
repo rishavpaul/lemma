@@ -1,8 +1,5 @@
 "use client";
-import { Statement } from "@/components/shell/page-header";
 import { LEVELS } from "@/lib/types";
-import { ListenButton } from "@/components/listen-button";
-import { Markdown } from "@/components/markdown";
 import { dimLabel, scoreTone } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { CodeReviewResult } from "@/lib/types";
@@ -21,8 +18,8 @@ function Sec({ title, children }: { icon?: unknown; title: string; children: Rea
 }
 
 /** The staff-interview review of a solution: verdict, rubric scores, an index of the code-review comments (shown in the editor,
- * where their changes apply), and what to say out loud. */
-export function ReviewView({ r, id, onReveal }: { r: CodeReviewResult; id: string; onReveal: (i: number) => void }) {
+ * where their changes apply) and the follow-ups to expect. */
+export function ReviewView({ r, onReveal }: { r: CodeReviewResult; onReveal: (i: number) => void }) {
   const dims = Object.entries(r.dimension_scores);
   return (
     <div className="p-5 text-[15px]">
@@ -72,10 +69,6 @@ export function ReviewView({ r, id, onReveal }: { r: CodeReviewResult; id: strin
         </Sec>
       )}
 
-      <Sec title="What to say out loud">
-        <Markdown>{r.say_out_loud}</Markdown><ListenButton id={`${id}-say`} text={r.say_out_loud} className="mt-3" />
-      </Sec>
-
       {r.interviewer_follow_ups.length > 0 && (
         <Sec title="What the interviewer asks next">
           <ul className="space-y-5">
@@ -85,11 +78,6 @@ export function ReviewView({ r, id, onReveal }: { r: CodeReviewResult; id: strin
           </ul>
         </Sec>
       )}
-
-      <Sec title="Next">
-        <Statement label="Drill" className="max-w-[68ch] text-[1.15rem]">{r.drill}</Statement>
-        <p className="mt-2 max-w-[70ch] text-muted-foreground">{r.redo_advice}</p>
-      </Sec>
     </div>
   );
 }

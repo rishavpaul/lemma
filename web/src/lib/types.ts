@@ -295,8 +295,8 @@ export interface CodeReviewResult {
   /** The code review: comments pinned to lines, with suggested edits that were run before being offered (older reviews are
    *  converted by the server, without edits). */
   comments: ReviewComment[];
-  say_out_loud: string; interviewer_follow_ups: { question: string; strong_answer: string }[];
-  gaps: { tag: string; description: string; severity: string }[]; drill: string; redo_advice: string; caps_applied?: { reason: string; cap: number }[];
+  interviewer_follow_ups: { question: string; strong_answer: string }[];
+  gaps: { tag: string; description: string; severity: string }[]; caps_applied?: { reason: string; cap: number }[];
 }
 export interface ReviewEditCheck { status: "passes" | "fails" | "compile_error" | "error"; passed?: number; total?: number; baseline_passed?: number | null; message?: string | null }
 export interface ReviewComment {
