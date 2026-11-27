@@ -229,6 +229,27 @@ def _plan(n_levels: int, perf_size: int) -> list[dict]:
     return steps
 
 
+def raise_case_levels(cases: list[dict], levels: list[dict]) -> int:
+    """A case may only call methods its level has introduced. Raise a case's level to the latest level whose method it calls
+    (matched by name and argument count), so a level-3 case that calls the level-4 `stats()` becomes a level-4 case. Returns how many moved."""
+    first: dict[tuple[str, int], int] = {}
+    for lv in levels or []:
+        for sig in lv.get("methods_added", []):
+            m = _SIG.search(sig)
+            if m:
+                first.setdefault((m.group(1), _arity(m.group(2))), int(lv["n"]))
+    moved = 0
+    for c in cases:
+        ops = c.get("input")
+        if not (isinstance(ops, list) and len(ops) > 1 and all(isinstance(o, list) and len(o) == 2 and isinstance(o[0], str) and isinstance(o[1], list) for o in ops)):
+            continue
+        need = max((first.get((o[0], len(o[1])), 1) for o in ops[1:]), default=1)
+        if need > int(c["level"]):
+            c["level"] = need
+            moved += 1
+    return moved
+
+
 async def build_cases(spec: dict) -> tuple[list[dict], dict, list[str]]:
     """Run the reference and the brute force on every candidate case. Returns (cases, report, issues).
     `cases` holds only cases that passed validation; `issues` is what to send back to the model."""
@@ -258,9 +279,10 @@ async def build_cases(spec: dict) -> tuple[list[dict], dict, list[str]]:
         cands.append({"id": f"{'p' if tier == 'perf' else 'r'}{sum(counts.values())}", "kind": "perf" if tier == "perf" else "random",
                       "name": "Stress test" if tier == "perf" else f"Random {sum(counts.values())}", "level": int(g["level"]),
                       "input": g["input"], "tier": tier, "size": g["size"]})
+    raise_case_levels(cands, spec["levels"])
     for c in cands:
         c["timeout_ms"] = 10000 if c["kind"] == "perf" else 4000
-    ref = await judge.run_source(spec["reference_solution"], spec, cands)
+    ref =await judge.run_source(spec["reference_solution"], spec, cands)
     if not ref["compile"]["ok"]:
         return [], {"counts": counts}, [f"reference_solution does not compile:\n{ref['compile']['output'][:1500]}"]
     small = [c for c in cands if c["kind"] != "perf"]

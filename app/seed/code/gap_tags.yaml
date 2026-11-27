@@ -25,7 +25,5 @@ tags:
   ops.validation_errors: Input validation or error handling missing
   ops.observability: No thought about metrics, logging or debugging
   ops.idempotency: Retries or duplicate requests not considered
-  process.no_verification: No testing plan beyond the given example
   process.communication: Approach and tradeoffs not explained
-  process.time_management: Slow to a first working version
   process.leaned_on_hints: Needed hints or the solution to finish

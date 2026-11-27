@@ -54,9 +54,6 @@
         "production_awareness": {
           "$ref": "#/$defs/dim"
         },
-        "verification": {
-          "$ref": "#/$defs/dim"
-        },
         "communication": {
           "$ref": "#/$defs/dim"
         }
@@ -67,7 +64,6 @@
         "code_quality",
         "design_and_extensibility",
         "production_awareness",
-        "verification",
         "communication"
       ]
     },
@@ -217,7 +213,7 @@
     },
     "redo_advice": {
       "type": "string",
-      "description": "Whether and how to redo this problem (for example from scratch in 25 minutes without the judge)"
+      "description": "Whether and how to redo this problem (for example from scratch without the judge)"
     }
   },
   "required": [

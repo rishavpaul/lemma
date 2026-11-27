@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, ChevronRight, Lightbulb, Loader2, MessageSquare, Play, RotateCcw, Send, TriangleAlert, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, Lightbulb, Loader2, MessageSquare, Play, RotateCcw, Send, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Markdown } from "@/components/markdown";
@@ -15,7 +15,7 @@ import { DebugPanel } from "@/components/code/debug-panel";
 import { ReviewView } from "@/components/code/review-view";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
-import { fmtDate, mmss } from "@/lib/format";
+import { fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { CodeAttempt, CodeProblemDetail, CodeRun, CodeSolution, Rating } from "@/lib/types";
 
@@ -41,7 +41,6 @@ function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: T; labe
 }
 
 /** Where the back link goes, by the page that opened the problem. Only these, so a link cannot send you anywhere else. */
-const HIDE_TIMER_KEY = "lemma.code.hideTimer";
 const BACK: Record<string, { href: string; label: string }> = { programs: { href: "/programs", label: "Programs" }, today: { href: "/", label: "Today" } };
 
 export function ProblemWorkspace({ slug, attemptParam, from }: { slug: string; attemptParam: number | null; from: string | null }) {
@@ -105,7 +104,7 @@ function StartScreen({ d, onStart, onOpen }: { d: CodeProblemDetail; onStart: (r
   return (
     <div className="max-w-2xl pt-6">
       <Statement label={d.problem.num ? `Problem ${d.problem.num}` : "Build"} tone="code" className="text-[1.4rem]">{d.problem.note}</Statement>
-      <Button variant="code" className="mt-8 h-12 px-6 text-base" size="lg" onClick={() => onStart(true)}>{d.attempts.length ? "Start a new attempt" : "Start the clock"}<Play /></Button>
+      <Button variant="code" className="mt-8 h-12 px-6 text-base" size="lg" onClick={() => onStart(true)}>{d.attempts.length ? "Start a new attempt" : "Start"}<Play /></Button>
       {d.attempts.length > 0 && (
         <div className="mt-8">
           <h2 className="mb-3 font-serif text-[1.45rem] font-medium">Earlier attempts</h2>
@@ -115,7 +114,6 @@ function StartScreen({ d, onStart, onOpen }: { d: CodeProblemDetail; onStart: (r
                 <button className="flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] transition-colors hover:bg-muted" onClick={() => onOpen(a.id)}>
                   <span className="flex-1">{fmtDate(a.started_at)}</span>
                   {a.status === "solved" ? <Pill tone={a.rating === "clean" ? "mint" : "signal"}>{RATING_TEXT[a.rating]}</Pill> : <Pill>{a.status === "in_progress" ? "unfinished" : a.status}</Pill>}
-                  <span className="num text-xs text-muted-foreground">{mmss(a.active_sec)}</span>
                   <ChevronRight className="size-4 text-muted-foreground" />
                 </button>
               </li>
@@ -178,29 +176,17 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
     wasReady.current = testsReady;
   }, [testsReady]);
 
-  // Active time: counts only while the tab is visible.
-  const [seconds, setSeconds] = useState(a.active_sec);
-  const active = useRef(seconds);
-  useEffect(() => { active.current = seconds; }, [seconds]);
-  useEffect(() => {
-    const t = setInterval(() => { if (document.visibilityState === "visible" && a.status !== "solved") setSeconds((n) => n + 1); }, 1000);
-    return () => clearInterval(t);
-  }, [a.status]);
-  // The clock keeps running either way; this only hides it. Remembered across problems.
-  const [hideTimer, setHideTimer] = useState(() => { try { return localStorage.getItem(HIDE_TIMER_KEY) === "1"; } catch { return false; } });
-  const toggleTimer = (hide: boolean) => { setHideTimer(hide); try { if (hide) localStorage.setItem(HIDE_TIMER_KEY, "1"); else localStorage.removeItem(HIDE_TIMER_KEY); } catch { /* private window */ } };
-
   // Autosave
   const dirty = useRef(false);
   const latest = useRef({ code, explanation });
   useEffect(() => { latest.current = { code, explanation }; }, [code, explanation]);
   useEffect(() => {
     if (!dirty.current) return;
-    const t = setTimeout(() => { api(`/api/code/attempts/${a.id}/code`, { method: "PUT", body: { code, explanation, active_sec: active.current } }).catch(() => {}); dirty.current = false; }, 1200);
+    const t = setTimeout(() => { api(`/api/code/attempts/${a.id}/code`, { method: "PUT", body: { code, explanation } }).catch(() => {}); dirty.current = false; }, 1200);
     return () => clearTimeout(t);
   }, [code, explanation, a.id]);
   useEffect(() => {
-    const id = setInterval(() => { api(`/api/code/attempts/${a.id}/code`, { method: "PUT", body: { code: latest.current.code, explanation: latest.current.explanation, active_sec: active.current } }).catch(() => {}); }, 30000);
+    const id = setInterval(() => { api(`/api/code/attempts/${a.id}/code`, { method: "PUT", body: { code: latest.current.code, explanation: latest.current.explanation } }).catch(() => {}); }, 30000);
     return () => clearInterval(id);
   }, [a.id]);
 
@@ -211,7 +197,7 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
     setRunning(kind); setRight("results");
     try {
       const r = await api<{ run_id: number; kind: string; verdict: CodeRun["verdict"]; duration_ms: number; solved: boolean; unlocked: number | null; level: number }>(
-        `/api/code/attempts/${a.id}/run`, { method: "POST", body: { code: latest.current.code, kind, active_sec: active.current } });
+        `/api/code/attempts/${a.id}/run`, { method: "POST", body: { code: latest.current.code, kind } });
       setRun({ id: r.run_id, kind: r.kind, status: r.verdict?.status ?? "", passed: r.verdict?.passed ?? 0, total: r.verdict?.total ?? 0, level: r.level, created_at: Date.now() / 1000, duration_ms: r.duration_ms, verdict: r.verdict });
       dirty.current = false;
       if (r.solved) { toast.success("Solved. Ask for the staff review while it is fresh."); setRight("results"); reload(); }
@@ -221,11 +207,10 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
   }, [a.id, reload]);
   const runRef = useRef(doRun);
   useEffect(() => { runRef.current = doRun; }, [doRun]);
+  const onCodeChange = useCallback((v: string) => { setCode(v); dirty.current = true; }, []);
   const onRun = useCallback(() => void runRef.current("run"), []);
   const onSubmit = useCallback(() => void runRef.current("submit"), []);
 
-  const elapsed = Math.round(seconds);
-  const target = (d.problem.difficulty === "Hard" ? 35 : 25) * 60;
   const lastReview = a.reviews.find((r) => r.status === "done");
   const reviewComments = lastReview?.result?.comments ?? [];
   const inlineReview = useMemo<InlineReview>(() => {
@@ -297,10 +282,6 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
       <section className="min-w-0">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           {nLevels > 1 && <LevelMeter level={a.level} total={nLevels} solved={solved} />}
-          {hideTimer
-            ? <button type="button" onClick={() => toggleTimer(false)} className="text-[14px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Show timer</button>
-            : <span className="inline-flex items-baseline gap-1.5 text-[14px] text-muted-foreground" title="Active time, paused when this tab is hidden"><span className={cn("fig text-[1.6rem]", elapsed > target ? "text-coral" : "text-foreground")}>{mmss(elapsed)}</span>of {mmss(target)}
-                <button type="button" aria-label="Hide the timer" title="Hide the timer (it keeps counting)" onClick={() => toggleTimer(true)} className="self-center p-1 text-muted-foreground hover:text-foreground"><X className="size-3.5" /></button></span>}
           <div className="ml-auto flex flex-wrap gap-2">
             {reviewComments.length > 0 && (
               <Button size="sm" variant="ghost" aria-pressed={showReview} title="Show the staff review's comments under your code" onClick={() => setShowReview((v) => !v)}>
@@ -322,7 +303,7 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
             )}
           </div>
         )}
-        <JavaEditor value={code} onChange={(v) => { setCode(v); dirty.current = true; }} onRun={onRun} onSubmit={onSubmit} attemptId={a.id} height={EDITOR_HEIGHT}
+        <JavaEditor value={code} onChange={onCodeChange} onRun={onRun} onSubmit={onSubmit} attemptId={a.id} height={EDITOR_HEIGHT}
           breakpoints={breakpoints} onToggleBreakpoint={toggleBreakpoint} execLine={right === "debug" ? execLine : null}
           review={inlineReview} reveal={reveal}
           onReviewApplied={(title, undo) => toast.success(undo ? `Undid “${title}”` : `Applied “${title}”`, testsReady && !undo ? { action: { label: "Run", onClick: onRun } } : undefined)} />
@@ -331,7 +312,7 @@ function Workspace({ d, a, reload, onRestart }: { d: CodeProblemDetail; a: CodeA
           <div className="mt-3 flex flex-wrap items-center gap-3 rounded-[3px] bg-mint/12 p-3">
             <Tomb className="text-[1.4rem] text-mint" />
             <div className="min-w-0 flex-1 text-sm">
-              <b>{RATING_TEXT[a.rating]}</b>{hideTimer ? "" : ` in ${mmss(Math.round(a.active_sec || seconds))}`}. {a.rating !== "clean" && "This problem is in your review list."}
+              <b>{RATING_TEXT[a.rating]}</b>. {a.rating !== "clean" && "This problem is in your review list."}
             </div>
             {solved && <Button size="sm" variant="outline" onClick={onRestart}><RotateCcw />Redo from scratch</Button>}
           </div>

@@ -121,7 +121,7 @@ def review_result(score=3.5) -> dict:
     dim = {"score": 3.5, "assessed": True, "rationale": "r"}
     return {"verdict_kind": "correct_optimal", "overall_score": score, "overall_level": "staff", "hire_signal": "strong_hire", "summary": "Solid.",
             "dimension_scores": {k: dict(dim) for k in ("correctness", "algorithm_and_complexity", "code_quality", "design_and_extensibility",
-                                                        "production_awareness", "verification", "communication")},
+                                                        "production_awareness", "communication")},
             "complexity": {"your_time": "O(n)", "your_space": "O(1)", "optimal_time": "O(n)", "optimal_space": "O(1)", "note": "n"},
             "strengths": ["clear"], "comments": REVIEW_COMMENTS, "say_out_loud": "I would loop once.",
             "interviewer_follow_ups": [], "gaps": [{"tag": "ops.memory_bounds", "description": "d", "severity": "low"}, {"tag": "made.up_tag", "description": "x", "severity": "low"}],
@@ -139,6 +139,17 @@ class Compare(unittest.TestCase):
         self.assertTrue(compare.equal(1.0, 1))
         self.assertFalse(compare.equal([1, 2], [1, 2, 3]))
         self.assertTrue(compare.equal({"a": [1]}, {"a": [1]}))
+
+    def test_case_level_follows_methods_it_calls(self):
+        levels = [{"n": 1, "methods_added": ["LRUCache(int c)", "void put(int k, int v)"]},
+                  {"n": 2, "methods_added": ["void put(int k, int v, int ttl)"]},
+                  {"n": 3, "methods_added": ["List<String> drain()"]},
+                  {"n": 4, "methods_added": ["int[] stats()"]}]
+        cases = [{"level": 3, "input": [["LRUCache", [1]], ["put", [1, 1, 2]], ["drain", []], ["stats", []]]},
+                 {"level": 3, "input": [["LRUCache", [1]], ["put", [1, 1]], ["drain", []]]},
+                 {"level": 1, "input": [["LRUCache", [1]], ["put", [1, 1, 2]]]}]
+        self.assertEqual(generate.raise_case_levels(cases, levels), 2)
+        self.assertEqual([c["level"] for c in cases], [4, 3, 2])
 
     def test_time_limit_scales_with_reference(self):
         self.assertEqual(generate.time_limit("perf", 10), 1500)

@@ -37,13 +37,7 @@ Hire signal: `strong_no` below 1.5, `lean_no` below 2.5, `lean_hire` below 3.25,
 - 1: No validation, no thought about failure, memory growth or concurrent callers.
 - 2: Basic validation; failure modes noticed only when asked.
 - 3: Validates inputs and states what is returned on bad input; names memory bounds (what grows without limit), thread safety, idempotency and observability where the problem touches them, even when not implemented.
-- 4: Chooses the right guarantee for each (atomicity, ordering, eviction, back-pressure), shows how it would be tested and monitored, and names the operational cost.
-
-### verification
-- 1: No sign of testing thought; relies on the judge.
-- 2: Walks through the example; misses structural edge cases.
-- 3: Names the cases that matter (empty, one, max, duplicates, adversarial) and why each; can describe a property or brute-force check.
-- 4: Proposes property-based or differential testing, finds the invariant to assert, and sizes tests to the risk.
+- 4: Chooses the right guarantee for each (atomicity, ordering, eviction, back-pressure), shows how it would be monitored, and names the operational cost.
 
 ### communication
 Judge only the written explanation of the approach if one was given; otherwise `assessed: false`.

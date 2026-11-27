@@ -31,7 +31,10 @@ export async function connectLsp(attemptId: number, onStatus: (s: LspStatus, rea
     subscribe: (h) => { handlers.add(h); },
     unsubscribe: (h) => { handlers.delete(h); },
   };
-  const client = new LSPClient({ rootUri: info.rootUri, extensions: languageServerExtensions(), timeout: 10000 }).connect(transport);
+  // jdtls defers a completion's auto-import edit to `completionItem/resolve`, which @codemirror/lsp-client never calls, so picking
+  // e.g. ReentrantLock would insert the name without its import. Ask for the edit in the first response instead.
+  const initializationOptions = { settings: { java: { completion: { lazyResolveTextEdit: { enabled: false } } } } };
+  const client = new LSPClient({ rootUri: info.rootUri, extensions: languageServerExtensions(), timeout: 10000, initializationOptions }).connect(transport);
   client.initializing.then(() => onStatus("ready"), () => onStatus("unavailable", "The language server did not start."));
   return { extension: client.plugin(info.fileUri, "java"), close: () => { ws.onclose = null; client.disconnect(); ws.close(); } };
 }

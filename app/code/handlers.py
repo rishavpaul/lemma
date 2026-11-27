@@ -184,7 +184,6 @@ def review_context(attempt: dict, problem: dict, spec: dict, secrets: dict, run:
     status = verdict["status"] if verdict else "not_run"
     past = db.rows("SELECT g.tag, COUNT(*) n FROM code_gaps g JOIN code_reviews r ON r.id=g.review_id WHERE r.id!=? GROUP BY g.tag ORDER BY n DESC LIMIT 6",
                    (attempt.get("review_id") or 0,))
-    mins = round((attempt["active_sec"] or 0) / 60, 1)
     parts = [
         f"<problem>\ntitle: {problem['title']}\ndifficulty: {problem['difficulty']}\nroadmap note (interviewer's intent): {problem['note']}\n\n{spec['statement_md']}\n</problem>",
         f"<reference>\nExpected complexity: time {secrets.get('time_complexity')}, space {secrets.get('space_complexity')}\n{secrets.get('approach_md', '')}\n"
@@ -193,8 +192,7 @@ def review_context(attempt: dict, problem: dict, spec: dict, secrets: dict, run:
         f"<candidate_code>\n{attempt['review_code']}\n</candidate_code>",
         "<judge_results>\n" + (judge.summarize(verdict) if verdict else "The candidate never ran the tests.") +
         f"\nRuns so far: {n_runs}; failed submissions before this one: {n_failed_submits}.\n</judge_results>",
-        f"<process>\nhints used: {attempt['hints_used']} of 3 graded hints plus coach questions\nreference solution viewed: {'yes' if attempt['solution_viewed'] else 'no'}\n"
-        f"active time: {mins} minutes (a staff-level target for this difficulty is about {25 if problem['difficulty'] != 'Hard' else 35} minutes)\n</process>",
+        f"<process>\nhints used: {attempt['hints_used']} of 3 graded hints plus coach questions\nreference solution viewed: {'yes' if attempt['solution_viewed'] else 'no'}\n</process>",
         f"<candidate_explanation>\n{(attempt['review_explanation'] or '').strip() or '(none written: mark communication as not assessed)'}\n</candidate_explanation>",
         "<recurring_gaps note=\"tags from earlier reviews, most frequent first; call out a repeat by name\">\n" + (", ".join(f"{p['tag']} x{p['n']}" for p in past) or "(none yet)") + "\n</recurring_gaps>",
         "<task>\nReview this solution as a staff interviewer would, per the system rules and the structured schema. Start from what the judge proved, "

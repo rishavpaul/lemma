@@ -154,6 +154,9 @@ export function JavaEditor({ value, onChange, onRun, onSubmit, readOnly, height 
       .catch(() => { if (!cancelled) setStatus({ s: "unavailable" }); });
     return () => { cancelled = true; conn?.close(); setLsp(null); setStatus({ s: "off" }); };
   }, [attemptId, readOnly]);
+  // Must be referentially stable: @uiw/react-codemirror reconfigures the whole editor whenever this changes, which closes the
+  // Cmd+F panel. Keep this object stable: an inline object is a new value on every render and would close the panel.
+  const basicSetup = useMemo(() => ({ lineNumbers: true, foldGutter: false, highlightActiveLine: !readOnly, indentOnInput: true, bracketMatching: true, closeBrackets: true, autocompletion: !!lsp }), [readOnly, lsp]);
   const extensions = useMemo(() => [
     java(),
     Prec.highest(surface),
@@ -175,7 +178,7 @@ export function JavaEditor({ value, onChange, onRun, onSubmit, readOnly, height 
           view.dom.addEventListener(APPLIED_EVENT, (e) => { const d = (e as CustomEvent<{ title: string; undo: boolean }>).detail; appliedRef.current?.(d.title, d.undo); });
           view.dispatch({ effects: [setBreakpoints.of(breakpoints ?? []), setExecLine.of(execLine ?? null), setReview.of(review ?? null)] });
         }}
-        onChange={onChange} basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: !readOnly, indentOnInput: true, bracketMatching: true, closeBrackets: true, autocompletion: !!lsp }}
+        onChange={onChange} basicSetup={basicSetup}
         style={{ height: "100%", fontFamily: "var(--font-code), ui-monospace, monospace" }} />
       {(STATUS_TEXT[status.s] || status.reason) && (
         <span className="pointer-events-none absolute bottom-1.5 right-2 bg-card px-1.5 py-0.5 text-[11px] text-muted-foreground" title={status.reason}>
